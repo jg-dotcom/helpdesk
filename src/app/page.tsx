@@ -21,16 +21,24 @@ export default function Home() {
   const [action, setAction] = useState<ActionType>(null)
   const [docsGenerated, setDocsGenerated] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    loadData()
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        window.location.href = '/login'
+      } else {
+        setUserId(data.session.user.id)
+        loadData(data.session.user.id)
+      }
+    })
   }, [])
 
-  async function loadData() {
+  async function loadData(uid: string) {
     setLoading(true)
     const [empRes, docRes] = await Promise.all([
-      supabase.from('employees').select('*').order('created_at', { ascending: true }),
-      supabase.from('documents').select('id', { count: 'exact', head: true }),
+      supabase.from('employees').select('*').eq('user_id', uid).order('created_at', { ascending: true }),
+      supabase.from('documents').select('id', { count: 'exact', head: true }).eq('user_id', uid),
     ])
     if (empRes.data) setEmployees(empRes.data)
     if (docRes.count !== null) setDocsGenerated(docRes.count)
@@ -38,9 +46,10 @@ export default function Home() {
   }
 
   async function addEmployee(emp: Omit<Employee, 'id'>) {
+    if (!userId) return
     const { data, error } = await supabase
       .from('employees')
-      .insert([emp])
+      .insert([{ ...emp, user_id: userId }])
       .select()
       .single()
     if (!error && data) {
@@ -54,6 +63,11 @@ export default function Home() {
       setEmployees(prev => prev.filter(e => e.id !== id))
       if (selectedEmp?.id === id) setSelectedEmp(null)
     }
+  }
+
+  async function logout() {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
   }
 
   function startAction(type: ActionType) {
@@ -77,6 +91,7 @@ export default function Home() {
         action={action}
         onBack={goHome}
         onDocDone={onDocDone}
+        userId={userId!}
       />
     )
   }
@@ -91,6 +106,7 @@ export default function Home() {
       onAddEmployee={addEmployee}
       onDeleteEmployee={deleteEmployee}
       onStartAction={startAction}
+      onLogout={logout}
     />
   )
 }

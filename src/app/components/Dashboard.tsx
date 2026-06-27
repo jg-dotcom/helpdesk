@@ -20,6 +20,7 @@ type Props = {
   onAddEmployee: (emp: Omit<Employee, 'id'>) => void
   onDeleteEmployee: (id: number) => void
   onStartAction: (type: ActionType) => void
+  onLogout: () => void
 }
 
 function initials(name: string) {
@@ -58,7 +59,7 @@ const docLabel: Record<string, string> = {
 
 export default function Dashboard({
   employees, selectedEmp, docsGenerated, loading,
-  onSelectEmp, onAddEmployee, onDeleteEmployee, onStartAction
+  onSelectEmp, onAddEmployee, onDeleteEmployee, onStartAction, onLogout
 }: Props) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newName, setNewName] = useState('')
@@ -73,9 +74,12 @@ export default function Dashboard({
   }, [docsGenerated])
 
   async function loadRecentDocs() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
     const { data } = await supabase
       .from('documents')
       .select('id, type, employee_name, created_at')
+      .eq('user_id', session.user.id)
       .order('created_at', { ascending: false })
       .limit(5)
     if (data) setRecentDocs(data)
@@ -107,6 +111,7 @@ export default function Dashboard({
     <div className="app">
       <div className="topbar">
         <div className="logo">help<span>desk</span></div>
+        <button className="btn-ghost" onClick={onLogout}>Sign out</button>
       </div>
 
       <div className="stat-row">

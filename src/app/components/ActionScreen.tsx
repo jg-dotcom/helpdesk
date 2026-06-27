@@ -9,11 +9,12 @@ type Props = {
   action: ActionType
   onBack: () => void
   onDocDone: () => void
+  userId: string
 }
 
 const titles = { onboarding: 'Welcome pack', checkin: 'Check-in note', offboarding: 'Offboarding plan' }
 
-export default function ActionScreen({ employee, action, onBack, onDocDone }: Props) {
+export default function ActionScreen({ employee, action, onBack, onDocDone, userId }: Props) {
   const [notes, setNotes] = useState('')
   const [lastDay, setLastDay] = useState('')
   const [reason, setReason] = useState('New job')
@@ -58,6 +59,7 @@ export default function ActionScreen({ employee, action, onBack, onDocDone }: Pr
       type: action,
       employee_name: employee.name,
       content: output,
+      user_id: userId,
     }])
     if (error) {
       setDoneMsg('Error saving. Try again.')
