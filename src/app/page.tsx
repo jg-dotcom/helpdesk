@@ -22,6 +22,7 @@ export default function Home() {
   const [docsGenerated, setDocsGenerated] = useState(0)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -29,6 +30,7 @@ export default function Home() {
         window.location.href = '/login'
       } else {
         setUserId(data.session.user.id)
+        setUserEmail(data.session.user.email || '')
         loadData(data.session.user.id)
       }
     })
@@ -102,6 +104,7 @@ export default function Home() {
       selectedEmp={selectedEmp}
       docsGenerated={docsGenerated}
       loading={loading}
+      userEmail={userEmail}
       onSelectEmp={setSelectedEmp}
       onAddEmployee={addEmployee}
       onDeleteEmployee={deleteEmployee}

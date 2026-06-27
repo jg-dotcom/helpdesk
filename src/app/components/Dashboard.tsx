@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { Employee, ActionType } from '../page'
-import BillingButton from './BillingButton'
 
 type RecentDoc = {
   id: number
@@ -17,6 +16,7 @@ type Props = {
   selectedEmp: Employee | null
   docsGenerated: number
   loading: boolean
+  userEmail: string
   onSelectEmp: (emp: Employee) => void
   onAddEmployee: (emp: Omit<Employee, 'id'>) => void
   onDeleteEmployee: (id: number) => void
@@ -46,6 +46,17 @@ function timeAgo(iso: string) {
   return `${Math.floor(days / 7)}w ago`
 }
 
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+function userInitials(email: string) {
+  return email.slice(0, 2).toUpperCase()
+}
+
 const docIcon: Record<string, string> = {
   onboarding: '→',
   checkin: '✓',
@@ -59,7 +70,7 @@ const docLabel: Record<string, string> = {
 }
 
 export default function Dashboard({
-  employees, selectedEmp, docsGenerated, loading,
+  employees, selectedEmp, docsGenerated, loading, userEmail,
   onSelectEmp, onAddEmployee, onDeleteEmployee, onStartAction, onLogout
 }: Props) {
   const [showAddForm, setShowAddForm] = useState(false)
@@ -69,10 +80,22 @@ export default function Dashboard({
   const [newType, setNewType] = useState('Full-time')
   const [recentDocs, setRecentDocs] = useState<RecentDoc[]>([])
   const [saving, setSaving] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadRecentDocs()
   }, [docsGenerated])
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   async function loadRecentDocs() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -109,134 +132,153 @@ export default function Dashboard({
   }
 
   return (
-    <div className="app">
-      <div className="topbar">
-        <div className="logo">help<span>desk</span></div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <BillingButton />
-          <button className="btn-ghost" onClick={onLogout}>Sign out</button>
+    <div className="dash-wrap">
+      <div className="dash-nav">
+        <div className="dash-nav-left">
+          <div className="logo">help<span>desk</span></div>
+          <nav className="dash-nav-links">
+            <div className="dash-nav-link active">Dashboard</div>
+          </nav>
         </div>
-      </div>
-
-      <div className="stat-row">
-        <div className="stat">
-          <div className="stat-n">{loading ? '–' : employees.length}</div>
-          <div className="stat-l">Employees</div>
-        </div>
-        <div className="stat">
-          <div className="stat-n">{loading ? '–' : docsGenerated}</div>
-          <div className="stat-l">Docs generated</div>
-        </div>
-        <div className="stat">
-          <div className="stat-n">$39</div>
-          <div className="stat-l">/ month</div>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <div className="section-label">Your team</div>
-          <button className="btn-ghost" onClick={() => setShowAddForm(v => !v)}>
-            + Add employee
-          </button>
-        </div>
-
-        {showAddForm && (
-          <div className="add-form">
-            <div className="row2">
-              <div className="field">
-                <label>Name</label>
-                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Jane Smith" />
-              </div>
-              <div className="field">
-                <label>Role</label>
-                <input value={newRole} onChange={e => setNewRole(e.target.value)} placeholder="Cashier" />
-              </div>
-            </div>
-            <div className="row2">
-              <div className="field">
-                <label>Start date</label>
-                <input type="date" value={newStart} onChange={e => setNewStart(e.target.value)} />
-              </div>
-              <div className="field">
-                <label>Type</label>
-                <select value={newType} onChange={e => setNewType(e.target.value)}>
-                  <option>Full-time</option>
-                  <option>Part-time</option>
-                  <option>Seasonal</option>
-                </select>
-              </div>
-            </div>
-            <button className="btn" onClick={handleAdd} disabled={saving}>
-              {saving ? 'Saving...' : 'Save employee'}
-            </button>
+        <div className="dash-nav-right" ref={menuRef}>
+          <div className="user-avatar" onClick={() => setShowMenu(v => !v)}>
+            {userInitials(userEmail)}
           </div>
-        )}
+          {showMenu && (
+            <div className="user-menu">
+              <div className="user-menu-header">
+                <div className="user-menu-email">{userEmail}</div>
+              </div>
+              <div className="user-menu-items">
+                <div className="user-menu-item">⚙ Account settings</div>
+                <div className="user-menu-item">💳 Billing</div>
+                <div className="user-menu-divider" />
+                <div className="user-menu-item user-menu-signout" onClick={onLogout}>→ Sign out</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
-        {loading ? (
-          <div className="loading-state">Loading your team...</div>
-        ) : employees.length === 0 ? (
-          <div className="empty-state">No employees yet — add your first one above.</div>
-        ) : (
-          <div className="emp-grid">
-            {employees.map(emp => (
-              <div
-                key={emp.id}
-                className={`emp-card${selectedEmp?.id === emp.id ? ' selected' : ''}`}
-                onClick={() => onSelectEmp(emp)}
-              >
-                <div className="emp-card-top">
-                  <div className="avatar">{initials(emp.name)}</div>
-                  <button
-                    className="delete-btn"
-                    onClick={e => { e.stopPropagation(); onDeleteEmployee(emp.id) }}
-                    title="Remove employee"
-                  >×</button>
+      <div className="dash-content">
+        <div className="dash-greeting">{greeting()}</div>
+
+        <div className="dash-stats">
+          <div className="stat">
+            <div className="stat-n">{loading ? '–' : employees.length}</div>
+            <div className="stat-l">Employees</div>
+          </div>
+          <div className="stat">
+            <div className="stat-n">{loading ? '–' : docsGenerated}</div>
+            <div className="stat-l">Docs generated</div>
+          </div>
+        </div>
+
+        <div className="dash-grid">
+          <div className="card">
+            <div className="card-header">
+              <div className="section-label">Your team</div>
+              <button className="btn-ghost" onClick={() => setShowAddForm(v => !v)}>+ Add employee</button>
+            </div>
+
+            {showAddForm && (
+              <div className="add-form">
+                <div className="row2">
+                  <div className="field">
+                    <label>Name</label>
+                    <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Jane Smith" />
+                  </div>
+                  <div className="field">
+                    <label>Role</label>
+                    <input value={newRole} onChange={e => setNewRole(e.target.value)} placeholder="Cashier" />
+                  </div>
                 </div>
-                <div className="emp-name">{emp.name}</div>
-                <div className="emp-role">{emp.role}</div>
-                <div className="emp-tenure">{emp.type} · {tenure(emp.start)}</div>
+                <div className="row2">
+                  <div className="field">
+                    <label>Start date</label>
+                    <input type="date" value={newStart} onChange={e => setNewStart(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>Type</label>
+                    <select value={newType} onChange={e => setNewType(e.target.value)}>
+                      <option>Full-time</option>
+                      <option>Part-time</option>
+                      <option>Seasonal</option>
+                    </select>
+                  </div>
+                </div>
+                <button className="btn" onClick={handleAdd} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save employee'}
+                </button>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        <div className="section-label" style={{ marginTop: '1.25rem' }}>What do you need?</div>
-        <div className="action-grid">
-          <div className="action-card" onClick={() => handleAction('onboarding')}>
-            <div className="action-icon">→</div>
-            <span className="action-title">Welcome pack</span>
-            <small>New hire docs</small>
+            {loading ? (
+              <div className="loading-state">Loading your team...</div>
+            ) : employees.length === 0 ? (
+              <div className="empty-state">No employees yet — add your first one above.</div>
+            ) : (
+              <div className="emp-grid">
+                {employees.map(emp => (
+                  <div
+                    key={emp.id}
+                    className={`emp-card${selectedEmp?.id === emp.id ? ' selected' : ''}`}
+                    onClick={() => onSelectEmp(emp)}
+                  >
+                    <div className="emp-card-top">
+                      <div className="avatar">{initials(emp.name)}</div>
+                      <button
+                        className="delete-btn"
+                        onClick={e => { e.stopPropagation(); onDeleteEmployee(emp.id) }}
+                        title="Remove employee"
+                      >×</button>
+                    </div>
+                    <div className="emp-name">{emp.name}</div>
+                    <div className="emp-role">{emp.role}</div>
+                    <div className="emp-tenure">{emp.type} · {tenure(emp.start)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="section-label" style={{ marginTop: '1.25rem' }}>What do you need?</div>
+            <div className="action-grid">
+              <div className="action-card" onClick={() => handleAction('onboarding')}>
+                <div className="action-icon">→</div>
+                <span className="action-title">Welcome pack</span>
+                <small>New hire docs</small>
+              </div>
+              <div className="action-card" onClick={() => handleAction('checkin')}>
+                <div className="action-icon">✓</div>
+                <span className="action-title">Check-in</span>
+                <small>Performance note</small>
+              </div>
+              <div className="action-card" onClick={() => handleAction('offboarding')}>
+                <div className="action-icon">←</div>
+                <span className="action-title">Offboarding</span>
+                <small>Exit paperwork</small>
+              </div>
+            </div>
           </div>
-          <div className="action-card" onClick={() => handleAction('checkin')}>
-            <div className="action-icon">✓</div>
-            <span className="action-title">Check-in</span>
-            <small>Performance note</small>
-          </div>
-          <div className="action-card" onClick={() => handleAction('offboarding')}>
-            <div className="action-icon">←</div>
-            <span className="action-title">Offboarding</span>
-            <small>Exit paperwork</small>
+
+          <div className="card">
+            <div className="section-label">Recent documents</div>
+            {recentDocs.length === 0 ? (
+              <div className="empty-state">No documents yet — generate your first one above.</div>
+            ) : (
+              recentDocs.map(doc => (
+                <div key={doc.id} className="history-item">
+                  <div className="hist-icon">{docIcon[doc.type] || '•'}</div>
+                  <div style={{ flex: 1 }}>
+                    <div className="hist-title">{docLabel[doc.type] || doc.type} — {doc.employee_name}</div>
+                    <div className="hist-meta">{timeAgo(doc.created_at)}</div>
+                  </div>
+                  <span className="badge badge-green">Saved</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
-      </div>
-
-      <div className="card">
-        <div className="section-label">Recent documents</div>
-        {recentDocs.length === 0 ? (
-          <div className="empty-state">No documents yet — generate your first one above.</div>
-        ) : (
-          recentDocs.map(doc => (
-            <div key={doc.id} className="history-item">
-              <div className="hist-icon">{docIcon[doc.type] || '•'}</div>
-              <div style={{ flex: 1 }}>
-                <div className="hist-title">{docLabel[doc.type] || doc.type} — {doc.employee_name}</div>
-                <div className="hist-meta">{timeAgo(doc.created_at)}</div>
-              </div>
-              <span className="badge badge-green">Saved</span>
-            </div>
-          ))
-        )}
       </div>
     </div>
   )
