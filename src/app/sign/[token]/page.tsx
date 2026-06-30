@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../../lib/supabaseAdmin'
 import SignUpload, { TimeOffRequest } from './SignUpload'
 import AvailabilityForm from './AvailabilityForm'
+import W4Form from './W4Form'
+import I9Form from './I9Form'
 
 type EmployeeDoc = {
   id: number
@@ -97,10 +99,21 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
           </div>
         )}
 
-        <TimeOffRequest token={token} />
+        <div style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1.5rem' }}>
+          <div className="sign-section-label">W-4 — Federal Tax Withholding</div>
+          <W4Form token={token} employeeId={link.employee_id} userId={link.user_id} defaultName={link.employee_name} />
+        </div>
+
+        <div style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1.5rem' }}>
+          <div className="sign-section-label">I-9 — Employment Eligibility</div>
+          <I9Form token={token} employeeId={link.employee_id} userId={link.user_id} defaultName={link.employee_name} />
+        </div>
+
         <AvailabilityForm employeeId={link.employee_id} />
-        <div className="sign-section-label" style={{ marginTop: '1.5rem' }}>
-          Return your completed documents
+        <TimeOffRequest token={token} />
+
+        <div style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1.5rem' }}>
+          <div className="sign-section-label">Return your completed documents</div>
         </div>
         <SignUpload token={token} />
       </div>
