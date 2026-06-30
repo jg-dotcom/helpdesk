@@ -208,19 +208,7 @@ export default function PayrollPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div>
             <div style={{ fontSize: '20px', fontWeight: 700 }}>Payroll</div>
-            <div style={{ fontSize: '13px', color: '#666', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <select
-                value={payPeriodType}
-                onChange={e => handlePeriodTypeChange(e.target.value as PayPeriod)}
-                style={{ fontSize: '13px', border: 'none', background: 'transparent', color: '#666', cursor: 'pointer', padding: 0 }}
-              >
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Biweekly</option>
-                <option value="semi-monthly">Semi-monthly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-              · {formatDate(periodStart)} – {formatDate(periodEnd)}
-            </div>
+            <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>Pay periods vary by employee</div>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {entries.length > 0 && (
@@ -339,8 +327,12 @@ export default function PayrollPage() {
                         <div className="upload-name">{emp.name}</div>
                         <div className="upload-meta">
                           {emp.pay_type === 'salary'
-                            ? `${formatMoney(emp.pay_rate ?? 0)}/yr · ${formatMoney((emp.pay_rate ?? 0) / 26)} per period`
+                            ? `${formatMoney(emp.pay_rate ?? 0)}/yr`
                             : `${formatMoney(emp.pay_rate ?? 0)}/hr`}
+                          {' · '}
+                          {emp.pay_period ? emp.pay_period.charAt(0).toUpperCase() + emp.pay_period.slice(1) : 'Biweekly'}
+                          {' · '}
+                          {(() => { const p = getPeriodForType((emp.pay_period || 'biweekly') as PayPeriod); return `${formatDate(p.start)} – ${formatDate(p.end)}` })()}
                           {last ? ` · Last paid ${formatDate(last.paid_at)}` : ' · Not yet paid'}
                         </div>
                       </div>
