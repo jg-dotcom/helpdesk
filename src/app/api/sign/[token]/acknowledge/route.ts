@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { supabaseAdmin } from '../../../../lib/supabaseAdmin'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const resend = new Resend(process.env.RESEND_API_KEY)
   const { token } = await params
   const { signatureName } = await req.json()
 
