@@ -231,6 +231,8 @@ export default function Dashboard({
       ssn_last4: newSsnLast4,
       date_of_birth: newDob,
       status: newStatus,
+      i9_status: 'pending',
+      w4_status: 'pending',
     })
     setNewName(''); setNewRole(''); setNewStart(''); setNewType('Full-time')
     setNewPhone(''); setNewEmail(''); setNewAddress(''); setNewEmergencyContact('')
