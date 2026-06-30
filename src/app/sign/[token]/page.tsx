@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../../lib/supabaseAdmin'
-import SignUpload from './SignUpload'
+import SignUpload, { TimeOffRequest } from './SignUpload'
 import AvailabilityForm from './AvailabilityForm'
 
 type EmployeeDoc = {
@@ -75,7 +75,7 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
           </div>
         )}
 
-        <div className="sign-section-label">Documents</div>
+        <div className="sign-section-label">Documents to review & sign</div>
         {docsWithUrls.length === 0 ? (
           <div className="empty-state">No documents have been added yet.</div>
         ) : (
@@ -97,11 +97,12 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
           </div>
         )}
 
+        <TimeOffRequest token={token} />
+        <AvailabilityForm employeeId={link.employee_id} />
         <div className="sign-section-label" style={{ marginTop: '1.5rem' }}>
-          Upload your completed/signed documents
+          Return your completed documents
         </div>
         <SignUpload token={token} />
-        <AvailabilityForm employeeId={link.employee_id} />
       </div>
     </div>
   )

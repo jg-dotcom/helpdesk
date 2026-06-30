@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-function TimeOffRequest({ token }: { token: string }) {
+export function TimeOffRequest({ token }: { token: string }) {
   const [show, setShow] = useState(false)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -95,15 +95,12 @@ export default function SignUpload({ token }: { token: string }) {
     }
     setUploading(true)
     setUploadError('')
-
     const formData = new FormData()
     formData.append('file', file)
-
     const res = await fetch(`/api/sign/${token}/upload`, {
       method: 'POST',
       body: formData,
     })
-
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       setUploadError(data.error || 'Upload failed. Try again.')
@@ -125,13 +122,11 @@ export default function SignUpload({ token }: { token: string }) {
     }
     setSigning(true)
     setSignError('')
-
     const res = await fetch(`/api/sign/${token}/acknowledge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ signatureName: signatureName.trim() }),
     })
-
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       setSignError(data.error || 'Could not save signature. Try again.')
@@ -160,42 +155,41 @@ export default function SignUpload({ token }: { token: string }) {
         ))}
       </div>
 
-      <TimeOffRequest token={token} />
-
-      <div className="sign-section-label" style={{ marginTop: '2rem' }}>Acknowledgment</div>
-
-      {signed ? (
-        <div className="done-msg" style={{ fontSize: '15px', padding: '1rem 0' }}>
-          ✓ Signed by {signatureName}. You&apos;re all set!
-        </div>
-      ) : (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '1rem' }}>
-            <input
-              type="checkbox"
-              id="ack"
-              checked={acknowledged}
-              onChange={e => setAcknowledged(e.target.checked)}
-              style={{ marginTop: '3px', flexShrink: 0 }}
-            />
-            <label htmlFor="ack" style={{ fontSize: '14px', color: '#3a3a3a', lineHeight: 1.5 }}>
-              I confirm that I have read and understood this welcome pack, and agree to the policies described above.
+      <div style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1.5rem' }}>
+        <div className="sign-section-label">Acknowledgment</div>
+        {signed ? (
+          <div className="done-msg" style={{ fontSize: '15px', padding: '1rem 0' }}>
+            ✓ Signed by {signatureName}. You&apos;re all set!
+          </div>
+        ) : (
+          <div>
+            <label htmlFor="ack" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '1rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                id="ack"
+                checked={acknowledged}
+                onChange={e => setAcknowledged(e.target.checked)}
+                style={{ marginTop: '3px', flexShrink: 0, width: '16px', height: '16px' }}
+              />
+              <span style={{ fontSize: '14px', color: '#3a3a3a', lineHeight: 1.5 }}>
+                I confirm that I have read and understood this welcome pack, and agree to the policies described above.
+              </span>
             </label>
+            <div className="field">
+              <label>Type your full name to sign</label>
+              <input
+                value={signatureName}
+                onChange={e => setSignatureName(e.target.value)}
+                placeholder="Jane Smith"
+              />
+            </div>
+            {signError && <div className="auth-error">{signError}</div>}
+            <button className="btn" onClick={handleAcknowledge} disabled={signing} style={{ marginTop: '0.75rem' }}>
+              {signing ? 'Saving...' : '✍ Sign & submit'}
+            </button>
           </div>
-          <div className="field">
-            <label>Type your full name to sign</label>
-            <input
-              value={signatureName}
-              onChange={e => setSignatureName(e.target.value)}
-              placeholder="Jane Smith"
-            />
-          </div>
-          {signError && <div className="auth-error">{signError}</div>}
-          <button className="btn" onClick={handleAcknowledge} disabled={signing} style={{ marginTop: '0.75rem' }}>
-            {signing ? 'Saving...' : '✍ Sign & submit'}
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </>
   )
 }
