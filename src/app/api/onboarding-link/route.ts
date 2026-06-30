@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import { supabaseAdmin } from '../../lib/supabaseAdmin'
 
 export async function POST(req: NextRequest) {
+  try {
   const resend = new Resend(process.env.RESEND_API_KEY)
   const authHeader = req.headers.get('authorization') || ''
   const accessToken = authHeader.replace('Bearer ', '')
@@ -64,4 +65,8 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ token: link.token, url })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 }

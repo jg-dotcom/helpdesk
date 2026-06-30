@@ -164,20 +164,13 @@ export default function Dashboard({
 
   async function loadComplianceIssues() {
     const active = employees.filter(e => !e.status || e.status === 'active')
-    if (!active.length) return
-
-    const { data: links } = await supabase
-      .from('onboarding_links')
-      .select('employee_id, acknowledged_at')
-      .in('employee_id', active.map(e => e.id))
+    if (!active.length) { setComplianceIssues([]); return }
 
     const issues = active.map(emp => {
       const missing: string[] = []
-      if (!emp.i9_status || emp.i9_status === 'pending') missing.push('I-9')
       if (!emp.w4_status || emp.w4_status === 'pending') missing.push('W-4')
-      const link = links?.find(l => l.employee_id === emp.id)
-      if (!link) missing.push('Welcome pack')
-      else if (!link.acknowledged_at) missing.push('Signature')
+      if (!emp.i9_status || emp.i9_status === 'pending') missing.push('I-9')
+      if (!emp.direct_deposit_status || emp.direct_deposit_status === 'pending') missing.push('Direct deposit')
       return { name: emp.name, missing }
     }).filter(e => e.missing.length > 0)
 
@@ -233,6 +226,7 @@ export default function Dashboard({
       status: newStatus,
       i9_status: 'pending',
       w4_status: 'pending',
+      direct_deposit_status: 'pending',
       pay_type: 'hourly',
       pay_rate: null,
       pay_period: 'biweekly',
@@ -312,8 +306,14 @@ export default function Dashboard({
 
         <div className="dash-stats">
           <div className="stat">
-            <div className="stat-n">{loading ? '–' : employees.length}</div>
-            <div className="stat-l">Employees</div>
+            <div className="stat-n">{loading ? '–' : employees.filter(e => !e.status || e.status === 'active').length}</div>
+            <div className="stat-l">Active employees</div>
+          </div>
+          <div className="stat">
+            <div className="stat-n" style={{ color: complianceIssues.length > 0 ? '#c0392b' : '#27ae60' }}>
+              {loading ? '–' : complianceIssues.length}
+            </div>
+            <div className="stat-l">Incomplete paperwork</div>
           </div>
           <div className="stat">
             <div className="stat-n">{loading ? '–' : docsGenerated}</div>
@@ -462,6 +462,24 @@ export default function Dashboard({
                 <small>Exit paperwork</small>
               </div>
             </div>}
+          </div>
+
+          <div className="card">
+            <div className="section-label">Compliance</div>
+            {loading ? (
+              <div className="loading-state">Loading...</div>
+            ) : complianceIssues.length === 0 ? (
+              <div className="done-msg" style={{ padding: '0.5rem 0' }}>✓ All active employees are up to date.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {complianceIssues.map((issue, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.75rem', background: '#fff8f7', border: '1px solid #fcd5cf', borderRadius: '8px' }}>
+                    <div style={{ fontWeight: 500, fontSize: '13px' }}>{issue.name}</div>
+                    <div style={{ fontSize: '12px', color: '#c0392b' }}>{issue.missing.join(' · ')}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="card">

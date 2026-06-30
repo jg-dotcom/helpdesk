@@ -20,6 +20,7 @@ export type Employee = {
   status: string
   i9_status: string
   w4_status: string
+  direct_deposit_status: string
   pay_type: string
   pay_rate: number | null
   pay_period: string

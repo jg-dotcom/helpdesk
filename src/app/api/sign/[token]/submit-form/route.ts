@@ -47,6 +47,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   if (formType === 'w4') {
     await supabaseAdmin.from('employees').update({ w4_status: 'complete' }).eq('id', link.employee_id)
   }
+  if (formType === 'direct_deposit') {
+    await supabaseAdmin.from('employees').update({ direct_deposit_status: 'complete' }).eq('id', link.employee_id)
+  }
 
   // Notify owner
   const { data: emp } = await supabaseAdmin.from('employees').select('name').eq('id', link.employee_id).single()
