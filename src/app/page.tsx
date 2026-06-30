@@ -20,6 +20,8 @@ export type Employee = {
   status: string
   i9_status: string
   w4_status: string
+  pay_type: string
+  pay_rate: number | null
 }
 
 export type ActionType = 'onboarding' | 'checkin' | 'offboarding' | null

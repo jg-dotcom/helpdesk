@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import ComplianceChecklist from '../../components/ComplianceChecklist'
+import PayrollTab from '../../components/PayrollTab'
 
 type Employee = {
   id: number
@@ -20,6 +21,8 @@ type Employee = {
   date_of_birth: string
   i9_status: string
   w4_status: string
+  pay_type: string
+  pay_rate: number | null
 }
 
 type Doc = {
@@ -82,7 +85,7 @@ export default function EmployeeProfile() {
   const [docs, setDocs] = useState<Doc[]>([])
   const [activity, setActivity] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'info' | 'documents' | 'activity'>('info')
+  const [tab, setTab] = useState<'info' | 'documents' | 'activity' | 'payroll'>('info')
   const [welcomePackSent, setWelcomePackSent] = useState(false)
   const [documentsSigned, setDocumentsSigned] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -146,6 +149,8 @@ export default function EmployeeProfile() {
       date_of_birth: form.date_of_birth,
       i9_status: form.i9_status,
       w4_status: form.w4_status,
+      pay_type: form.pay_type,
+      pay_rate: form.pay_rate,
     }).eq('id', form.id)
 
     if (error) {
@@ -204,13 +209,13 @@ export default function EmployeeProfile() {
         </div>
 
         <div className="profile-tabs">
-          {(['info', 'documents', 'activity'] as const).map(t => (
+          {(['info', 'documents', 'activity', 'payroll'] as const).map(t => (
             <button
               key={t}
               className={`profile-tab${tab === t ? ' active' : ''}`}
               onClick={() => setTab(t)}
             >
-              {t === 'info' ? 'Info' : t === 'documents' ? `Documents (${docs.length})` : `Activity (${activity.length})`}
+              {t === 'info' ? 'Info' : t === 'documents' ? `Documents (${docs.length})` : t === 'activity' ? `Activity (${activity.length})` : 'Payroll'}
             </button>
           ))}
         </div>
@@ -252,6 +257,21 @@ export default function EmployeeProfile() {
             </div>
             <div className="field"><label>Address</label><input value={form.address || ''} onChange={e => set('address', e.target.value)} placeholder="123 Main St, City, State" /></div>
             <div className="field"><label>Emergency contact</label><input value={form.emergency_contact || ''} onChange={e => set('emergency_contact', e.target.value)} placeholder="Jane Doe — (555) 987-6543" /></div>
+
+            <div className="emp-panel-section">Payroll</div>
+            <div className="row2">
+              <div className="field">
+                <label>Pay type</label>
+                <select value={form.pay_type || 'hourly'} onChange={e => set('pay_type', e.target.value)}>
+                  <option value="hourly">Hourly</option>
+                  <option value="salary">Salary</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>{form.pay_type === 'salary' ? 'Annual salary ($)' : 'Hourly rate ($)'}</label>
+                <input type="number" value={form.pay_rate ?? ''} onChange={e => set('pay_rate', e.target.value)} placeholder="0.00" step="0.01" />
+              </div>
+            </div>
 
             <div className="emp-panel-section">HR Info</div>
             <div className="row2">
@@ -322,6 +342,14 @@ export default function EmployeeProfile() {
               ))
             )}
           </div>
+        )}
+
+        {tab === 'payroll' && (
+          <PayrollTab
+            employeeId={employee.id}
+            payType={employee.pay_type || 'hourly'}
+            payRate={employee.pay_rate}
+          />
         )}
       </div>
     </div>

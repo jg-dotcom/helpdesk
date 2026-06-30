@@ -233,6 +233,8 @@ export default function Dashboard({
       status: newStatus,
       i9_status: 'pending',
       w4_status: 'pending',
+      pay_type: 'hourly',
+      pay_rate: null,
     })
     setNewName(''); setNewRole(''); setNewStart(''); setNewType('Full-time')
     setNewPhone(''); setNewEmail(''); setNewAddress(''); setNewEmergencyContact('')

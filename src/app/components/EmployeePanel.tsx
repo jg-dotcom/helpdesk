@@ -71,6 +71,8 @@ export default function EmployeePanel({ employee, onClose, onUpdated, onDelete, 
         status: form.status,
         i9_status: form.i9_status,
         w4_status: form.w4_status,
+        pay_type: form.pay_type,
+        pay_rate: form.pay_rate,
       })
       .eq('id', employee.id)
     if (error) {
@@ -172,6 +174,22 @@ export default function EmployeePanel({ employee, onClose, onUpdated, onDelete, 
       <div className="field">
         <label>Emergency contact</label>
         <input value={form.emergency_contact || ''} onChange={e => set('emergency_contact', e.target.value)} placeholder="Jane Doe — (555) 987-6543" />
+      </div>
+
+      <div className="emp-panel-section">Payroll</div>
+
+      <div className="row2">
+        <div className="field">
+          <label>Pay type</label>
+          <select value={form.pay_type || 'hourly'} onChange={e => set('pay_type', e.target.value)}>
+            <option value="hourly">Hourly</option>
+            <option value="salary">Salary</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>{form.pay_type === 'salary' ? 'Annual salary ($)' : 'Hourly rate ($)'}</label>
+          <input type="number" value={form.pay_rate ?? ''} onChange={e => set('pay_rate', e.target.value)} placeholder="0.00" step="0.01" />
+        </div>
       </div>
 
       <div className="emp-panel-section">HR Info</div>
