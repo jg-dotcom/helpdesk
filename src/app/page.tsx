@@ -11,6 +11,15 @@ export type Employee = {
   role: string
   start: string
   type: string
+  phone: string
+  email: string
+  address: string
+  emergency_contact: string
+  ssn_last4: string
+  date_of_birth: string
+  status: string
+  i9_status: string
+  w4_status: string
 }
 
 export type ActionType = 'onboarding' | 'checkin' | 'offboarding' | null
@@ -57,6 +66,11 @@ export default function Home() {
     if (!error && data) {
       setEmployees(prev => [...prev, data])
     }
+  }
+
+  function updateEmployee(emp: Employee) {
+    setEmployees(prev => prev.map(e => e.id === emp.id ? emp : e))
+    setSelectedEmp(emp)
   }
 
   async function deleteEmployee(id: number) {
@@ -107,6 +121,7 @@ export default function Home() {
       userEmail={userEmail}
       onSelectEmp={setSelectedEmp}
       onAddEmployee={addEmployee}
+      onUpdateEmployee={updateEmployee}
       onDeleteEmployee={deleteEmployee}
       onStartAction={startAction}
       onLogout={logout}
