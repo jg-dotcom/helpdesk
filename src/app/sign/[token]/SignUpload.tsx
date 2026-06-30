@@ -2,6 +2,79 @@
 
 import { useState } from 'react'
 
+function TimeOffRequest({ token }: { token: string }) {
+  const [show, setShow] = useState(false)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [type, setType] = useState('PTO / Vacation')
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit() {
+    if (!startDate || !endDate) { setError('Please select start and end dates.'); return }
+    if (new Date(endDate) < new Date(startDate)) { setError('End date must be after start date.'); return }
+    setSubmitting(true)
+    setError('')
+    const res = await fetch(`/api/sign/${token}/time-off`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startDate, endDate, type, reason }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error || 'Could not submit request. Try again.')
+    } else {
+      setSubmitted(true)
+    }
+    setSubmitting(false)
+  }
+
+  return (
+    <div style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1.5rem' }}>
+      <div className="sign-section-label">Time Off</div>
+      {submitted ? (
+        <div className="done-msg" style={{ fontSize: '15px', padding: '0.75rem 0' }}>✓ Time-off request submitted!</div>
+      ) : !show ? (
+        <button className="btn" onClick={() => setShow(true)} style={{ marginTop: '0.5rem' }}>Request time off</button>
+      ) : (
+        <div style={{ marginTop: '0.75rem' }}>
+          <div className="row2" style={{ marginBottom: '0.75rem' }}>
+            <div className="field">
+              <label>Start date</label>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>End date</label>
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+            </div>
+          </div>
+          <div className="field" style={{ marginBottom: '0.75rem' }}>
+            <label>Type</label>
+            <select value={type} onChange={e => setType(e.target.value)}>
+              <option>PTO / Vacation</option>
+              <option>Sick leave</option>
+              <option>Unpaid leave</option>
+            </select>
+          </div>
+          <div className="field" style={{ marginBottom: '0.75rem' }}>
+            <label>Reason (optional)</label>
+            <input value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Family vacation" />
+          </div>
+          {error && <div className="auth-error">{error}</div>}
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button className="btn" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Submitting...' : 'Submit request'}
+            </button>
+            <button className="btn" onClick={() => setShow(false)} style={{ background: 'transparent', color: '#666', boxShadow: 'none' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SignUpload({ token }: { token: string }) {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -88,6 +161,8 @@ export default function SignUpload({ token }: { token: string }) {
       </div>
 
       <div className="sign-section-label" style={{ marginTop: '2rem' }}>Acknowledgment</div>
+
+      <TimeOffRequest token={token} />
 
       {signed ? (
         <div className="done-msg" style={{ fontSize: '15px', padding: '1rem 0' }}>

@@ -200,6 +200,7 @@ export default function PayrollPage() {
           <nav className="dash-nav-links">
             <a href="/" className="dash-nav-link">Dashboard</a>
             <div className="dash-nav-link active">Payroll</div>
+            <a href="/schedule" className="dash-nav-link">Schedule</a>
           </nav>
         </div>
       </div>
