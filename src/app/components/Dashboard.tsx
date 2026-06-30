@@ -235,6 +235,7 @@ export default function Dashboard({
       w4_status: 'pending',
       pay_type: 'hourly',
       pay_rate: null,
+      pay_period: 'biweekly',
     })
     setNewName(''); setNewRole(''); setNewStart(''); setNewType('Full-time')
     setNewPhone(''); setNewEmail(''); setNewAddress(''); setNewEmergencyContact('')

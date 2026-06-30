@@ -23,6 +23,7 @@ type Employee = {
   w4_status: string
   pay_type: string
   pay_rate: number | null
+  pay_period: string
 }
 
 type Doc = {
@@ -151,6 +152,7 @@ export default function EmployeeProfile() {
       w4_status: form.w4_status,
       pay_type: form.pay_type,
       pay_rate: form.pay_rate,
+      pay_period: form.pay_period,
     }).eq('id', form.id)
 
     if (error) {
@@ -271,6 +273,15 @@ export default function EmployeeProfile() {
                 <label>{form.pay_type === 'salary' ? 'Annual salary ($)' : 'Hourly rate ($)'}</label>
                 <input type="number" value={form.pay_rate ?? ''} onChange={e => set('pay_rate', e.target.value)} placeholder="0.00" step="0.01" />
               </div>
+            </div>
+            <div className="field">
+              <label>Pay period</label>
+              <select value={form.pay_period || 'biweekly'} onChange={e => set('pay_period', e.target.value)}>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="semi-monthly">Semi-monthly</option>
+                <option value="monthly">Monthly</option>
+              </select>
             </div>
 
             <div className="emp-panel-section">HR Info</div>

@@ -12,6 +12,7 @@ type Employee = {
   status: string
   pay_type: string
   pay_rate: number | null
+  pay_period: string
 }
 
 type PayrollEntry = {
@@ -33,18 +34,40 @@ function formatMoney(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 }
 
-function getDefaultPeriod() {
+type PayPeriod = 'weekly' | 'biweekly' | 'semi-monthly' | 'monthly'
+
+function getPeriodForType(type: PayPeriod) {
   const today = new Date()
-  const day = today.getDay()
-  const startOffset = day % 14
-  const start = new Date(today)
-  start.setDate(today.getDate() - startOffset)
-  const end = new Date(start)
-  end.setDate(start.getDate() + 13)
-  return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
+  const y = today.getFullYear()
+  const m = today.getMonth()
+  const d = today.getDate()
+
+  if (type === 'weekly') {
+    const start = new Date(today)
+    start.setDate(d - today.getDay())
+    const end = new Date(start)
+    end.setDate(start.getDate() + 6)
+    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) }
   }
+  if (type === 'biweekly') {
+    const startOffset = today.getDay() % 14
+    const start = new Date(today)
+    start.setDate(d - startOffset)
+    const end = new Date(start)
+    end.setDate(start.getDate() + 13)
+    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) }
+  }
+  if (type === 'semi-monthly') {
+    const start = new Date(y, m, d < 16 ? 1 : 16)
+    const end = d < 16
+      ? new Date(y, m, 15)
+      : new Date(y, m + 1, 0)
+    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) }
+  }
+  // monthly
+  const start = new Date(y, m, 1)
+  const end = new Date(y, m + 1, 0)
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) }
 }
 
 export default function PayrollPage() {
@@ -58,9 +81,17 @@ export default function PayrollPage() {
   // Log payment form
   const [showForm, setShowForm] = useState(false)
   const [selectedEmpId, setSelectedEmpId] = useState<number | null>(null)
-  const defaultPeriod = getDefaultPeriod()
+  const [payPeriodType, setPayPeriodType] = useState<PayPeriod>('biweekly')
+  const defaultPeriod = getPeriodForType('biweekly')
   const [periodStart, setPeriodStart] = useState(defaultPeriod.start)
   const [periodEnd, setPeriodEnd] = useState(defaultPeriod.end)
+
+  function handlePeriodTypeChange(type: PayPeriod) {
+    setPayPeriodType(type)
+    const p = getPeriodForType(type)
+    setPeriodStart(p.start)
+    setPeriodEnd(p.end)
+  }
   const [hours, setHours] = useState('')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
@@ -74,7 +105,7 @@ export default function PayrollPage() {
     setUserId(session.user.id)
 
     const [{ data: emps }, { data: payroll }] = await Promise.all([
-      supabase.from('employees').select('id, name, role, type, status, pay_type, pay_rate').eq('user_id', session.user.id).eq('status', 'active'),
+      supabase.from('employees').select('id, name, role, type, status, pay_type, pay_rate, pay_period').eq('user_id', session.user.id).eq('status', 'active'),
       supabase.from('payroll_entries').select('*').eq('user_id', session.user.id).order('period_start', { ascending: false }),
     ])
 
@@ -177,7 +208,19 @@ export default function PayrollPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div>
             <div style={{ fontSize: '20px', fontWeight: 700 }}>Payroll</div>
-            <div style={{ fontSize: '13px', color: '#666', marginTop: '2px' }}>Biweekly · {formatDate(defaultPeriod.start)} – {formatDate(defaultPeriod.end)}</div>
+            <div style={{ fontSize: '13px', color: '#666', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <select
+                value={payPeriodType}
+                onChange={e => handlePeriodTypeChange(e.target.value as PayPeriod)}
+                style={{ fontSize: '13px', border: 'none', background: 'transparent', color: '#666', cursor: 'pointer', padding: 0 }}
+              >
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="semi-monthly">Semi-monthly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+              · {formatDate(periodStart)} – {formatDate(periodEnd)}
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {entries.length > 0 && (
@@ -205,16 +248,37 @@ export default function PayrollPage() {
         {showForm && (
           <div className="card" style={{ marginBottom: '1.5rem' }}>
             <div style={{ fontWeight: 600, marginBottom: '1rem' }}>Log a payment</div>
-            <div className="field" style={{ marginBottom: '0.75rem' }}>
-              <label>Employee</label>
-              <select value={selectedEmpId ?? ''} onChange={e => setSelectedEmpId(Number(e.target.value))}>
-                <option value="">Select employee...</option>
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name} — {emp.pay_type === 'salary' ? `${formatMoney(emp.pay_rate ?? 0)}/yr` : `${formatMoney(emp.pay_rate ?? 0)}/hr`}
-                  </option>
-                ))}
-              </select>
+            <div className="row2" style={{ marginBottom: '0.75rem' }}>
+              <div className="field">
+                <label>Employee</label>
+                <select value={selectedEmpId ?? ''} onChange={e => {
+                  const id = Number(e.target.value)
+                  setSelectedEmpId(id)
+                  const emp = employees.find(em => em.id === id)
+                  if (emp?.pay_period) {
+                    const p = getPeriodForType(emp.pay_period as PayPeriod)
+                    setPayPeriodType(emp.pay_period as PayPeriod)
+                    setPeriodStart(p.start)
+                    setPeriodEnd(p.end)
+                  }
+                }}>
+                  <option value="">Select employee...</option>
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} — {emp.pay_type === 'salary' ? `${formatMoney(emp.pay_rate ?? 0)}/yr` : `${formatMoney(emp.pay_rate ?? 0)}/hr`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Pay period</label>
+                <select value={payPeriodType} onChange={e => handlePeriodTypeChange(e.target.value as PayPeriod)}>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Biweekly</option>
+                  <option value="semi-monthly">Semi-monthly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
             </div>
             <div className="row2" style={{ marginBottom: '0.75rem' }}>
               <div className="field">

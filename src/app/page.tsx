@@ -22,6 +22,7 @@ export type Employee = {
   w4_status: string
   pay_type: string
   pay_rate: number | null
+  pay_period: string
 }
 
 export type ActionType = 'onboarding' | 'checkin' | 'offboarding' | null
