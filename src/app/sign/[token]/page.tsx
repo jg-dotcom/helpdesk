@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../lib/supabaseAdmin'
 import SignUpload from './SignUpload'
+import AvailabilityForm from './AvailabilityForm'
 
 type EmployeeDoc = {
   id: number
@@ -100,6 +101,7 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
           Upload your completed/signed documents
         </div>
         <SignUpload token={token} />
+        <AvailabilityForm employeeId={link.employee_id} />
       </div>
     </div>
   )

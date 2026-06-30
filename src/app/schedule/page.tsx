@@ -30,6 +30,13 @@ type Shift = {
   notes: string | null
 }
 
+type Availability = {
+  employee_id: number
+  day_of_week: number
+  start_time: string
+  end_time: string
+}
+
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
@@ -57,6 +64,14 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [tab, setTab] = useState<'requests' | 'calendar' | 'shifts'>('requests')
+  const [availability, setAvailability] = useState<Availability[]>([])
+  const [generating, setGenerating] = useState(false)
+  const [genMsg, setGenMsg] = useState('')
+  const [genWeekStart, setGenWeekStart] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - d.getDay())
+    return d.toISOString().slice(0, 10)
+  })
 
   const now = new Date()
   const [calYear, setCalYear] = useState(now.getFullYear())
@@ -85,7 +100,14 @@ export default function SchedulePage() {
       supabase.from('shifts').select('*').eq('user_id', session.user.id).order('shift_date'),
     ])
 
-    if (emps) setEmployees(emps)
+    if (emps) {
+      setEmployees(emps)
+      if (emps.length > 0) {
+        const empIds = emps.map(e => e.id)
+        const { data: avail } = await supabase.from('employee_availability').select('*').in('employee_id', empIds)
+        if (avail) setAvailability(avail)
+      }
+    }
     if (reqs) setRequests(reqs)
     if (sh) setShifts(sh)
     setLoading(false)
@@ -125,6 +147,72 @@ export default function SchedulePage() {
   async function handleDeleteShift(id: number) {
     await supabase.from('shifts').delete().eq('id', id)
     setShifts(prev => prev.filter(s => s.id !== id))
+  }
+
+  async function generateSchedule() {
+    if (availability.length === 0) {
+      setGenMsg('No employee availability set yet. Employees need to fill out their availability first.')
+      return
+    }
+    setGenerating(true)
+    setGenMsg('')
+
+    // Build week dates (Sun–Sat)
+    const weekStart = new Date(genWeekStart + 'T00:00:00')
+    const weekDates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart)
+      d.setDate(weekStart.getDate() + i)
+      return d.toISOString().slice(0, 10)
+    })
+
+    // Find approved time off that overlaps this week
+    const approvedOff = requests.filter(r => r.status === 'approved')
+
+    function isOffThisDay(empId: number, dateStr: string) {
+      return approvedOff.some(r => r.employee_id === empId && r.start_date <= dateStr && r.end_date >= dateStr)
+    }
+
+    // Find existing shifts this week to avoid duplicates
+    const existingThisWeek = shifts.filter(s => weekDates.includes(s.shift_date))
+
+    const newShifts: { user_id: string; employee_id: number; shift_date: string; start_time: string; end_time: string; notes: string }[] = []
+
+    weekDates.forEach((dateStr, dayIndex) => {
+      const availableToday = availability.filter(a => {
+        if (a.day_of_week !== dayIndex) return false
+        if (isOffThisDay(a.employee_id, dateStr)) return false
+        // Skip if already has a shift this day
+        if (existingThisWeek.some(s => s.employee_id === a.employee_id && s.shift_date === dateStr)) return false
+        return true
+      })
+
+      availableToday.forEach(a => {
+        newShifts.push({
+          user_id: userId!,
+          employee_id: a.employee_id,
+          shift_date: dateStr,
+          start_time: a.start_time,
+          end_time: a.end_time,
+          notes: 'Auto-generated',
+        })
+      })
+    })
+
+    if (newShifts.length === 0) {
+      setGenMsg('No new shifts to generate — everyone is either off or already scheduled.')
+      setGenerating(false)
+      return
+    }
+
+    const { error } = await supabase.from('shifts').insert(newShifts)
+    if (error) {
+      setGenMsg('Error generating schedule. Try again.')
+    } else {
+      setGenMsg(`Generated ${newShifts.length} shift${newShifts.length !== 1 ? 's' : ''}.`)
+      load()
+    }
+    setGenerating(false)
+    setTimeout(() => setGenMsg(''), 4000)
   }
 
   // Calendar helpers
@@ -169,9 +257,20 @@ export default function SchedulePage() {
             <div style={{ fontSize: '13px', color: '#666', marginTop: '2px' }}>Time-off requests and shift scheduling</div>
           </div>
           {tab === 'shifts' && (
-            <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }} onClick={() => setShowShiftForm(v => !v)}>
-              {showShiftForm ? 'Cancel' : '+ Add shift'}
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                type="date"
+                value={genWeekStart}
+                onChange={e => setGenWeekStart(e.target.value)}
+                style={{ fontSize: '13px', padding: '6px 10px', border: '1px solid #dde1ea', borderRadius: '6px' }}
+              />
+              <button className="btn" style={{ fontSize: '13px', padding: '7px 14px' }} onClick={generateSchedule} disabled={generating}>
+                {generating ? 'Generating...' : '⚡ Auto-schedule'}
+              </button>
+              <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }} onClick={() => setShowShiftForm(v => !v)}>
+                {showShiftForm ? 'Cancel' : '+ Add shift'}
+              </button>
+            </div>
           )}
         </div>
 
@@ -307,6 +406,7 @@ export default function SchedulePage() {
                     </div>
                   </div>
                 )}
+                {genMsg && <div className={genMsg.startsWith('Error') || genMsg.startsWith('No employee') || genMsg.startsWith('No new') ? 'auth-error' : 'done-msg'} style={{ marginBottom: '1rem' }}>{genMsg}</div>}
                 {shifts.length === 0 ? (
                   <div className="empty-state">No shifts scheduled yet.</div>
                 ) : (
