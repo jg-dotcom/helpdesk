@@ -114,10 +114,10 @@ export default function W4Form({ token, employeeId, userId, defaultName }: Props
 
       <div style={{ background: '#f8f9fb', borderRadius: '8px', padding: '1rem', marginBottom: '0.75rem', border: '1px solid #e8eaf0' }}>
         <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '0.75rem' }}>Step 2 — Multiple jobs (optional)</div>
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
-          <input type="checkbox" checked={form.multipleJobs} onChange={e => set('multipleJobs', e.target.checked)} style={{ marginTop: '2px', flexShrink: 0 }} />
-          <span style={{ fontSize: '13px', color: '#3a3a3a', lineHeight: 1.5 }}>
-            I have more than one job at a time, or my spouse also works. (Check this box if applicable.)
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%' }}>
+          <input type="checkbox" checked={form.multipleJobs} onChange={e => set('multipleJobs', e.target.checked)} style={{ marginTop: '2px', flexShrink: 0, width: '16px', height: '16px' }} />
+          <span style={{ fontSize: '13px', color: '#3a3a3a', lineHeight: 1.5, flex: 1, minWidth: 0 }}>
+            I have more than one job at a time, or my spouse also works.
           </span>
         </label>
       </div>
@@ -147,10 +147,10 @@ export default function W4Form({ token, employeeId, userId, defaultName }: Props
         </div>
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '1rem', cursor: 'pointer' }}>
-        <input type="checkbox" checked={form.exempt} onChange={e => set('exempt', e.target.checked)} style={{ marginTop: '2px', flexShrink: 0 }} />
-        <span style={{ fontSize: '13px', color: '#3a3a3a', lineHeight: 1.5 }}>
-          I claim exemption from withholding. (I had no tax liability last year and expect none this year.)
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '1rem', cursor: 'pointer', width: '100%' }}>
+        <input type="checkbox" checked={form.exempt} onChange={e => set('exempt', e.target.checked)} style={{ marginTop: '2px', flexShrink: 0, width: '16px', height: '16px' }} />
+        <span style={{ fontSize: '13px', color: '#3a3a3a', lineHeight: 1.5, flex: 1, minWidth: 0 }}>
+          I claim exemption from withholding. (No tax liability last year, none expected this year.)
         </span>
       </label>
 
