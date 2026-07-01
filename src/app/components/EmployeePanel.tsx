@@ -25,6 +25,12 @@ export default function EmployeePanel({ employee, onClose, onUpdated, onDelete, 
   const [saveMsg, setSaveMsg] = useState('')
   const [welcomePackSent, setWelcomePackSent] = useState(false)
   const [documentsSigned, setDocumentsSigned] = useState(false)
+  const [closing, setClosing] = useState(false)
+
+  function animateClose() {
+    setClosing(true)
+    setTimeout(() => onClose(), 400)
+  }
 
   useEffect(() => {
     setForm({ ...employee })
@@ -80,20 +86,20 @@ export default function EmployeePanel({ employee, onClose, onUpdated, onDelete, 
       setSaveMsg('Error saving. Try again.')
     } else {
       onUpdated(form)
-      setTimeout(() => onClose(), 800)
+      setTimeout(() => animateClose(), 600)
     }
     setSaving(false)
   }
 
   return (
-    <div className="emp-panel">
+    <div className={`emp-panel${closing ? ' closing' : ''}`}>
       <div className="emp-panel-header">
         <div>
           <div className="emp-panel-name">{employee.name}</div>
           <div className="emp-panel-role">{employee.role}</div>
           <a href={`/employees/${employee.id}`} style={{ fontSize: '12px', color: '#185fa5', marginTop: '2px', display: 'inline-block' }}>View full profile →</a>
         </div>
-        <button className="emp-panel-close" onClick={onClose}>×</button>
+        <button className="emp-panel-close" onClick={animateClose}>×</button>
       </div>
 
       <div className="emp-panel-actions">

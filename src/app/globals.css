@@ -1064,6 +1064,15 @@ body:has(.auth-layout) {
   border: 1px solid rgba(0,0,0,0.09);
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.emp-panel.closing {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
 }
 
 .emp-panel-header {
