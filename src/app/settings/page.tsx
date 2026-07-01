@@ -138,22 +138,34 @@ export default function Settings() {
           <div className="context-bar" style={{ background: '#f7f7f5', color: '#6b6b6b', marginBottom: '1rem' }}>
             Write your welcome pack once. Use <strong>{'{{employee_name}}'}</strong> and any field name in double curly braces — e.g. <strong>{'{{startTime}}'}</strong>, <strong>{'{{payRate}}'}</strong> — and they'll be filled in automatically when you onboard someone.
           </div>
-          <div className="field">
-            <label>Available placeholders</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
+          <div style={{ marginBottom: '0.75rem' }}>
+            <div style={{ fontSize: '12px', color: '#888', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Click to insert</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
               {[
-                { id: 'employee_name' }, { id: 'phone' }, { id: 'email' },
-                { id: 'address' }, { id: 'role' }, { id: 'start' },
-                { id: 'emergency_contact' }, { id: 'date_of_birth' },
-                ...fields
-              ].map(f => (
-                <code
-                  key={f.id}
-                  style={{ background: '#f0f0ee', padding: '2px 8px', borderRadius: '4px', fontSize: '13px', cursor: 'pointer' }}
-                  onClick={() => setWelcomePack(prev => prev + `{{${f.id}}}`)}
+                { id: 'employee_name', label: 'Employee name' },
+                { id: 'phone', label: 'Phone' },
+                { id: 'email', label: 'Email' },
+                { id: 'address', label: 'Address' },
+                { id: 'role', label: 'Role' },
+                { id: 'start', label: 'Start date' },
+                { id: 'emergency_contact', label: 'Emergency contact' },
+                { id: 'date_of_birth', label: 'Date of birth' },
+                ...fields.map(f => ({ id: f.id, label: f.label })),
+              ].map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setWelcomePack(prev => prev + `{{${id}}}`)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                    padding: '5px 10px', borderRadius: '6px', border: '1.5px solid #d0d5e8',
+                    background: '#f4f6fc', color: '#185fa5', fontSize: '12px', fontWeight: 600,
+                    cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#e8edf8')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#f4f6fc')}
                 >
-                  {`{{${f.id}}}`}
-                </code>
+                  <span style={{ fontSize: '10px', opacity: 0.6 }}>[ ]</span> {label}
+                </button>
               ))}
             </div>
           </div>

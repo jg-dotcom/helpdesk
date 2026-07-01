@@ -60,17 +60,29 @@ export default function OffboardingSettings() {
         </div>
 
         <div className="card">
-          <div className="field">
-            <label>Available placeholders</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
-              {['employee_name', 'lastDay', 'reason', 'role'].map(id => (
-                <code
+          <div style={{ marginBottom: '0.75rem' }}>
+            <div style={{ fontSize: '12px', color: '#888', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Click to insert</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {[
+                { id: 'employee_name', label: 'Employee name' },
+                { id: 'lastDay', label: 'Last day' },
+                { id: 'reason', label: 'Reason' },
+                { id: 'role', label: 'Role' },
+              ].map(({ id, label }) => (
+                <button
                   key={id}
-                  style={{ background: '#f0f0ee', padding: '2px 8px', borderRadius: '4px', fontSize: '13px', cursor: 'pointer' }}
                   onClick={() => setOffboardingTemplate(prev => prev + `{{${id}}}`)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                    padding: '5px 10px', borderRadius: '6px', border: '1.5px solid #d0d5e8',
+                    background: '#f4f6fc', color: '#185fa5', fontSize: '12px', fontWeight: 600,
+                    cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#e8edf8')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#f4f6fc')}
                 >
-                  {`{{${id}}}`}
-                </code>
+                  <span style={{ fontSize: '10px', opacity: 0.6 }}>[ ]</span> {label}
+                </button>
               ))}
             </div>
           </div>
