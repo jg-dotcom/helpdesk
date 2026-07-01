@@ -6,13 +6,6 @@ import { Employee, ActionType } from '../page'
 import EmployeePanel from './EmployeePanel'
 import Nav from './Nav'
 
-type RecentDoc = {
-  id: number
-  type: string
-  employee_name: string
-  created_at: string
-}
-
 type TimeOffRequest = {
   id: number
   employee_id: number
@@ -113,17 +106,6 @@ function AnnouncementForm() {
   )
 }
 
-const docIcon: Record<string, string> = {
-  onboarding: '→',
-  checkin: '✓',
-  offboarding: '←',
-}
-
-const docLabel: Record<string, string> = {
-  onboarding: 'Welcome pack',
-  checkin: 'Check-in note',
-  offboarding: 'Offboarding plan',
-}
 
 export default function Dashboard({
   employees, selectedEmp, docsGenerated, loading,
@@ -142,7 +124,6 @@ export default function Dashboard({
   const [newSsnLast4, setNewSsnLast4] = useState('')
   const [newDob, setNewDob] = useState('')
   const [newStatus, setNewStatus] = useState('active')
-  const [recentDocs, setRecentDocs] = useState<RecentDoc[]>([])
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([])
   const [saving, setSaving] = useState(false)
   const [showTerminated, setShowTerminated] = useState(false)
@@ -158,7 +139,6 @@ export default function Dashboard({
   }[]>([])
 
   useEffect(() => {
-    loadRecentDocs()
     loadComplianceIssues()
     loadOnboardingProgress()
     loadTimeOffRequests()
@@ -229,18 +209,6 @@ export default function Dashboard({
       body: JSON.stringify({ status }),
     })
     setTimeOffRequests(prev => prev.filter(r => r.id !== id))
-  }
-
-  async function loadRecentDocs() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    const { data } = await supabase
-      .from('documents')
-      .select('id, type, employee_name, created_at')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(5)
-    if (data) setRecentDocs(data)
   }
 
   async function handleAdd() {
@@ -553,23 +521,6 @@ export default function Dashboard({
             <AnnouncementForm />
           </div>
 
-          <div className="card">
-            <div className="section-label">Recent documents</div>
-            {recentDocs.length === 0 ? (
-              <div className="empty-state">No documents yet — generate your first one above.</div>
-            ) : (
-              recentDocs.map(doc => (
-                <div key={doc.id} className="history-item">
-                  <div className="hist-icon">{docIcon[doc.type] || '•'}</div>
-                  <div style={{ flex: 1 }}>
-                    <div className="hist-title">{docLabel[doc.type] || doc.type} — {doc.employee_name}</div>
-                    <div className="hist-meta">{timeAgo(doc.created_at)}</div>
-                  </div>
-                  <span className="badge badge-green">Saved</span>
-                </div>
-              ))
-            )}
-          </div>
         </div>
       </div>
     </div>
