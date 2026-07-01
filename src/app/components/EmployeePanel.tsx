@@ -7,7 +7,7 @@ import ComplianceChecklist from './ComplianceChecklist'
 
 type Props = {
   employee: Employee
-  initialTab?: 'info' | 'compliance' | 'onboarding' | 'offboarding'
+  initialTab?: Tab
   onClose: () => void
   onUpdated: (emp: Employee) => void
   onDelete: (id: number) => void
@@ -23,7 +23,40 @@ const DEFAULT_OFFBOARDING_ITEMS = [
   'Exit interview completed',
 ]
 
-type Tab = 'info' | 'compliance' | 'onboarding' | 'offboarding'
+type Tab = 'info' | 'compliance' | 'onboarding' | 'offboarding' | 'documents'
+
+type EmployeeForm = {
+  id: number
+  form_type: string
+  form_data: Record<string, string>
+  submitted_at: string
+  created_at: string
+}
+
+type EmployeeDoc = {
+  id: number
+  file_name: string
+  file_path: string
+  file_size: number
+  created_at: string
+}
+
+function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatFormType(t: string) {
+  if (t === 'w4') return 'W-4'
+  if (t === 'i9') return 'I-9'
+  if (t === 'direct_deposit') return 'Direct deposit'
+  return t
+}
+
+function formatKey(k: string) {
+  return k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
 
 export default function EmployeePanel({ employee, initialTab = 'info', onClose, onUpdated, onDelete, onStartAction }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab)
@@ -40,6 +73,12 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [linkUrl, setLinkUrl] = useState('')
   const [sendError, setSendError] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
+
+  // Documents tab state
+  const [employeeForms, setEmployeeForms] = useState<EmployeeForm[]>([])
+  const [employeeDocs, setEmployeeDocs] = useState<EmployeeDoc[]>([])
+  const [expandedForm, setExpandedForm] = useState<number | null>(null)
+  const [docsLoading, setDocsLoading] = useState(false)
 
   // Offboarding tab state
   const [lastDay, setLastDay] = useState('')
@@ -64,6 +103,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     setSendError('')
     loadComplianceData()
     loadOffboardingTemplate()
+    loadDocuments()
   }, [employee.id])
 
   async function loadComplianceData() {
@@ -79,6 +119,28 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     } else {
       setWelcomePackSent(false)
       setDocumentsSigned(false)
+    }
+  }
+
+  async function loadDocuments() {
+    setDocsLoading(true)
+    const [{ data: forms }, { data: docs }] = await Promise.all([
+      supabase.from('employee_forms').select('*').eq('employee_id', employee.id).order('created_at', { ascending: true }),
+      supabase.from('employee_documents').select('*').eq('employee_id', employee.id).order('created_at', { ascending: false }),
+    ])
+    if (forms) setEmployeeForms(forms)
+    if (docs) setEmployeeDocs(docs)
+    setDocsLoading(false)
+  }
+
+  async function downloadFile(filePath: string, fileName: string) {
+    const { data } = await supabase.storage.from('documents').createSignedUrl(filePath, 3600)
+    if (data?.signedUrl) {
+      const a = document.createElement('a')
+      a.href = data.signedUrl
+      a.download = fileName
+      a.target = '_blank'
+      a.click()
     }
   }
 
@@ -188,6 +250,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     { key: 'info', label: 'Info' },
     { key: 'onboarding', label: 'Onboarding' },
     { key: 'compliance', label: 'Compliance' },
+    { key: 'documents', label: 'Documents' },
     { key: 'offboarding', label: 'Offboarding' },
   ]
 
@@ -342,6 +405,93 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               <span>✓</span> Write a check-in note
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Documents tab */}
+      {tab === 'documents' && (
+        <div>
+          {docsLoading ? (
+            <div style={{ fontSize: '13px', color: '#999' }}>Loading...</div>
+          ) : (
+            <>
+              <div className="emp-panel-section">Submitted forms</div>
+              {employeeForms.length === 0 ? (
+                <div className="empty-state" style={{ marginBottom: '1.25rem' }}>No forms submitted yet.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.25rem' }}>
+                  {employeeForms.map(f => (
+                    <div key={f.id}>
+                      <div
+                        onClick={() => setExpandedForm(expandedForm === f.id ? null : f.id)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          padding: '8px 10px', borderRadius: '8px',
+                          background: expandedForm === f.id ? '#f0f4fb' : '#fafafa',
+                          border: `1px solid ${expandedForm === f.id ? '#c2d4f0' : '#eee'}`,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{ width: 28, height: 28, borderRadius: '6px', background: '#e6f1fb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <span style={{ fontSize: '12px', color: '#185fa5', fontWeight: 600 }}>
+                            {formatFormType(f.form_type).slice(0, 2)}
+                          </span>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 500 }}>{formatFormType(f.form_type)}</div>
+                          <div style={{ fontSize: '11px', color: '#9a9a9a' }}>
+                            Submitted {new Date(f.submitted_at || f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '12px', color: '#185fa5' }}>{expandedForm === f.id ? '▲ Hide' : '▼ View'}</span>
+                      </div>
+                      {expandedForm === f.id && (
+                        <div style={{ background: '#f8fafd', border: '1px solid #c2d4f0', borderTop: 'none', borderRadius: '0 0 8px 8px', padding: '10px 12px' }}>
+                          {Object.entries(f.form_data).map(([k, v]) => v ? (
+                            <div key={k} style={{ display: 'flex', gap: '8px', fontSize: '12px', padding: '3px 0', borderBottom: '1px solid #eef2f8' }}>
+                              <span style={{ color: '#9a9a9a', minWidth: '120px', flexShrink: 0 }}>{formatKey(k)}</span>
+                              <span style={{ color: '#1a1a1a', wordBreak: 'break-word' }}>{String(v)}</span>
+                            </div>
+                          ) : null)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="emp-panel-section">Uploaded files</div>
+              {employeeDocs.length === 0 ? (
+                <div className="empty-state">No files uploaded yet.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {employeeDocs.map(doc => (
+                    <div key={doc.id} style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      padding: '8px 10px', borderRadius: '8px',
+                      background: '#fafafa', border: '1px solid #eee',
+                    }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '6px', background: '#f0faf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span style={{ fontSize: '14px' }}>📎</span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.file_name}</div>
+                        <div style={{ fontSize: '11px', color: '#9a9a9a' }}>
+                          {formatSize(doc.file_size)} · {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => downloadFile(doc.file_path, doc.file_name)}
+                        style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #185fa5', background: 'transparent', color: '#185fa5', cursor: 'pointer', flexShrink: 0 }}
+                      >
+                        Download
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
