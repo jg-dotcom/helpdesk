@@ -523,7 +523,7 @@ export default function Dashboard({
                   return (
                     <div
                       key={emp.empId}
-                      onClick={() => fullEmp && (selectedEmp?.id === emp.empId ? onSelectEmp(null as any) : selectEmpOnTab(fullEmp, 'onboarding'))}
+                      onClick={() => fullEmp && (selectedEmp?.id === emp.empId ? onSelectEmp(null as any) : selectEmpOnTab(fullEmp, 'compliance'))}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '0.75rem',
                         padding: '0.6rem 0.75rem', borderRadius: '8px',
