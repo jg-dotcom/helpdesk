@@ -144,11 +144,16 @@ export default function Dashboard({
   const [showMenu, setShowMenu] = useState(false)
   const [showTerminated, setShowTerminated] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [onboardingProgress, setOnboardingProgress] = useState<{
+    empId: number; name: string; role: string; sentAt: string;
+    w4: boolean; i9: boolean; deposit: boolean; agreed: boolean;
+  }[]>([])
 
   useEffect(() => {
     loadRecentDocs()
     loadNotifications()
     loadComplianceIssues()
+    loadOnboardingProgress()
   }, [docsGenerated, employees])
 
   async function loadNotifications() {
@@ -176,6 +181,34 @@ export default function Dashboard({
     }).filter(e => e.missing.length > 0)
 
     setComplianceIssues(issues)
+  }
+
+  async function loadOnboardingProgress() {
+    const active = employees.filter(e => !e.status || e.status === 'active')
+    if (!active.length) { setOnboardingProgress([]); return }
+    const { data: links } = await supabase
+      .from('onboarding_links')
+      .select('employee_id, created_at, acknowledged_at')
+      .in('employee_id', active.map(e => e.id))
+      .order('created_at', { ascending: false })
+    if (!links) return
+    // latest link per employee
+    const latestByEmp: Record<number, { created_at: string; acknowledged_at: string | null }> = {}
+    links.forEach(l => { if (!latestByEmp[l.employee_id]) latestByEmp[l.employee_id] = l })
+    const inProgress = active
+      .filter(emp => latestByEmp[emp.id])
+      .map(emp => ({
+        empId: emp.id,
+        name: emp.name,
+        role: emp.role,
+        sentAt: latestByEmp[emp.id].created_at,
+        w4: emp.w4_status === 'complete',
+        i9: emp.i9_status === 'complete',
+        deposit: emp.direct_deposit_status === 'complete',
+        agreed: !!latestByEmp[emp.id].acknowledged_at,
+      }))
+      .filter(e => !e.w4 || !e.i9 || !e.deposit || !e.agreed)
+    setOnboardingProgress(inProgress)
   }
 
   async function markAllRead() {
@@ -455,6 +488,59 @@ export default function Dashboard({
             )}
 
           </div>
+
+          {onboardingProgress.length > 0 && (
+            <div className="card">
+              <div className="section-label" style={{ marginBottom: '0.75rem' }}>Onboarding in progress</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {onboardingProgress.map(emp => {
+                  const steps = [
+                    { label: 'W-4', done: emp.w4 },
+                    { label: 'I-9', done: emp.i9 },
+                    { label: 'Direct deposit', done: emp.deposit },
+                    { label: 'Agreement', done: emp.agreed },
+                  ]
+                  const doneCount = steps.filter(s => s.done).length
+                  const fullEmp = employees.find(e => e.id === emp.empId)
+                  return (
+                    <div
+                      key={emp.empId}
+                      onClick={() => fullEmp && onSelectEmp(selectedEmp?.id === emp.empId ? null as any : fullEmp)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '0.75rem',
+                        padding: '0.6rem 0.75rem', borderRadius: '8px',
+                        background: selectedEmp?.id === emp.empId ? '#f0f4fb' : '#fafafa',
+                        border: `1px solid ${selectedEmp?.id === emp.empId ? '#c2d4f0' : '#eee'}`,
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { if (selectedEmp?.id !== emp.empId) e.currentTarget.style.background = '#f4f4f2' }}
+                      onMouseLeave={e => { if (selectedEmp?.id !== emp.empId) e.currentTarget.style.background = '#fafafa' }}
+                    >
+                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#e8edf8', color: '#185fa5', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {emp.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a' }}>{emp.name}</div>
+                        <div style={{ display: 'flex', gap: '5px', marginTop: '4px', alignItems: 'center' }}>
+                          {steps.map(s => (
+                            <div key={s.label} title={s.label} style={{
+                              width: 8, height: 8, borderRadius: '50%',
+                              background: s.done ? '#27ae60' : '#ddd',
+                              flexShrink: 0,
+                            }} />
+                          ))}
+                          <span style={{ fontSize: '11px', color: '#9a9a9a', marginLeft: '2px' }}>
+                            {doneCount}/{steps.length} done
+                          </span>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '11px', color: '#9a9a9a', flexShrink: 0 }}>→</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="card">
             <div className="section-label">Announcements</div>
