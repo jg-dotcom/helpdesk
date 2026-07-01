@@ -79,9 +79,8 @@ export default function EmployeePanel({ employee, onClose, onUpdated, onDelete, 
     if (error) {
       setSaveMsg('Error saving. Try again.')
     } else {
-      setSaveMsg('Saved.')
-      setTimeout(() => setSaveMsg(''), 2000)
       onUpdated(form)
+      setTimeout(() => onClose(), 800)
     }
     setSaving(false)
   }
