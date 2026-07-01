@@ -239,10 +239,6 @@ export default function Dashboard({
     setSaving(false)
   }
 
-  function handleAction(type: ActionType) {
-    onStartAction(type)
-  }
-
   return (
     <div className="dash-wrap">
       <div className="dash-nav">
@@ -316,6 +312,11 @@ export default function Dashboard({
               {loading ? '–' : complianceIssues.length}
             </div>
             <div className="stat-l">Incomplete paperwork</div>
+            {complianceIssues.length > 0 && (
+              <div style={{ fontSize: '11px', color: '#c0392b', marginTop: '2px' }}>
+                {[...new Set(complianceIssues.flatMap(i => i.missing))].join(' · ')}
+              </div>
+            )}
           </div>
           <div className="stat">
             <div className="stat-n">{loading ? '–' : docsGenerated}</div>
@@ -453,42 +454,6 @@ export default function Dashboard({
               />
             )}
 
-            {!selectedEmp && <div className="section-label" style={{ marginTop: '1.25rem' }}>What do you need?</div>}
-            {!selectedEmp && <div className="action-grid">
-              <div className="action-card" onClick={() => handleAction('onboarding')}>
-                <div className="action-icon">→</div>
-                <span className="action-title">Welcome pack</span>
-                <small>New hire docs</small>
-              </div>
-              <div className="action-card" onClick={() => handleAction('checkin')}>
-                <div className="action-icon">✓</div>
-                <span className="action-title">Check-in</span>
-                <small>Performance note</small>
-              </div>
-              <div className="action-card" onClick={() => handleAction('offboarding')}>
-                <div className="action-icon">←</div>
-                <span className="action-title">Offboarding</span>
-                <small>Exit paperwork</small>
-              </div>
-            </div>}
-          </div>
-
-          <div className="card">
-            <div className="section-label">Compliance</div>
-            {loading ? (
-              <div className="loading-state">Loading...</div>
-            ) : complianceIssues.length === 0 ? (
-              <div className="done-msg" style={{ padding: '0.5rem 0' }}>✓ All active employees are up to date.</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {complianceIssues.map((issue, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.75rem', background: '#fff8f7', border: '1px solid #fcd5cf', borderRadius: '8px' }}>
-                    <div style={{ fontWeight: 500, fontSize: '13px' }}>{issue.name}</div>
-                    <div style={{ fontSize: '12px', color: '#c0392b' }}>{issue.missing.join(' · ')}</div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="card">
