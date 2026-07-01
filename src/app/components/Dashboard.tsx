@@ -346,8 +346,19 @@ export default function Dashboard({
             </div>
             <div className="stat-l">Incomplete paperwork</div>
             {complianceIssues.length > 0 && (
-              <div style={{ fontSize: '11px', color: '#c0392b', marginTop: '2px' }}>
-                {[...new Set(complianceIssues.flatMap(i => i.missing))].join(' · ')}
+              <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {complianceIssues.map(issue => {
+                  const fullEmp = employees.find(e => e.name === issue.name)
+                  return (
+                    <div
+                      key={issue.name}
+                      onClick={() => fullEmp && onSelectEmp(selectedEmp?.id === fullEmp.id ? null as any : fullEmp)}
+                      style={{ fontSize: '11px', color: '#c0392b', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}
+                    >
+                      {issue.name} — {issue.missing.join(', ')}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
