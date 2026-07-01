@@ -41,6 +41,13 @@ type EmployeeDoc = {
   created_at: string
 }
 
+type DocSignature = {
+  id: number
+  file_name: string
+  signed_name: string
+  signed_at: string
+}
+
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -78,6 +85,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [employeeForms, setEmployeeForms] = useState<EmployeeForm[]>([])
   const [employeeDocs, setEmployeeDocs] = useState<EmployeeDoc[]>([])
   const [expandedForm, setExpandedForm] = useState<number | null>(null)
+  const [docSignatures, setDocSignatures] = useState<DocSignature[]>([])
   const [docsLoading, setDocsLoading] = useState(false)
 
   // Offboarding tab state
@@ -124,12 +132,14 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
 
   async function loadDocuments() {
     setDocsLoading(true)
-    const [{ data: forms }, { data: docs }] = await Promise.all([
+    const [{ data: forms }, { data: docs }, { data: sigs }] = await Promise.all([
       supabase.from('employee_forms').select('*').eq('employee_id', employee.id).order('created_at', { ascending: true }),
       supabase.from('employee_documents').select('*').eq('employee_id', employee.id).order('created_at', { ascending: false }),
+      supabase.from('document_signatures').select('*').eq('employee_id', employee.id).order('signed_at', { ascending: false }),
     ])
     if (forms) setEmployeeForms(forms)
     if (docs) setEmployeeDocs(docs)
+    if (sigs) setDocSignatures(sigs)
     setDocsLoading(false)
   }
 
@@ -458,6 +468,32 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                     </div>
                   ))}
                 </div>
+              )}
+
+              {docSignatures.length > 0 && (
+                <>
+                  <div className="emp-panel-section">Signed documents</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.25rem' }}>
+                    {docSignatures.map(sig => (
+                      <div key={sig.id} style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '8px 10px', borderRadius: '8px',
+                        background: '#f0faf4', border: '1px solid #c3e6cb',
+                      }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '6px', background: '#d4edda', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px', color: '#27ae60', fontWeight: 700 }}>
+                          ✓
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sig.file_name}</div>
+                          <div style={{ fontSize: '11px', color: '#9a9a9a' }}>
+                            Signed as <span style={{ fontStyle: 'italic', color: '#555' }}>{sig.signed_name}</span> · {new Date(sig.signed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '11px', fontWeight: 500, color: '#27ae60', flexShrink: 0 }}>Signed</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
 
               <div className="emp-panel-section">Uploaded files</div>
