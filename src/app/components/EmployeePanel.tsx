@@ -7,6 +7,7 @@ import ComplianceChecklist from './ComplianceChecklist'
 
 type Props = {
   employee: Employee
+  initialTab?: 'info' | 'compliance' | 'onboarding' | 'offboarding'
   onClose: () => void
   onUpdated: (emp: Employee) => void
   onDelete: (id: number) => void
@@ -24,8 +25,8 @@ const DEFAULT_OFFBOARDING_ITEMS = [
 
 type Tab = 'info' | 'compliance' | 'onboarding' | 'offboarding'
 
-export default function EmployeePanel({ employee, onClose, onUpdated, onDelete, onStartAction }: Props) {
-  const [tab, setTab] = useState<Tab>('info')
+export default function EmployeePanel({ employee, initialTab = 'info', onClose, onUpdated, onDelete, onStartAction }: Props) {
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [form, setForm] = useState({ ...employee })
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
@@ -58,7 +59,7 @@ export default function EmployeePanel({ employee, onClose, onUpdated, onDelete, 
     setForm({ ...employee })
     setEmpEmail(employee.email || '')
     setSaveMsg('')
-    setTab('info')
+    setTab(initialTab)
     setLinkUrl('')
     setSendError('')
     loadComplianceData()

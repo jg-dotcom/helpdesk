@@ -143,7 +143,13 @@ export default function Dashboard({
   const [saving, setSaving] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [showTerminated, setShowTerminated] = useState(false)
+  const [openTab, setOpenTab] = useState<'info' | 'compliance' | 'onboarding' | 'offboarding'>('info')
   const menuRef = useRef<HTMLDivElement>(null)
+
+  function selectEmpOnTab(emp: Employee, tab: 'info' | 'compliance' | 'onboarding' | 'offboarding') {
+    setOpenTab(tab)
+    onSelectEmp(emp)
+  }
   const [onboardingProgress, setOnboardingProgress] = useState<{
     empId: number; name: string; role: string; sentAt: string;
     w4: boolean; i9: boolean; deposit: boolean; agreed: boolean;
@@ -352,7 +358,7 @@ export default function Dashboard({
                   return (
                     <div
                       key={issue.name}
-                      onClick={() => fullEmp && onSelectEmp(selectedEmp?.id === fullEmp.id ? null as any : fullEmp)}
+                      onClick={() => fullEmp && (selectedEmp?.id === fullEmp.id ? onSelectEmp(null as any) : selectEmpOnTab(fullEmp, 'compliance'))}
                       style={{ fontSize: '11px', color: '#c0392b', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}
                     >
                       {issue.name} — {issue.missing.join(', ')}
@@ -491,7 +497,8 @@ export default function Dashboard({
             {selectedEmp && (
               <EmployeePanel
                 employee={selectedEmp}
-                onClose={() => onSelectEmp(null as any)}
+                initialTab={openTab}
+                onClose={() => { onSelectEmp(null as any); setOpenTab('info') }}
                 onUpdated={onUpdateEmployee}
                 onDelete={id => { onDeleteEmployee(id); onSelectEmp(null as any) }}
                 onStartAction={onStartAction}
@@ -516,7 +523,7 @@ export default function Dashboard({
                   return (
                     <div
                       key={emp.empId}
-                      onClick={() => fullEmp && onSelectEmp(selectedEmp?.id === emp.empId ? null as any : fullEmp)}
+                      onClick={() => fullEmp && (selectedEmp?.id === emp.empId ? onSelectEmp(null as any) : selectEmpOnTab(fullEmp, 'onboarding'))}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '0.75rem',
                         padding: '0.6rem 0.75rem', borderRadius: '8px',
