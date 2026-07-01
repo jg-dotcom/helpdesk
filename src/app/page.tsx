@@ -122,13 +122,11 @@ export default function Home() {
       selectedEmp={selectedEmp}
       docsGenerated={docsGenerated}
       loading={loading}
-      userEmail={userEmail}
       onSelectEmp={setSelectedEmp}
       onAddEmployee={addEmployee}
       onUpdateEmployee={updateEmployee}
       onDeleteEmployee={deleteEmployee}
       onStartAction={startAction}
-      onLogout={logout}
     />
   )
 }

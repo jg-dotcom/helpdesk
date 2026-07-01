@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Employee, ActionType } from '../page'
 import EmployeePanel from './EmployeePanel'
+import Nav from './Nav'
 
 type RecentDoc = {
   id: number
@@ -17,13 +18,11 @@ type Props = {
   selectedEmp: Employee | null
   docsGenerated: number
   loading: boolean
-  userEmail: string
   onSelectEmp: (emp: Employee) => void
   onAddEmployee: (emp: Omit<Employee, 'id'>) => void
   onUpdateEmployee: (emp: Employee) => void
   onDeleteEmployee: (id: number) => void
   onStartAction: (type: ActionType) => void
-  onLogout: () => void
 }
 
 function initials(name: string) {
@@ -53,10 +52,6 @@ function greeting() {
   if (h < 12) return 'Good morning'
   if (h < 17) return 'Good afternoon'
   return 'Good evening'
-}
-
-function userInitials(email: string) {
-  return email.slice(0, 2).toUpperCase()
 }
 
 function AnnouncementForm() {
@@ -120,12 +115,9 @@ const docLabel: Record<string, string> = {
 }
 
 export default function Dashboard({
-  employees, selectedEmp, docsGenerated, loading, userEmail,
-  onSelectEmp, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onStartAction, onLogout
+  employees, selectedEmp, docsGenerated, loading,
+  onSelectEmp, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onStartAction
 }: Props) {
-  const [notifications, setNotifications] = useState<{ id: number; message: string; created_at: string; read: boolean }[]>([])
-  const [showNotifs, setShowNotifs] = useState(false)
-  const notifsRef = useRef<HTMLDivElement>(null)
   const [complianceIssues, setComplianceIssues] = useState<{ name: string; missing: string[] }[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [newName, setNewName] = useState('')
@@ -141,10 +133,8 @@ export default function Dashboard({
   const [newStatus, setNewStatus] = useState('active')
   const [recentDocs, setRecentDocs] = useState<RecentDoc[]>([])
   const [saving, setSaving] = useState(false)
-  const [showMenu, setShowMenu] = useState(false)
   const [showTerminated, setShowTerminated] = useState(false)
   const [openTab, setOpenTab] = useState<'info' | 'compliance' | 'onboarding' | 'offboarding'>('info')
-  const menuRef = useRef<HTMLDivElement>(null)
 
   function selectEmpOnTab(emp: Employee, tab: 'info' | 'compliance' | 'onboarding' | 'offboarding') {
     setOpenTab(tab)
@@ -157,22 +147,9 @@ export default function Dashboard({
 
   useEffect(() => {
     loadRecentDocs()
-    loadNotifications()
     loadComplianceIssues()
     loadOnboardingProgress()
   }, [docsGenerated, employees])
-
-  async function loadNotifications() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(20)
-    if (data) setNotifications(data)
-  }
 
   async function loadComplianceIssues() {
     const active = employees.filter(e => !e.status || e.status === 'active')
@@ -217,25 +194,6 @@ export default function Dashboard({
     setOnboardingProgress(inProgress)
   }
 
-  async function markAllRead() {
-    const unreadIds = notifications.filter(n => !n.read).map(n => n.id)
-    if (!unreadIds.length) return
-    await supabase.from('notifications').update({ read: true }).in('id', unreadIds)
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-  }
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowMenu(false)
-      }
-      if (notifsRef.current && !notifsRef.current.contains(e.target as Node)) {
-        setShowNotifs(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
 
   async function loadRecentDocs() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -280,63 +238,7 @@ export default function Dashboard({
 
   return (
     <div className="dash-wrap">
-      <div className="dash-nav">
-        <div className="dash-nav-left">
-          <div className="logo">help<span>desk</span></div>
-          <nav className="dash-nav-links">
-            <div className="dash-nav-link active">Dashboard</div>
-            <a href="/payroll" className="dash-nav-link">Payroll</a>
-            <a href="/schedule" className="dash-nav-link">Schedule</a>
-          </nav>
-        </div>
-        <div className="dash-nav-right" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div className="notif-wrap" ref={notifsRef}>
-            <button
-              className="notif-bell"
-              onClick={() => { setShowNotifs(v => !v); if (!showNotifs) markAllRead() }}
-            >
-              🔔
-              {notifications.some(n => !n.read) && (
-                <span className="notif-badge">{notifications.filter(n => !n.read).length}</span>
-              )}
-            </button>
-            {showNotifs && (
-              <div className="notif-dropdown">
-                <div className="notif-header">Notifications</div>
-                {notifications.length === 0 ? (
-                  <div className="notif-empty">No notifications yet.</div>
-                ) : (
-                  notifications.map(n => (
-                    <div key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
-                      <div className="notif-msg">{n.message}</div>
-                      <div className="notif-time">{timeAgo(n.created_at)}</div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-          <div ref={menuRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <div className="user-avatar" onClick={() => setShowMenu(v => !v)}>
-            {userInitials(userEmail)}
-          </div>
-          {showMenu && (
-            <div className="user-menu">
-              <div className="user-menu-header">
-                <div className="user-menu-email">{userEmail}</div>
-              </div>
-              <div className="user-menu-items">
-                <a href="/settings" className="user-menu-item">⚙ Onboarding template</a>
-                <a href="/offboarding-settings" className="user-menu-item">⚙ Offboarding template</a>
-                <div className="user-menu-item">💳 Billing</div>
-                <div className="user-menu-divider" />
-                <div className="user-menu-item user-menu-signout" onClick={onLogout}>→ Sign out</div>
-              </div>
-            </div>
-          )}
-          </div>
-        </div>
-      </div>
+      <Nav active="dashboard" />
 
       <div className="dash-content">
         <div className="dash-greeting">{greeting()}</div>

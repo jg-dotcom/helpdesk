@@ -7,21 +7,54 @@ type Props = {
   active: 'dashboard' | 'payroll' | 'schedule'
 }
 
+type Notification = { id: number; message: string; created_at: string; read: boolean }
+
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 7) return `${days}d ago`
+  return `${Math.floor(days / 7)}w ago`
+}
+
 export default function Nav({ active }: Props) {
   const [userEmail, setUserEmail] = useState('')
   const [showMenu, setShowMenu] = useState(false)
+  const [showNotifs, setShowNotifs] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const menuRef = useRef<HTMLDivElement>(null)
+  const notifsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user.email) setUserEmail(session.user.email)
+      if (!session) return
+      setUserEmail(session.user.email ?? '')
+      supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(20)
+        .then(({ data }) => { if (data) setNotifications(data) })
     })
+
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false)
+      if (notifsRef.current && !notifsRef.current.contains(e.target as Node)) setShowNotifs(false)
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  async function markAllRead() {
+    const unread = notifications.filter(n => !n.read).map(n => n.id)
+    if (!unread.length) return
+    await supabase.from('notifications').update({ read: true }).in('id', unread)
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -29,6 +62,7 @@ export default function Nav({ active }: Props) {
   }
 
   const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : '??'
+  const unreadCount = notifications.filter(n => !n.read).length
 
   return (
     <div className="dash-nav">
@@ -40,7 +74,33 @@ export default function Nav({ active }: Props) {
           <a href="/schedule" className={`dash-nav-link${active === 'schedule' ? ' active' : ''}`}>Schedule</a>
         </nav>
       </div>
+
       <div className="dash-nav-right">
+        {/* Bell */}
+        <div className="notif-wrap" ref={notifsRef}>
+          <button
+            className="notif-bell"
+            onClick={() => { setShowNotifs(v => !v); if (!showNotifs) markAllRead() }}
+          >
+            🔔
+            {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
+          </button>
+          {showNotifs && (
+            <div className="notif-dropdown">
+              <div className="notif-header">Notifications</div>
+              {notifications.length === 0 ? (
+                <div className="notif-empty">No notifications yet.</div>
+              ) : notifications.map(n => (
+                <div key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
+                  <div className="notif-msg">{n.message}</div>
+                  <div className="notif-time">{timeAgo(n.created_at)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Avatar */}
         <div ref={menuRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <div className="user-avatar" onClick={() => setShowMenu(v => !v)}>{initials}</div>
           {showMenu && (
