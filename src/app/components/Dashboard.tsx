@@ -359,7 +359,7 @@ export default function Dashboard({
                     <div
                       key={issue.name}
                       onClick={() => fullEmp && (selectedEmp?.id === fullEmp.id ? onSelectEmp(null as any) : selectEmpOnTab(fullEmp, 'compliance'))}
-                      style={{ fontSize: '11px', color: '#c0392b', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}
+                      style={{ fontSize: '11px', color: '#c0392b', cursor: 'pointer' }}
                     >
                       {issue.name} — {issue.missing.join(', ')}
                     </div>
