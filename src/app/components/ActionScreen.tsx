@@ -26,7 +26,113 @@ const DEFAULT_FIELDS: Field[] = [
   { id: 'dresscode', label: 'Dress code', placeholder: 'e.g. Black shirt, jeans' },
 ]
 
-const titles = { onboarding: 'Welcome pack', checkin: 'Check-in note', offboarding: 'Offboarding plan' }
+const titles = { onboarding: 'Welcome pack', checkin: 'Check-in note', offboarding: 'Offboarding' }
+
+const OFFBOARDING_ITEMS = [
+  { key: 'keys', label: 'Keys / access cards returned' },
+  { key: 'equipment', label: 'Equipment returned (uniform, devices, tools)' },
+  { key: 'access', label: 'System access revoked (email, POS, software)' },
+  { key: 'paycheck', label: 'Final paycheck processed' },
+  { key: 'pto', label: 'Unused PTO paid out (if applicable)' },
+  { key: 'exit', label: 'Exit interview completed' },
+]
+
+function OffboardingFlow({ employee, userId, onBack }: { employee: Employee; userId: string; onBack: () => void }) {
+  const [lastDay, setLastDay] = useState('')
+  const [reason, setReason] = useState('Resignation')
+  const [notes, setNotes] = useState('')
+  const [checked, setChecked] = useState<Record<string, boolean>>({})
+  const [saving, setSaving] = useState(false)
+  const [done, setDone] = useState(false)
+
+  function toggle(key: string) {
+    setChecked(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  async function complete() {
+    setSaving(true)
+    await supabase.from('employees').update({ status: 'terminated' }).eq('id', employee.id)
+    await supabase.from('documents').insert([{
+      type: 'offboarding',
+      employee_name: employee.name,
+      content: `Last day: ${lastDay || 'Not set'}\nReason: ${reason}\nChecklist: ${OFFBOARDING_ITEMS.map(i => `${i.label}: ${checked[i.key] ? '✓' : '✗'}`).join(', ')}\nNotes: ${notes}`,
+      user_id: userId,
+    }])
+    setSaving(false)
+    setDone(true)
+  }
+
+  if (done) {
+    return (
+      <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+        <div style={{ fontSize: '40px', marginBottom: '0.75rem' }}>✓</div>
+        <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '0.5rem' }}>Offboarding complete</div>
+        <p style={{ fontSize: '14px', color: '#666', marginBottom: '1.5rem' }}>
+          {employee.name} has been marked as terminated and the offboarding record has been saved.
+        </p>
+        <button className="btn" onClick={onBack}>← Back to dashboard</button>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="row2" style={{ marginBottom: '0.75rem' }}>
+        <div className="field">
+          <label>Last day</label>
+          <input type="date" value={lastDay} onChange={e => setLastDay(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Reason for leaving</label>
+          <select value={reason} onChange={e => setReason(e.target.value)}>
+            <option>Resignation</option>
+            <option>Termination</option>
+            <option>Layoff</option>
+            <option>Seasonal end</option>
+            <option>Retirement</option>
+            <option>Personal reasons</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="section-label" style={{ marginBottom: '0.75rem' }}>Offboarding checklist</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+        {OFFBOARDING_ITEMS.map(item => (
+          <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0.75rem', background: checked[item.key] ? '#f0faf4' : '#fafafa', border: `1px solid ${checked[item.key] ? '#a8dab5' : '#e8eaf0'}`, borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s' }}>
+            <input
+              type="checkbox"
+              checked={!!checked[item.key]}
+              onChange={() => toggle(item.key)}
+              style={{ width: '16px', height: '16px', flexShrink: 0 }}
+            />
+            <span style={{ fontSize: '13px', color: checked[item.key] ? '#27ae60' : '#3a3a3a', textDecoration: checked[item.key] ? 'line-through' : 'none' }}>
+              {item.label}
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <div className="field">
+        <label>Notes</label>
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Any additional notes about the departure..."
+          style={{ minHeight: '80px' }}
+        />
+      </div>
+
+      <button
+        className="btn auth-btn-primary"
+        style={{ width: 'auto', background: '#c0392b', marginTop: '0.25rem' }}
+        onClick={complete}
+        disabled={saving}
+      >
+        {saving ? 'Saving...' : 'Complete offboarding & terminate'}
+      </button>
+    </div>
+  )
+}
 
 export default function ActionScreen({ employee, action, onBack, onDocDone, userId }: Props) {
   const [notes, setNotes] = useState('')
@@ -244,25 +350,10 @@ export default function ActionScreen({ employee, action, onBack, onDocDone, user
           )}
 
           {action === 'offboarding' && (
-            <div className="row2">
-              <div className="field">
-                <label>Last day</label>
-                <input type="date" value={lastDay} onChange={e => setLastDay(e.target.value)} />
-              </div>
-              <div className="field">
-                <label>Reason for leaving</label>
-                <select value={reason} onChange={e => setReason(e.target.value)}>
-                  <option>New job</option>
-                  <option>Personal reasons</option>
-                  <option>Seasonal end</option>
-                  <option>Let go</option>
-                  <option>Retirement</option>
-                </select>
-              </div>
-            </div>
+            <OffboardingFlow employee={employee} userId={userId} onBack={onBack} />
           )}
 
-          {action !== 'onboarding' && (
+          {action === 'checkin' && (
             <div className="actions-row">
               <button className="btn" onClick={generate} disabled={loading}>
                 {loading ? 'Generating...' : '✦ Generate with AI'}
@@ -328,7 +419,7 @@ export default function ActionScreen({ employee, action, onBack, onDocDone, user
           </div>
         )}
 
-        {output && action !== 'onboarding' && (
+        {output && action === 'checkin' && (
           <div className="card">
             <div className="section-label">Generated document</div>
             <div className="output">{output}</div>
