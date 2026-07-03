@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 type Props = {
-  active: 'dashboard' | 'payroll' | 'schedule'
+  active: 'dashboard' | 'payroll' | 'schedule' | 'jobs'
 }
 
 type Notification = { id: number; message: string; created_at: string; read: boolean }
@@ -72,6 +72,7 @@ export default function Nav({ active }: Props) {
           <a href="/" className={`dash-nav-link${active === 'dashboard' ? ' active' : ''}`}>Dashboard</a>
           <a href="/payroll" className={`dash-nav-link${active === 'payroll' ? ' active' : ''}`}>Payroll</a>
           <a href="/schedule" className={`dash-nav-link${active === 'schedule' ? ' active' : ''}`}>Schedule</a>
+          <a href="/jobs" className={`dash-nav-link${active === 'jobs' ? ' active' : ''}`}>Jobs</a>
         </nav>
       </div>
 
