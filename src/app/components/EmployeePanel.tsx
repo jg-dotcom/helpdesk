@@ -23,7 +23,25 @@ const DEFAULT_OFFBOARDING_ITEMS = [
   'Exit interview completed',
 ]
 
-type Tab = 'info' | 'compliance' | 'onboarding' | 'offboarding' | 'documents'
+type Tab = 'info' | 'compliance' | 'onboarding' | 'offboarding' | 'documents' | 'payroll'
+
+type PayrollEntry = {
+  id: number
+  period_start: string
+  period_end: string
+  hours_worked: number | null
+  gross_pay: number
+  notes: string | null
+  paid_at: string
+}
+
+function formatMoney(n: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 type EmployeeForm = {
   id: number
@@ -88,6 +106,17 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [docSignatures, setDocSignatures] = useState<DocSignature[]>([])
   const [docsLoading, setDocsLoading] = useState(false)
 
+  // Payroll tab state
+  const [payrollEntries, setPayrollEntries] = useState<PayrollEntry[]>([])
+  const [payrollLoading, setPayrollLoading] = useState(false)
+  const [payHours, setPayHours] = useState('')
+  const [payNotes, setPayNotes] = useState('')
+  const [payPeriodStart, setPayPeriodStart] = useState('')
+  const [payPeriodEnd, setPayPeriodEnd] = useState('')
+  const [payShowForm, setPayShowForm] = useState(false)
+  const [paySaving, setPaySaving] = useState(false)
+  const [payMsg, setPayMsg] = useState('')
+
   // Offboarding tab state
   const [lastDay, setLastDay] = useState('')
   const [reason, setReason] = useState('Resignation')
@@ -112,6 +141,13 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     loadComplianceData()
     loadOffboardingTemplate()
     loadDocuments()
+    loadPayroll()
+    const today = new Date()
+    const dayOfWeek = today.getDay()
+    const start = new Date(today); start.setDate(today.getDate() - dayOfWeek)
+    const end = new Date(start); end.setDate(start.getDate() + 6)
+    setPayPeriodStart(start.toISOString().slice(0, 10))
+    setPayPeriodEnd(end.toISOString().slice(0, 10))
   }, [employee.id])
 
   async function loadComplianceData() {
@@ -141,6 +177,49 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     if (docs) setEmployeeDocs(docs)
     if (sigs) setDocSignatures(sigs)
     setDocsLoading(false)
+  }
+
+  async function loadPayroll() {
+    setPayrollLoading(true)
+    const { data } = await supabase
+      .from('payroll_entries')
+      .select('*')
+      .eq('employee_id', employee.id)
+      .order('period_start', { ascending: false })
+    if (data) setPayrollEntries(data)
+    setPayrollLoading(false)
+  }
+
+  async function logPayment() {
+    if (!employee.pay_rate) { setPayMsg('Set a pay rate on the employee first.'); return }
+    if (employee.pay_type !== 'salary' && !payHours) { setPayMsg('Enter hours worked.'); return }
+    if (!payPeriodStart || !payPeriodEnd) { setPayMsg('Enter period start and end dates.'); return }
+    setPaySaving(true)
+    setPayMsg('')
+    const { data: sessionData } = await supabase.auth.getSession()
+    const gross = employee.pay_type === 'salary'
+      ? (employee.pay_rate ?? 0) / 26
+      : parseFloat(payHours) * (employee.pay_rate ?? 0)
+    const { error } = await supabase.from('payroll_entries').insert([{
+      user_id: sessionData.session?.user.id,
+      employee_id: employee.id,
+      period_start: payPeriodStart,
+      period_end: payPeriodEnd,
+      hours_worked: employee.pay_type !== 'salary' ? parseFloat(payHours) : null,
+      gross_pay: gross,
+      notes: payNotes.trim() || null,
+    }])
+    if (error) {
+      setPayMsg('Error saving.')
+    } else {
+      setPayMsg('Saved.')
+      setPayShowForm(false)
+      setPayHours('')
+      setPayNotes('')
+      loadPayroll()
+      setTimeout(() => setPayMsg(''), 2000)
+    }
+    setPaySaving(false)
   }
 
   async function downloadFile(filePath: string, fileName: string) {
@@ -261,6 +340,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     { key: 'onboarding', label: 'Onboarding' },
     { key: 'compliance', label: 'Compliance' },
     { key: 'documents', label: 'Documents' },
+    { key: 'payroll', label: 'Payroll' },
     { key: 'offboarding', label: 'Offboarding' },
   ]
 
@@ -527,6 +607,120 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                 </div>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* Payroll tab */}
+      {tab === 'payroll' && (
+        <div>
+          {/* Pay summary */}
+          <div className="emp-panel-section">Pay settings</div>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '120px', background: '#f5f6fa', borderRadius: '8px', padding: '10px 14px' }}>
+              <div style={{ fontSize: '11px', color: '#9a9a9a', marginBottom: '2px' }}>Pay type</div>
+              <div style={{ fontSize: '14px', fontWeight: 600 }}>{employee.pay_type === 'salary' ? 'Salary' : 'Hourly'}</div>
+            </div>
+            <div style={{ flex: 1, minWidth: '120px', background: '#f5f6fa', borderRadius: '8px', padding: '10px 14px' }}>
+              <div style={{ fontSize: '11px', color: '#9a9a9a', marginBottom: '2px' }}>Rate</div>
+              <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                {employee.pay_rate ? formatMoney(employee.pay_rate) : '—'}{employee.pay_type === 'salary' ? '/yr' : '/hr'}
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: '120px', background: '#f5f6fa', borderRadius: '8px', padding: '10px 14px' }}>
+              <div style={{ fontSize: '11px', color: '#9a9a9a', marginBottom: '2px' }}>Period</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, textTransform: 'capitalize' }}>{employee.pay_period || 'Biweekly'}</div>
+            </div>
+          </div>
+
+          {/* History header + log button */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <div className="emp-panel-section" style={{ margin: 0 }}>Payment history</div>
+            <button
+              className="btn"
+              style={{ fontSize: '12px', padding: '4px 12px' }}
+              onClick={() => { setPayShowForm(v => !v); setPayMsg('') }}
+            >
+              {payShowForm ? 'Cancel' : '+ Log payment'}
+            </button>
+          </div>
+
+          {/* Log payment form */}
+          {payShowForm && (
+            <div style={{ background: '#f5f6fa', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+              <div className="row2" style={{ marginBottom: '0.75rem' }}>
+                <div className="field">
+                  <label>Period start</label>
+                  <input type="date" value={payPeriodStart} onChange={e => setPayPeriodStart(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label>Period end</label>
+                  <input type="date" value={payPeriodEnd} onChange={e => setPayPeriodEnd(e.target.value)} />
+                </div>
+              </div>
+              {employee.pay_type !== 'salary' && (
+                <div className="field" style={{ marginBottom: '0.75rem' }}>
+                  <label>Hours worked</label>
+                  <input type="number" value={payHours} onChange={e => setPayHours(e.target.value)} placeholder="80" step="0.5" />
+                </div>
+              )}
+              {employee.pay_rate && (employee.pay_type === 'salary' || payHours) ? (
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#185fa5', marginBottom: '0.75rem' }}>
+                  Gross: {formatMoney(
+                    employee.pay_type === 'salary'
+                      ? (employee.pay_rate ?? 0) / 26
+                      : parseFloat(payHours || '0') * (employee.pay_rate ?? 0)
+                  )}
+                </div>
+              ) : null}
+              <div className="field" style={{ marginBottom: '0.75rem' }}>
+                <label>Notes (optional)</label>
+                <input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="e.g. included overtime" />
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px' }} onClick={logPayment} disabled={paySaving}>
+                  {paySaving ? 'Saving...' : 'Save'}
+                </button>
+                {payMsg && <div className="done-msg">{payMsg}</div>}
+              </div>
+            </div>
+          )}
+
+          {/* History list */}
+          {payrollLoading ? (
+            <div style={{ fontSize: '13px', color: '#999' }}>Loading...</div>
+          ) : payrollEntries.length === 0 ? (
+            <div className="empty-state">No payments logged yet.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {payrollEntries.map(entry => (
+                <div key={entry.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '8px 10px', borderRadius: '8px',
+                  background: '#fafafa', border: '1px solid #eee',
+                }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '6px', background: '#e6f1fb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px' }}>
+                    💵
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                      {formatDate(entry.period_start)} – {formatDate(entry.period_end)}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#9a9a9a' }}>
+                      {entry.hours_worked != null ? `${entry.hours_worked} hrs · ` : ''}
+                      Paid {formatDate(entry.paid_at)}
+                      {entry.notes ? ` · ${entry.notes}` : ''}
+                    </div>
+                  </div>
+                  <span style={{ fontWeight: 600, color: '#185fa5', fontSize: '13px', flexShrink: 0 }}>
+                    {formatMoney(entry.gross_pay)}
+                  </span>
+                </div>
+              ))}
+              <div style={{ fontSize: '12px', color: '#666', padding: '6px 2px', fontWeight: 500 }}>
+                Total paid: {formatMoney(payrollEntries.reduce((s, e) => s + e.gross_pay, 0))}
+              </div>
+            </div>
           )}
         </div>
       )}
