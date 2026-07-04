@@ -64,6 +64,9 @@ export default function Login() {
     <div style={wrap}>
       <div style={card}>
         <div style={logo}>help<span style={{ color: '#185fa5' }}>desk</span></div>
+        <div style={{ fontSize: '13px', color: '#888', marginTop: '-1.25rem', marginBottom: '1.75rem' }}>
+          HR for small business — onboarding, payroll, and scheduling in one place.
+        </div>
 
         {/* Toggle */}
         <div style={{ display: 'flex', background: '#f0f2f5', borderRadius: '10px', padding: '4px', marginBottom: '1.75rem' }}>
