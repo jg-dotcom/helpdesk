@@ -130,7 +130,7 @@ export default function Login() {
 
       {/* Right panel */}
       <div style={{
-        width: '440px', flexShrink: 0, background: '#fff',
+        flex: 1, background: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '3rem 2.5rem',
       }}>
