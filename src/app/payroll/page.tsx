@@ -77,7 +77,7 @@ export default function PayrollPage() {
   const [entries, setEntries] = useState<PayrollEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'overview' | 'history'>('dashboard')
 
   // Log payment form
   const [showForm, setShowForm] = useState(false)
@@ -297,13 +297,176 @@ export default function PayrollPage() {
 
         {/* Tabs */}
         <div className="profile-tabs" style={{ marginBottom: '1rem' }}>
+          <button className={`profile-tab${activeTab === 'dashboard' ? ' active' : ''}`} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
           <button className={`profile-tab${activeTab === 'overview' ? ' active' : ''}`} onClick={() => setActiveTab('overview')}>By employee</button>
           <button className={`profile-tab${activeTab === 'history' ? ' active' : ''}`} onClick={() => setActiveTab('history')}>Full history</button>
         </div>
 
         {loading ? (
           <div className="card"><div className="empty-state">Loading...</div></div>
-        ) : activeTab === 'overview' ? (
+        ) : activeTab === 'dashboard' ? (() => {
+          const now = new Date()
+          const thisMonth = now.getMonth()
+          const thisYear = now.getFullYear()
+
+          // YTD
+          const ytd = entries.filter(e => new Date(e.period_start).getFullYear() === thisYear)
+            .reduce((s, e) => s + e.gross_pay, 0)
+
+          // This month
+          const monthTotal = entries.filter(e => {
+            const d = new Date(e.period_start)
+            return d.getMonth() === thisMonth && d.getFullYear() === thisYear
+          }).reduce((s, e) => s + e.gross_pay, 0)
+
+          // Last 12 periods grouped by month
+          const byMonth: Record<string, number> = {}
+          entries.forEach(e => {
+            const d = new Date(e.period_start)
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+            byMonth[key] = (byMonth[key] || 0) + e.gross_pay
+          })
+          const sortedMonths = Object.keys(byMonth).sort().slice(-12)
+          const monthValues = sortedMonths.map(k => byMonth[k])
+          const maxMonthVal = Math.max(...monthValues, 1)
+
+          // Cost by employee
+          const empTotals: Record<number, number> = {}
+          entries.forEach(e => { empTotals[e.employee_id] = (empTotals[e.employee_id] || 0) + e.gross_pay })
+          const sortedEmps = Object.entries(empTotals)
+            .map(([id, total]) => ({ emp: employees.find(em => em.id === Number(id)), total }))
+            .filter(x => x.emp)
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 8)
+          const maxEmpVal = Math.max(...sortedEmps.map(x => x.total), 1)
+
+          // Pay type split
+          const hourlyCount = employees.filter(e => e.pay_type !== 'salary').length
+          const salaryCount = employees.filter(e => e.pay_type === 'salary').length
+          const totalEmps = employees.length || 1
+
+          const avgPerPeriod = entries.length > 0
+            ? entries.reduce((s, e) => s + e.gross_pay, 0) / new Set(entries.map(e => e.period_start)).size
+            : 0
+
+          const labelMonth = (key: string) => {
+            const [y, m] = key.split('-')
+            return new Date(Number(y), Number(m) - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+          }
+
+          return (
+            <div>
+              {entries.length === 0 ? (
+                <div className="card"><div className="empty-state">No payroll data yet — log some payments to see your dashboard.</div></div>
+              ) : (
+                <>
+                  {/* Stat cards */}
+                  <div className="dash-stats" style={{ marginBottom: '1.5rem' }}>
+                    <div className="stat-card">
+                      <div className="stat-label">This month</div>
+                      <div className="stat-value">{formatMoney(monthTotal)}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-label">YTD {thisYear}</div>
+                      <div className="stat-value">{formatMoney(ytd)}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-label">Avg per period</div>
+                      <div className="stat-value">{formatMoney(avgPerPeriod)}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-label">Active employees</div>
+                      <div className="stat-value">{employees.length}</div>
+                    </div>
+                  </div>
+
+                  {/* Payroll over time */}
+                  {sortedMonths.length > 1 && (
+                    <div className="card" style={{ marginBottom: '1.5rem' }}>
+                      <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '1.25rem' }}>Payroll by month</div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '140px', paddingBottom: '24px', position: 'relative' }}>
+                        {sortedMonths.map((key, i) => {
+                          const val = byMonth[key]
+                          const pct = val / maxMonthVal
+                          const barH = Math.max(pct * 116, 4)
+                          const isCurrentMonth = key === `${thisYear}-${String(thisMonth + 1).padStart(2, '0')}`
+                          return (
+                            <div key={key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', height: '140px', justifyContent: 'flex-end' }}>
+                              <div style={{ fontSize: '10px', color: '#185fa5', fontWeight: 600, opacity: pct > 0.5 ? 1 : 0 }}>
+                                {formatMoney(val).replace('$', '$').split('.')[0]}
+                              </div>
+                              <div
+                                title={`${labelMonth(key)}: ${formatMoney(val)}`}
+                                style={{
+                                  width: '100%', height: `${barH}px`, borderRadius: '4px 4px 0 0',
+                                  background: isCurrentMonth ? '#185fa5' : '#c2d4f0',
+                                  transition: 'height 0.3s',
+                                }}
+                              />
+                              <div style={{ fontSize: '9px', color: '#999', textAlign: 'center', position: 'absolute', bottom: 0, width: `${100 / sortedMonths.length}%`, left: `${(i / sortedMonths.length) * 100}%` }}>
+                                {labelMonth(key)}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                    {/* Cost by employee */}
+                    {sortedEmps.length > 0 && (
+                      <div className="card">
+                        <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '1rem' }}>Cost by employee</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {sortedEmps.map(({ emp, total }) => (
+                            <div key={emp!.id}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
+                                <span style={{ fontWeight: 500 }}>{emp!.name}</span>
+                                <span style={{ color: '#185fa5', fontWeight: 600 }}>{formatMoney(total)}</span>
+                              </div>
+                              <div style={{ height: '6px', background: '#f0f2f7', borderRadius: '3px' }}>
+                                <div style={{ height: '100%', width: `${(total / maxEmpVal) * 100}%`, background: '#185fa5', borderRadius: '3px' }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pay type split */}
+                    <div className="card">
+                      <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '1rem' }}>Pay type</div>
+                      {employees.length === 0 ? (
+                        <div style={{ fontSize: '13px', color: '#999' }}>No employees.</div>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                            <div style={{ flex: 1, textAlign: 'center', background: '#f0f4fb', borderRadius: '8px', padding: '12px' }}>
+                              <div style={{ fontSize: '24px', fontWeight: 700, color: '#185fa5' }}>{hourlyCount}</div>
+                              <div style={{ fontSize: '12px', color: '#666' }}>Hourly</div>
+                            </div>
+                            <div style={{ flex: 1, textAlign: 'center', background: '#f0faf4', borderRadius: '8px', padding: '12px' }}>
+                              <div style={{ fontSize: '24px', fontWeight: 700, color: '#27ae60' }}>{salaryCount}</div>
+                              <div style={{ fontSize: '12px', color: '#666' }}>Salary</div>
+                            </div>
+                          </div>
+                          <div style={{ height: '8px', background: '#f0f2f7', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${(hourlyCount / totalEmps) * 100}%`, background: '#185fa5', borderRadius: '4px' }} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#999', marginTop: '4px' }}>
+                            <span>{Math.round((hourlyCount / totalEmps) * 100)}% hourly</span>
+                            <span>{Math.round((salaryCount / totalEmps) * 100)}% salary</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        })() : activeTab === 'overview' ? (
           <div className="card">
             {employees.length === 0 ? (
               <div className="empty-state">No active employees.</div>
