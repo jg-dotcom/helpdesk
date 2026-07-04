@@ -9,9 +9,9 @@ const supabaseAdmin = createClient(
 
 async function getBusinessName(userId: string): Promise<string | null> {
   const { data } = await supabaseAdmin
-    .from('users')
+    .from('business_profiles')
     .select('business_name')
-    .eq('id', userId)
+    .eq('user_id', userId)
     .single()
   return data?.business_name ?? null
 }
