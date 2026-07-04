@@ -62,13 +62,23 @@ export default function Login() {
   const [done, setDone] = useState(false)
   const [showPw, setShowPw] = useState(false)
   const [showConfirmPw, setShowConfirmPw] = useState(false)
+  const [pendingConfirm, setPendingConfirm] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendMsg, setResendMsg] = useState('')
 
   const allRulesPassed = RULES.every(r => r.test(password))
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0
 
   function switchMode(m: 'signin' | 'signup') {
     setMode(m); setError(''); setPassword(''); setConfirmPassword('')
-    setFullName(''); setBusinessName('')
+    setFullName(''); setBusinessName(''); setPendingConfirm(false); setResendMsg('')
+  }
+
+  async function resendConfirmation() {
+    setResendLoading(true); setResendMsg('')
+    const { error } = await supabase.auth.resend({ type: 'signup', email })
+    setResendMsg(error ? error.message : 'Confirmation email resent — check your inbox.')
+    setResendLoading(false)
   }
 
   async function handleSignIn() {
@@ -92,11 +102,19 @@ export default function Login() {
       })
       if (error) {
         const raw = error.message ?? ''
-        // Supabase sometimes returns '{}' for existing/rate-limited emails
-        const msg = (!raw || raw === '{}' || raw === '{ }')
-          ? 'Could not create account. This email may already be registered, or you have hit a rate limit — try again in a few minutes.'
-          : raw
-        setError(msg)
+        const isExisting = !raw || raw === '{}' || raw === '{ }' || raw.toLowerCase().includes('already registered') || raw.toLowerCase().includes('already been registered')
+        if (isExisting) {
+          setPendingConfirm(true)
+          setLoading(false); return
+        }
+        setError(raw)
+        setLoading(false); return
+      }
+
+      // Supabase returns data.user but no session when email confirmation is required
+      // and the user already has a pending unconfirmed account
+      if (data.user && !data.session && data.user.identities?.length === 0) {
+        setPendingConfirm(true)
         setLoading(false); return
       }
 
@@ -170,14 +188,47 @@ export default function Login() {
       }}>
         {done ? (
           <div style={{ width: '100%', maxWidth: '340px' }}>
-            <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '0.5rem' }}>Check your email</div>
-            <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-              We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
-            </div>
-            <button onClick={() => { setDone(false); switchMode('signin') }}
-              style={{ fontSize: '13px', color: '#185fa5', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              ← Back to sign in
-            </button>
+            {pendingConfirm ? (
+              <>
+                <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '0.5rem' }}>Confirm your email</div>
+                <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+                  An account for <strong>{email}</strong> already exists but hasn't been confirmed yet. Check your inbox for the confirmation link.
+                </div>
+                <button
+                  className="btn auth-btn-primary"
+                  onClick={resendConfirmation}
+                  disabled={resendLoading}
+                  style={{ width: '100%', marginBottom: '0.75rem' }}
+                >
+                  {resendLoading ? 'Sending...' : 'Resend confirmation email'}
+                </button>
+                {resendMsg && <div style={{ fontSize: '13px', color: resendMsg.includes('resent') ? '#27ae60' : '#c0392b', marginBottom: '0.75rem' }}>{resendMsg}</div>}
+                <button onClick={() => { setPendingConfirm(false); switchMode('signin') }}
+                  style={{ fontSize: '13px', color: '#185fa5', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  ← Back to sign in
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '0.5rem' }}>Check your email</div>
+                <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+                  We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
+                </div>
+                <button
+                  className="btn"
+                  onClick={resendConfirmation}
+                  disabled={resendLoading}
+                  style={{ width: '100%', marginBottom: '0.75rem', background: '#f0f2f5', color: '#333', border: 'none' }}
+                >
+                  {resendLoading ? 'Sending...' : 'Resend email'}
+                </button>
+                {resendMsg && <div style={{ fontSize: '13px', color: resendMsg.includes('resent') ? '#27ae60' : '#c0392b', marginBottom: '0.75rem' }}>{resendMsg}</div>}
+                <button onClick={() => { setDone(false); switchMode('signin') }}
+                  style={{ fontSize: '13px', color: '#185fa5', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  ← Back to sign in
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div style={{ width: '100%', maxWidth: '340px' }}>
