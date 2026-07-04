@@ -118,15 +118,33 @@ export default function Login() {
         setLoading(false); return
       }
 
-      // If we have a session (no email confirmation required), save business profile now
-      if (data.session?.access_token) {
+      // Auto-confirm so user doesn't need to click an email link
+      if (!data.session) {
+        await fetch('/api/auth/auto-confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        })
+        // Sign in now that the account is confirmed
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+        if (!signInErr && signInData.session) {
+          await fetch('/api/settings/business', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${signInData.session.access_token}` },
+            body: JSON.stringify({ business_name: businessName.trim(), contact_email: email }),
+          })
+          window.location.href = '/'
+          return
+        }
+      } else {
         await fetch('/api/settings/business', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
           body: JSON.stringify({ business_name: businessName.trim(), contact_email: email }),
         })
+        window.location.href = '/'
+        return
       }
-      // Otherwise, business profile is auto-created from user metadata on first login
 
       setDone(true)
     } catch (e: unknown) {
