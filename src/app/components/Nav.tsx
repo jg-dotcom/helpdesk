@@ -94,7 +94,6 @@ export default function Nav({ active }: Props) {
           <a href="/schedule" className={`dash-nav-link${active === 'schedule' ? ' active' : ''}`}>Schedule</a>
           <a href="/jobs" className={`dash-nav-link${active === 'jobs' ? ' active' : ''}`}>Jobs</a>
           <a href="/integrations" className={`dash-nav-link${active === 'integrations' ? ' active' : ''}`}>Integrations</a>
-          <a href="/settings" className={`dash-nav-link${active === 'settings' ? ' active' : ''}`}>Settings</a>
         </nav>
       </div>
 
