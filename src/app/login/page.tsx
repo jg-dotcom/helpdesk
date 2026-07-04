@@ -52,6 +52,8 @@ const FEATURES = [
 
 export default function Login() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [fullName, setFullName] = useState('')
+  const [businessName, setBusinessName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -64,6 +66,7 @@ export default function Login() {
 
   function switchMode(m: 'signin' | 'signup') {
     setMode(m); setError(''); setPassword(''); setConfirmPassword('')
+    setFullName(''); setBusinessName('')
   }
 
   async function handleSignIn() {
@@ -75,12 +78,27 @@ export default function Login() {
   }
 
   async function handleSignUp() {
+    if (!fullName.trim()) { setError('Please enter your name.'); return }
+    if (!businessName.trim()) { setError('Please enter your business name.'); return }
     if (!allRulesPassed) { setError('Password does not meet all requirements.'); return }
     if (!passwordsMatch) { setError('Passwords do not match.'); return }
     setLoading(true); setError('')
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) setError(error.message)
-    else setDone(true)
+    const { data, error } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { full_name: fullName.trim(), business_name: businessName.trim() } },
+    })
+    if (error) { setError(error.message); setLoading(false); return }
+
+    // Save business profile immediately
+    if (data.user) {
+      await fetch('/api/settings/business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
+        body: JSON.stringify({ business_name: businessName.trim(), contact_email: email }),
+      })
+    }
+
+    setDone(true)
     setLoading(false)
   }
 
@@ -162,6 +180,19 @@ export default function Login() {
               ))}
             </div>
 
+            {mode === 'signup' && (
+              <>
+                <div style={{ marginBottom: '0.875rem' }}>
+                  <label style={lbl}>Full name</label>
+                  <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Jane Smith" />
+                </div>
+                <div style={{ marginBottom: '0.875rem' }}>
+                  <label style={lbl}>Business name</label>
+                  <input type="text" value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="Acme Co." />
+                </div>
+              </>
+            )}
+
             <div style={{ marginBottom: '0.875rem' }}>
               <label style={lbl}>Email</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
@@ -198,7 +229,7 @@ export default function Login() {
 
             <button className="btn auth-btn-primary"
               onClick={mode === 'signin' ? handleSignIn : handleSignUp}
-              disabled={loading || !email || !password || (mode === 'signup' && (!allRulesPassed || !passwordsMatch))}
+              disabled={loading || !email || !password || (mode === 'signup' && (!allRulesPassed || !passwordsMatch || !fullName.trim() || !businessName.trim()))}
               style={{ width: '100%', marginTop: '0.25rem' }}>
               {loading
                 ? (mode === 'signin' ? 'Signing in...' : 'Creating account...')
