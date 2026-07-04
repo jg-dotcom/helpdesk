@@ -60,6 +60,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
+  const [showPw, setShowPw] = useState(false)
+  const [showConfirmPw, setShowConfirmPw] = useState(false)
 
   const allRulesPassed = RULES.every(r => r.test(password))
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0
@@ -219,8 +221,18 @@ export default function Login() {
                   <a href="/forgot-password" style={{ fontSize: '12px', color: '#4a9eff', textDecoration: 'none' }}>Forgot password?</a>
                 )}
               </div>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
-                onKeyDown={e => mode === 'signin' && e.key === 'Enter' && handleSignIn()} />
+              <div style={{ position: 'relative' }}>
+                <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+                  onKeyDown={e => mode === 'signin' && e.key === 'Enter' && handleSignIn()}
+                  style={{ paddingRight: '36px' }} />
+                <button type="button" onClick={() => setShowPw(v => !v)}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: '2px', lineHeight: 1 }}>
+                  {showPw
+                    ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  }
+                </button>
+              </div>
               {mode === 'signup' && password.length > 0 && (
                 <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                   {RULES.map(rule => (
@@ -235,9 +247,18 @@ export default function Login() {
             {mode === 'signup' && (
               <div style={{ marginBottom: '0.875rem' }}>
                 <label style={lbl}>Confirm password</label>
-                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••" onKeyDown={e => e.key === 'Enter' && handleSignUp()}
-                  style={{ borderColor: confirmPassword.length > 0 ? (passwordsMatch ? '#27ae60' : '#c0392b') : undefined }} />
+                <div style={{ position: 'relative' }}>
+                  <input type={showConfirmPw ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••" onKeyDown={e => e.key === 'Enter' && handleSignUp()}
+                    style={{ paddingRight: '36px', borderColor: confirmPassword.length > 0 ? (passwordsMatch ? '#27ae60' : '#c0392b') : undefined }} />
+                  <button type="button" onClick={() => setShowConfirmPw(v => !v)}
+                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: '2px', lineHeight: 1 }}>
+                    {showConfirmPw
+                      ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                      : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    }
+                  </button>
+                </div>
                 {confirmPassword.length > 0 && !passwordsMatch && (
                   <div style={{ fontSize: '12px', color: '#c0392b', marginTop: '4px' }}>Passwords don't match</div>
                 )}
