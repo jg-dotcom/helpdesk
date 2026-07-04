@@ -77,6 +77,7 @@ export default function EmployeePortal() {
 
   const [stubs, setStubs] = useState<PayStub[]>([])
   const [requests, setRequests] = useState<TimeOffRequest[]>([])
+  const [ptoBalance, setPtoBalance] = useState<{ total: number; used: number; remaining: number } | null>(null)
 
   // Time off form
   const [toStart, setToStart] = useState('')
@@ -92,11 +93,12 @@ export default function EmployeePortal() {
       setAccessToken(session.access_token)
 
       const headers = { Authorization: `Bearer ${session.access_token}` }
-      const [meRes, entriesRes, stubsRes, torRes] = await Promise.all([
+      const [meRes, entriesRes, stubsRes, torRes, ptoRes] = await Promise.all([
         fetch('/api/employee/me', { headers }),
         fetch('/api/employee/time-entries', { headers }),
         fetch('/api/employee/pay-stubs', { headers }),
         fetch('/api/employee/time-off', { headers }),
+        fetch('/api/employee/pto-balance', { headers }),
       ])
 
       const meData = await meRes.json()
@@ -115,6 +117,9 @@ export default function EmployeePortal() {
 
       const torData = await torRes.json()
       if (torData.requests) setRequests(torData.requests)
+
+      const ptoData = await ptoRes.json()
+      if (ptoData.balance) setPtoBalance(ptoData.balance)
 
       setLoading(false)
     })
@@ -303,6 +308,28 @@ export default function EmployeePortal() {
         {/* TIME OFF TAB */}
         {tab === 'timeoff' && (
           <>
+            {/* PTO Balance */}
+            {ptoBalance && ptoBalance.total > 0 && (
+              <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.875rem' }}>PTO Balance — {new Date().getFullYear()}</div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  {[
+                    { label: 'Total', value: ptoBalance.total, color: '#185fa5' },
+                    { label: 'Used', value: ptoBalance.used, color: '#888' },
+                    { label: 'Remaining', value: ptoBalance.remaining, color: '#27ae60' },
+                  ].map(item => (
+                    <div key={item.label} style={{ flex: 1, textAlign: 'center', background: '#f7f8fa', borderRadius: '10px', padding: '0.75rem 0.5rem' }}>
+                      <div style={{ fontSize: '22px', fontWeight: 800, color: item.color }}>{item.value}</div>
+                      <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: '0.875rem', height: '6px', background: '#f0f2f5', borderRadius: '999px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(100, (ptoBalance.used / ptoBalance.total) * 100)}%`, background: ptoBalance.remaining === 0 ? '#c0392b' : '#185fa5', borderRadius: '999px', transition: 'width 0.3s' }} />
+                </div>
+              </div>
+            )}
+
             <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1rem' }}>
               <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '1rem' }}>Request time off</div>
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>

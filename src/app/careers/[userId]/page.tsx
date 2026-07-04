@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { formatPayRange } from '../../../lib/jobs'
 import type { JobPosting } from '../../../lib/jobs'
+import ApplyForm from '../ApplyForm'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -75,6 +76,7 @@ export default async function CareersPage({ params }: { params: Promise<{ userId
                   </div>
                 </div>
               )}
+              <ApplyForm jobId={String(job.id)} jobTitle={job.title} ownerId={userId} />
             </div>
           ))}
         </div>

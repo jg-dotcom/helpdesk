@@ -89,7 +89,12 @@ export default function Login() {
         options: { data: { full_name: fullName.trim(), business_name: businessName.trim() } },
       })
       if (error) {
-        setError(error.message || 'Failed to create account. Please try again.')
+        const raw = error.message ?? ''
+        // Supabase sometimes returns '{}' for existing/rate-limited emails
+        const msg = (!raw || raw === '{}' || raw === '{ }')
+          ? 'Could not create account. This email may already be registered, or you have hit a rate limit — try again in a few minutes.'
+          : raw
+        setError(msg)
         setLoading(false); return
       }
 
