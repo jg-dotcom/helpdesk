@@ -838,7 +838,8 @@ body:has(.dash-wrap) {
 .dash-nav-links {
   display: flex;
   align-items: center;
-  gap: 1.75rem;
+  gap: 1.25rem;
+  flex-wrap: wrap;
 }
 
 .dash-nav-link {

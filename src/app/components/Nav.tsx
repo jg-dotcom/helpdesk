@@ -132,8 +132,7 @@ export default function Nav({ active }: Props) {
                 <div className="user-menu-email">{userEmail}</div>
               </div>
               <div className="user-menu-items">
-                <a href="/settings" className="user-menu-item">⚙ Onboarding template</a>
-                <a href="/offboarding-settings" className="user-menu-item">⚙ Offboarding template</a>
+                <a href="/settings" className="user-menu-item">⚙ Settings</a>
                 <div className="user-menu-divider" />
                 <div className="user-menu-item user-menu-signout" onClick={handleLogout}>→ Sign out</div>
               </div>
