@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { BellIcon } from './Icons'
 
 type Props = {
-  active: 'dashboard' | 'payroll' | 'schedule' | 'jobs' | 'integrations' | 'settings'
+  active: 'dashboard' | 'payroll' | 'schedule' | 'timesheet' | 'jobs' | 'integrations' | 'settings'
 }
 
 type Notification = { id: number; message: string; created_at: string; read: boolean }
@@ -92,6 +92,7 @@ export default function Nav({ active }: Props) {
           <a href="/" className={`dash-nav-link${active === 'dashboard' ? ' active' : ''}`}>Dashboard</a>
           <a href="/payroll" className={`dash-nav-link${active === 'payroll' ? ' active' : ''}`}>Payroll</a>
           <a href="/schedule" className={`dash-nav-link${active === 'schedule' ? ' active' : ''}`}>Schedule</a>
+          <a href="/timesheet" className={`dash-nav-link${active === 'timesheet' ? ' active' : ''}`}>Timesheets</a>
           <a href="/jobs" className={`dash-nav-link${active === 'jobs' ? ' active' : ''}`}>Jobs</a>
           <a href="/integrations" className={`dash-nav-link${active === 'integrations' ? ' active' : ''}`}>Integrations</a>
         </nav>
