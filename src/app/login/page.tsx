@@ -104,7 +104,7 @@ export default function Login() {
         const raw = error.message ?? ''
         const isExisting = !raw || raw === '{}' || raw === '{ }' || raw.toLowerCase().includes('already registered') || raw.toLowerCase().includes('already been registered')
         if (isExisting) {
-          setPendingConfirm(true)
+          setPendingConfirm(true); setDone(true)
           setLoading(false); return
         }
         setError(raw)
@@ -114,7 +114,7 @@ export default function Login() {
       // Supabase returns data.user but no session when email confirmation is required
       // and the user already has a pending unconfirmed account
       if (data.user && !data.session && data.user.identities?.length === 0) {
-        setPendingConfirm(true)
+        setPendingConfirm(true); setDone(true)
         setLoading(false); return
       }
 
