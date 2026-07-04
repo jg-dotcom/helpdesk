@@ -30,9 +30,12 @@ export default function Nav({ active }: Props) {
   const notifsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) return
       setUserEmail(session.user.email ?? '')
+
       supabase
         .from('notifications')
         .select('*')
@@ -40,6 +43,19 @@ export default function Nav({ active }: Props) {
         .order('created_at', { ascending: false })
         .limit(20)
         .then(({ data }) => { if (data) setNotifications(data) })
+
+      // Realtime: push new notifications as they arrive
+      channel = supabase
+        .channel(`notifications:${session.user.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${session.user.id}`,
+        }, payload => {
+          setNotifications(prev => [payload.new as Notification, ...prev].slice(0, 20))
+        })
+        .subscribe()
     })
 
     function handleClick(e: MouseEvent) {
@@ -47,7 +63,10 @@ export default function Nav({ active }: Props) {
       if (notifsRef.current && !notifsRef.current.contains(e.target as Node)) setShowNotifs(false)
     }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [])
 
   async function markAllRead() {

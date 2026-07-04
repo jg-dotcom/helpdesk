@@ -127,6 +127,7 @@ export default function Dashboard({
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([])
   const [saving, setSaving] = useState(false)
   const [showTerminated, setShowTerminated] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [openTab, setOpenTab] = useState<'info' | 'compliance' | 'onboarding' | 'offboarding'>('info')
 
   function selectEmpOnTab(emp: Employee, tab: 'info' | 'compliance' | 'onboarding' | 'offboarding') {
@@ -135,7 +136,7 @@ export default function Dashboard({
   }
   const [onboardingProgress, setOnboardingProgress] = useState<{
     empId: number; name: string; role: string; sentAt: string;
-    w4: boolean; i9: boolean; deposit: boolean; agreed: boolean;
+    w4: boolean; i9: boolean; deposit: boolean; availability: boolean; agreed: boolean;
   }[]>([])
 
   useEffect(() => {
@@ -162,15 +163,18 @@ export default function Dashboard({
   async function loadOnboardingProgress() {
     const active = employees.filter(e => !e.status || e.status === 'active')
     if (!active.length) { setOnboardingProgress([]); return }
-    const { data: links } = await supabase
-      .from('onboarding_links')
-      .select('employee_id, created_at, acknowledged_at')
-      .in('employee_id', active.map(e => e.id))
-      .order('created_at', { ascending: false })
+
+    const empIds = active.map(e => e.id)
+    const [{ data: links }, { data: avail }] = await Promise.all([
+      supabase.from('onboarding_links').select('employee_id, created_at, acknowledged_at').in('employee_id', empIds).order('created_at', { ascending: false }),
+      supabase.from('employee_availability').select('employee_id').in('employee_id', empIds),
+    ])
     if (!links) return
-    // latest link per employee
+
     const latestByEmp: Record<number, { created_at: string; acknowledged_at: string | null }> = {}
     links.forEach(l => { if (!latestByEmp[l.employee_id]) latestByEmp[l.employee_id] = l })
+    const availSet = new Set((avail ?? []).map(a => a.employee_id))
+
     const inProgress = active
       .filter(emp => latestByEmp[emp.id])
       .map(emp => ({
@@ -181,9 +185,10 @@ export default function Dashboard({
         w4: emp.w4_status === 'complete',
         i9: emp.i9_status === 'complete',
         deposit: emp.direct_deposit_status === 'complete',
+        availability: availSet.has(emp.id),
         agreed: !!latestByEmp[emp.id].acknowledged_at,
       }))
-      .filter(e => !e.w4 || !e.i9 || !e.deposit || !e.agreed)
+      .filter(e => !e.w4 || !e.i9 || !e.deposit || !e.availability || !e.agreed)
     setOnboardingProgress(inProgress)
   }
 
@@ -284,7 +289,15 @@ export default function Dashboard({
           <div className="card">
             <div className="card-header">
               <div className="section-label">Your team</div>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {employees.length > 5 && (
+                  <input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search name or role..."
+                    style={{ fontSize: '12px', padding: '4px 10px', border: '1px solid #dde1ea', borderRadius: '6px', width: '160px', outline: 'none' }}
+                  />
+                )}
                 {employees.some(e => e.status === 'terminated') && (
                   <button className="btn-ghost" style={{ fontSize: '12px', color: showTerminated ? '#185fa5' : '#9a9a9a' }} onClick={() => setShowTerminated(v => !v)}>
                     {showTerminated ? 'Hide terminated' : 'Show terminated'}
@@ -368,7 +381,14 @@ export default function Dashboard({
               <div className="empty-state">No employees yet — add your first one above.</div>
             ) : (
               <div className="emp-grid">
-                {employees.filter(emp => showTerminated || emp.status !== 'terminated').map(emp => (
+                {employees.filter(emp => {
+                  if (!showTerminated && emp.status === 'terminated') return false
+                  if (searchQuery) {
+                    const q = searchQuery.toLowerCase()
+                    return emp.name.toLowerCase().includes(q) || emp.role?.toLowerCase().includes(q)
+                  }
+                  return true
+                }).map(emp => (
                   <div
                     key={emp.id}
                     className={`emp-card${selectedEmp?.id === emp.id ? ' selected' : ''}`}
@@ -421,8 +441,9 @@ export default function Dashboard({
                   const steps = [
                     { label: 'W-4', done: emp.w4 },
                     { label: 'I-9', done: emp.i9 },
-                    { label: 'Direct deposit', done: emp.deposit },
-                    { label: 'Agreement', done: emp.agreed },
+                    { label: 'Deposit', done: emp.deposit },
+                    { label: 'Availability', done: emp.availability },
+                    { label: 'Signed', done: emp.agreed },
                   ]
                   const doneCount = steps.filter(s => s.done).length
                   const fullEmp = employees.find(e => e.id === emp.empId)
@@ -431,8 +452,8 @@ export default function Dashboard({
                       key={emp.empId}
                       onClick={() => fullEmp && (selectedEmp?.id === emp.empId ? onSelectEmp(null as any) : selectEmpOnTab(fullEmp, 'compliance'))}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: '0.75rem',
-                        padding: '0.6rem 0.75rem', borderRadius: '8px',
+                        display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                        padding: '0.75rem', borderRadius: '8px',
                         background: selectedEmp?.id === emp.empId ? '#f0f4fb' : '#fafafa',
                         border: `1px solid ${selectedEmp?.id === emp.empId ? '#c2d4f0' : '#eee'}`,
                         cursor: 'pointer', transition: 'all 0.15s',
@@ -440,25 +461,28 @@ export default function Dashboard({
                       onMouseEnter={e => { if (selectedEmp?.id !== emp.empId) e.currentTarget.style.background = '#f4f4f2' }}
                       onMouseLeave={e => { if (selectedEmp?.id !== emp.empId) e.currentTarget.style.background = '#fafafa' }}
                     >
-                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#e8edf8', color: '#185fa5', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#e8edf8', color: '#185fa5', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
                         {emp.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a' }}>{emp.name}</div>
-                        <div style={{ display: 'flex', gap: '5px', marginTop: '4px', alignItems: 'center' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a', marginBottom: '6px' }}>
+                          {emp.name}
+                          <span style={{ fontSize: '11px', fontWeight: 400, color: '#9a9a9a', marginLeft: '6px' }}>{doneCount}/{steps.length} steps</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                           {steps.map(s => (
-                            <div key={s.label} title={s.label} style={{
-                              width: 8, height: 8, borderRadius: '50%',
-                              background: s.done ? '#27ae60' : '#ddd',
-                              flexShrink: 0,
-                            }} />
+                            <span key={s.label} style={{
+                              fontSize: '11px', padding: '2px 7px', borderRadius: '20px',
+                              background: s.done ? '#e8f8ef' : '#f0f0f0',
+                              color: s.done ? '#27ae60' : '#9a9a9a',
+                              fontWeight: s.done ? 600 : 400,
+                              border: `1px solid ${s.done ? '#c3e6cb' : '#e8e8e8'}`,
+                            }}>
+                              {s.done ? '✓ ' : ''}{s.label}
+                            </span>
                           ))}
-                          <span style={{ fontSize: '11px', color: '#9a9a9a', marginLeft: '2px' }}>
-                            {doneCount}/{steps.length} done
-                          </span>
                         </div>
                       </div>
-                      <span style={{ fontSize: '11px', color: '#9a9a9a', flexShrink: 0 }}>→</span>
                     </div>
                   )
                 })}
