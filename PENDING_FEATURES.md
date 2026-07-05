@@ -48,6 +48,28 @@ A running log of features that are built (or partially built) but can't go live 
 
 ---
 
+## 🔵 Planned — Ready to Build When Needed
+
+### AI Chatbot — Full App Control
+**Current state:** The chatbot can already handle: list employees, analytics summary, approve/deny time off, move applicants, generate and post jobs, clock in/out (employee), check PTO, request time off, view schedule.
+**What's missing (owner side):**
+- Add / update / terminate an employee
+- Send an announcement to all employees
+- Add or remove a shift
+- Mark a callout and trigger the find-coverage flow
+- Generate an onboarding link for a new hire
+- Write or view check-in notes for an employee
+- See who has incomplete compliance paperwork
+- View timesheets and time entries
+
+**What's missing (employee side):**
+- View announcements from their employer
+- View pay stubs
+
+**What's needed:** All additive — each missing action is one new tool definition + one case in the executeTool switch in `src/app/api/ai/chat/route.ts`. No architectural changes required.
+
+---
+
 ## 🟢 Live (No Restrictions)
 
 | Feature | Service | Notes |
@@ -61,3 +83,4 @@ A running log of features that are built (or partially built) but can't go live 
 ---
 
 *Last updated: July 2026*
+
