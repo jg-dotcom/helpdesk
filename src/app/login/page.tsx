@@ -59,26 +59,15 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [done, setDone] = useState(false)
   const [showPw, setShowPw] = useState(false)
   const [showConfirmPw, setShowConfirmPw] = useState(false)
-  const [pendingConfirm, setPendingConfirm] = useState(false)
-  const [resendLoading, setResendLoading] = useState(false)
-  const [resendMsg, setResendMsg] = useState('')
 
   const allRulesPassed = RULES.every(r => r.test(password))
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0
 
   function switchMode(m: 'signin' | 'signup') {
     setMode(m); setError(''); setPassword(''); setConfirmPassword('')
-    setFullName(''); setBusinessName(''); setPendingConfirm(false); setResendMsg('')
-  }
-
-  async function resendConfirmation() {
-    setResendLoading(true); setResendMsg('')
-    const { error } = await supabase.auth.resend({ type: 'signup', email })
-    setResendMsg(error ? error.message : 'Confirmation email resent — check your inbox.')
-    setResendLoading(false)
+    setFullName(''); setBusinessName('')
   }
 
   async function handleSignIn() {
@@ -96,92 +85,38 @@ export default function Login() {
     if (!passwordsMatch) { setError('Passwords do not match.'); return }
     setLoading(true); setError('')
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email, password,
-        options: { data: { full_name: fullName.trim(), business_name: businessName.trim() } },
+      // Server-side signup: creates user with email pre-confirmed — no email needed
+      const signupRes = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, fullName: fullName.trim(), businessName: businessName.trim() }),
       })
-      if (error) {
-        const raw = error.message ?? ''
-        const isExisting = !raw || raw === '{}' || raw === '{ }' || raw.toLowerCase().includes('already registered') || raw.toLowerCase().includes('already been registered')
-        if (isExisting) {
-          // Try to auto-confirm + sign in anyway
-          await fetch('/api/auth/auto-confirm', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
-          })
-          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
-          if (!signInErr && signInData.session) {
-            window.location.href = '/'
-            return
-          }
-          setPendingConfirm(true); setDone(true)
-          setLoading(false); return
-        }
-        setError(raw)
+      const signupData = await signupRes.json()
+      if (!signupRes.ok) {
+        setError(signupData.error ?? 'Could not create account. Please try again.')
         setLoading(false); return
       }
 
-      // Supabase returns data.user but no session when email confirmation is required
-      // and the user already has a pending unconfirmed account
-      if (data.user && !data.session && data.user.identities?.length === 0) {
-        await fetch('/api/auth/auto-confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        })
-        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
-        if (!signInErr && signInData.session) {
-          window.location.href = '/'
-          return
-        }
-        setPendingConfirm(true); setDone(true)
+      // Small delay for Supabase to propagate, then sign in
+      await new Promise(r => setTimeout(r, 600))
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInErr || !signInData.session) {
+        setError(`Account created but sign-in failed: ${signInErr?.message ?? 'unknown error'}. Try signing in manually.`)
         setLoading(false); return
       }
 
-      // Auto-confirm so user doesn't need to click an email link
-      if (!data.session) {
-        const confirmRes = await fetch('/api/auth/auto-confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        })
-        const confirmData = await confirmRes.json()
-        if (!confirmRes.ok) {
-          setError(`Auto-confirm failed: ${confirmData.error ?? confirmRes.status}`)
-          setLoading(false); return
-        }
-        // Small delay to let Supabase propagate the confirmation
-        await new Promise(r => setTimeout(r, 800))
-        // Sign in now that the account is confirmed
-        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
-        if (!signInErr && signInData.session) {
-          await fetch('/api/settings/business', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${signInData.session.access_token}` },
-            body: JSON.stringify({ business_name: businessName.trim(), contact_email: email }),
-          })
-          window.location.href = '/'
-          return
-        }
-        setError(`Sign-in failed after confirm: ${signInErr?.message ?? 'unknown error'}`)
-        setLoading(false); return
-      } else {
-        await fetch('/api/settings/business', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
-          body: JSON.stringify({ business_name: businessName.trim(), contact_email: email }),
-        })
-        window.location.href = '/'
-        return
-      }
-
-      setDone(true)
+      // Create business profile
+      await fetch('/api/settings/business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${signInData.session.access_token}` },
+        body: JSON.stringify({ business_name: businessName.trim(), contact_email: email }),
+      })
+      window.location.href = '/'
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Something went wrong. Please try again.'
       setError(msg)
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -234,52 +169,7 @@ export default function Login() {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '3rem 2.5rem',
       }}>
-        {done ? (
-          <div style={{ width: '100%', maxWidth: '340px' }}>
-            {pendingConfirm ? (
-              <>
-                <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '0.5rem' }}>Confirm your email</div>
-                <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-                  An account for <strong>{email}</strong> already exists but hasn't been confirmed yet. Check your inbox for the confirmation link.
-                </div>
-                <button
-                  className="btn auth-btn-primary"
-                  onClick={resendConfirmation}
-                  disabled={resendLoading}
-                  style={{ width: '100%', marginBottom: '0.75rem' }}
-                >
-                  {resendLoading ? 'Sending...' : 'Resend confirmation email'}
-                </button>
-                {resendMsg && <div style={{ fontSize: '13px', color: resendMsg.includes('resent') ? '#27ae60' : '#c0392b', marginBottom: '0.75rem' }}>{resendMsg}</div>}
-                <button onClick={() => { setPendingConfirm(false); switchMode('signin') }}
-                  style={{ fontSize: '13px', color: '#185fa5', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  ← Back to sign in
-                </button>
-              </>
-            ) : (
-              <>
-                <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '0.5rem' }}>Check your email</div>
-                <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-                  We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
-                </div>
-                <button
-                  className="btn"
-                  onClick={resendConfirmation}
-                  disabled={resendLoading}
-                  style={{ width: '100%', marginBottom: '0.75rem', background: '#f0f2f5', color: '#333', border: 'none' }}
-                >
-                  {resendLoading ? 'Sending...' : 'Resend email'}
-                </button>
-                {resendMsg && <div style={{ fontSize: '13px', color: resendMsg.includes('resent') ? '#27ae60' : '#c0392b', marginBottom: '0.75rem' }}>{resendMsg}</div>}
-                <button onClick={() => { setDone(false); switchMode('signin') }}
-                  style={{ fontSize: '13px', color: '#185fa5', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  ← Back to sign in
-                </button>
-              </>
-            )}
-          </div>
-        ) : (
-          <div style={{ width: '100%', maxWidth: '340px' }}>
+        <div style={{ width: '100%', maxWidth: '340px' }}>
             {/* Toggle */}
             <div style={{ display: 'flex', background: '#f0f2f5', borderRadius: '10px', padding: '4px', marginBottom: '1.75rem' }}>
               {(['signin', 'signup'] as const).map(m => (
@@ -375,7 +265,6 @@ export default function Login() {
                 : (mode === 'signin' ? 'Sign in' : 'Create account')}
             </button>
           </div>
-        )}
       </div>
 
     </div>
