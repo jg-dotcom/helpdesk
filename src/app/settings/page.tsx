@@ -623,11 +623,11 @@ function SettingsContent() {
 
                       {/* Inline permission panel */}
                       {isOpen && (
-                        <div style={{ background: '#f9fafc', border: '1px solid #e8eaf0', borderRadius: 10, padding: '1rem', marginBottom: '0.5rem' }}>
+                        <div onClick={e => e.stopPropagation()} style={{ background: '#f9fafc', border: '1px solid #e8eaf0', borderRadius: 10, padding: '1rem', marginBottom: '0.5rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
                             <span style={{ fontSize: '12px', color: '#888' }}>Apply preset:</span>
                             {(['employee','manager','admin'] as const).map(r => (
-                              <button key={r} onClick={() => applyRolePreset(r)} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: 10, border: '1px solid #dde1ea', background: '#fff', cursor: 'pointer', color: '#555', fontWeight: 500, textTransform: 'capitalize' }}>{r}</button>
+                              <button type="button" key={r} onClick={() => applyRolePreset(r)} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: 10, border: '1px solid #dde1ea', background: '#fff', cursor: 'pointer', color: '#555', fontWeight: 500, textTransform: 'capitalize' }}>{r}</button>
                             ))}
                           </div>
                           {(['Scheduling','Employees','Time off','Payroll','Hiring'] as const).map(section => (
@@ -640,6 +640,7 @@ function SettingsContent() {
                                     <div style={{ fontSize: '11px', color: '#aaa' }}>{PERM_META[key].sub}</div>
                                   </div>
                                   <button
+                                    type="button"
                                     onClick={() => setPermValues(prev => ({ ...prev, [key]: !prev[key] }))}
                                     style={{ width: 38, height: 21, borderRadius: 11, border: 'none', cursor: 'pointer', background: permValues[key] ? '#185fa5' : '#d0d5dd', position: 'relative', flexShrink: 0, transition: 'background 0.15s' }}
                                   >
