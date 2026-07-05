@@ -71,6 +71,24 @@ body {
   padding: 1rem;
 }
 
+.stat-clickable {
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+
+.stat-clickable:hover {
+  border-color: rgba(24,95,165,0.35);
+  box-shadow: 0 2px 12px rgba(24,95,165,0.08);
+  transform: translateY(-1px);
+}
+
+.stat-link {
+  font-size: 11px;
+  color: #9a9a9a;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
 .stat-n {
   font-size: 24px;
   font-weight: 500;

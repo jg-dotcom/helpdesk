@@ -290,40 +290,45 @@ export default function Dashboard({
         )}
 
         <div className="dash-stats">
-          <div className="stat">
+          {/* Active employees → scroll to team */}
+          <div className="stat stat-clickable" onClick={() => document.getElementById('team-section')?.scrollIntoView({ behavior: 'smooth' })}>
             <div className="stat-n">{loading ? '–' : employees.filter(e => !e.status || e.status === 'active').length}</div>
             <div className="stat-l">Active employees</div>
+            <div className="stat-link">View team →</div>
           </div>
-          <div className="stat">
+
+          {/* Incomplete paperwork → open first affected employee */}
+          <div
+            className="stat stat-clickable"
+            onClick={() => {
+              const first = complianceIssues[0]
+              if (!first) return
+              const emp = employees.find(e => e.name === first.name)
+              if (emp) {
+                onSelectEmp(emp)
+                setTimeout(() => document.getElementById('team-section')?.scrollIntoView({ behavior: 'smooth' }), 50)
+              }
+            }}
+          >
             <div className="stat-n" style={{ color: complianceIssues.length > 0 ? '#c0392b' : '#27ae60' }}>
               {loading ? '–' : complianceIssues.length}
             </div>
             <div className="stat-l">Incomplete paperwork</div>
-            {complianceIssues.length > 0 && (
-              <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {complianceIssues.map(issue => {
-                  const fullEmp = employees.find(e => e.name === issue.name)
-                  return (
-                    <div
-                      key={issue.name}
-                      onClick={() => fullEmp && (selectedEmp?.id === fullEmp.id ? onSelectEmp(null as any) : onSelectEmp(fullEmp))}
-                      style={{ fontSize: '11px', color: '#c0392b', cursor: 'pointer' }}
-                    >
-                      {issue.name} — {issue.missing.join(', ')}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <div className="stat-link" style={{ color: complianceIssues.length > 0 ? '#c0392b' : '#9a9a9a' }}>
+              {complianceIssues.length > 0 ? `${complianceIssues[0].name} needs attention →` : 'All clear →'}
+            </div>
           </div>
-          <div className="stat">
+
+          {/* Docs generated → analytics page */}
+          <div className="stat stat-clickable" onClick={() => window.location.href = '/analytics'}>
             <div className="stat-n">{loading ? '–' : docsGenerated}</div>
             <div className="stat-l">Docs generated</div>
+            <div className="stat-link">View analytics →</div>
           </div>
         </div>
 
         <div className="dash-grid">
-          <div className="card">
+          <div className="card" id="team-section">
             <div className="card-header">
               <div className="section-label">Your team</div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
