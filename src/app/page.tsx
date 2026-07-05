@@ -24,6 +24,7 @@ export type Employee = {
   pay_type: string
   pay_rate: number | null
   pay_period: string
+  permission_level: string
 }
 
 export type ActionType = 'onboarding' | 'checkin' | 'offboarding' | null

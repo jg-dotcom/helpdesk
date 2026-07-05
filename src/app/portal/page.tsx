@@ -209,272 +209,308 @@ export default function PortalPage() {
   const statusColor = { approved: '#27ae60', denied: '#c0392b', pending: '#e67e22' }
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', background: '#f5f6fa' }}>
       <div style={{ color: '#999', fontSize: '14px' }}>Loading...</div>
     </div>
   )
+
+  const initials = employee?.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f6fa', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
 
       {/* Header */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #eee', padding: '0 1.5rem', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: '18px', fontWeight: 800 }}>help<span style={{ color: '#185fa5' }}>desk</span></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ fontSize: '13px', color: '#555', fontWeight: 500 }}>{employee?.name}</div>
-          <button onClick={signOut} style={{ fontSize: '12px', color: '#999', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
+      <div style={{ background: '#fff', borderBottom: '1px solid #eee', padding: '0 2rem', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.5px' }}>help<span style={{ color: '#185fa5' }}>desk</span></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{employee?.name}</div>
+            <div style={{ fontSize: '11px', color: '#999' }}>{employee?.role}</div>
+          </div>
+          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#185fa5', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
+            {initials}
+          </div>
+          <button onClick={signOut} style={{ fontSize: '12px', color: '#aaa', background: 'none', border: '1px solid #e5e5e5', borderRadius: '6px', cursor: 'pointer', padding: '5px 10px' }}>Sign out</button>
         </div>
       </div>
 
-      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '1.5rem 1rem' }}>
+      {/* Page body */}
+      <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '2rem 1.5rem' }}>
 
-        {/* Greeting */}
-        <div style={{ fontSize: '20px', fontWeight: 700, marginBottom: '0.25rem' }}>
-          {greeting()}, {employee?.name.split(' ')[0]}!
-        </div>
-        <div style={{ fontSize: '13px', color: '#888', marginBottom: '1.5rem' }}>{employee?.role}</div>
-
-        {/* Clock in/out card */}
-        <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem', border: '1px solid #eee', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          {currentEntry ? (
-            <>
-              <div style={{ fontSize: '13px', color: '#27ae60', fontWeight: 600, marginBottom: '4px' }}>
-                Currently clocked in
-              </div>
-              <div style={{ fontSize: '28px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>{elapsed(currentEntry.clock_in)}</div>
-              <div style={{ fontSize: '13px', color: '#888', marginBottom: '1rem' }}>Since {fmtTime(currentEntry.clock_in)}</div>
-              <button
-                onClick={clockOut}
-                disabled={clockLoading}
-                style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: '#c0392b', color: '#fff', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
-              >
-                {clockLoading ? 'Clocking out...' : 'Clock out'}
-              </button>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: '13px', color: '#888', marginBottom: '8px' }}>
-                {todayShift
-                  ? `Scheduled today: ${fmt(todayShift.start_time)} – ${fmt(todayShift.end_time)}`
-                  : 'No shift scheduled today'}
-              </div>
-              <button
-                onClick={clockIn}
-                disabled={clockLoading}
-                style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: '#185fa5', color: '#fff', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
-              >
-                {clockLoading ? 'Clocking in...' : 'Clock in'}
-              </button>
-            </>
-          )}
-          {clockMsg && <div style={{ marginTop: '0.75rem', fontSize: '13px', color: clockMsg.includes('Error') || clockMsg.includes('Already') ? '#c0392b' : '#27ae60' }}>{clockMsg}</div>}
+        {/* Greeting row */}
+        <div style={{ marginBottom: '1.75rem' }}>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: '#1a1a1a' }}>
+            {greeting()}, {employee?.name.split(' ')[0]}
+          </div>
+          <div style={{ fontSize: '13px', color: '#999', marginTop: '3px' }}>
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </div>
         </div>
 
-        {/* Hours this week */}
-        <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem', border: '1px solid #eee' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#888', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>This week</div>
-          <div style={{ display: 'flex', gap: '2rem' }}>
-            <div>
-              <div style={{ fontSize: '24px', fontWeight: 700 }}>{weeklyHrs}h{weeklyMinsRem > 0 ? ` ${weeklyMinsRem}m` : ''}</div>
-              <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Hours worked</div>
+        {/* Two-column grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.25rem', alignItems: 'start' }}>
+
+          {/* LEFT COLUMN */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+            {/* Clock in / out */}
+            <div style={{ background: '#fff', borderRadius: '14px', padding: '1.5rem', border: '1px solid #eee', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Time clock</div>
+              {currentEntry ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#27ae60', fontWeight: 600, marginBottom: '4px' }}>&#9679; Clocked in</div>
+                    <div style={{ fontSize: '36px', fontWeight: 800, color: '#1a1a1a', lineHeight: 1 }}>{elapsed(currentEntry.clock_in)}</div>
+                    <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Since {fmtTime(currentEntry.clock_in)}</div>
+                  </div>
+                  <button
+                    onClick={clockOut}
+                    disabled={clockLoading}
+                    style={{ padding: '11px 28px', borderRadius: '9px', border: 'none', background: '#c0392b', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    {clockLoading ? 'Clocking out...' : 'Clock out'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#888', marginBottom: '2px' }}>
+                      {todayShift
+                        ? `Today: ${fmt(todayShift.start_time)} – ${fmt(todayShift.end_time)}`
+                        : 'No shift scheduled today'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#bbb' }}>Ready to start your shift?</div>
+                  </div>
+                  <button
+                    onClick={clockIn}
+                    disabled={clockLoading}
+                    style={{ padding: '11px 28px', borderRadius: '9px', border: 'none', background: '#185fa5', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    {clockLoading ? 'Clocking in...' : 'Clock in'}
+                  </button>
+                </div>
+              )}
+              {clockMsg && <div style={{ marginTop: '0.75rem', fontSize: '13px', color: clockMsg.includes('Error') || clockMsg.includes('Already') ? '#c0392b' : '#27ae60' }}>{clockMsg}</div>}
             </div>
-            {currentEntry && (
-              <div>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#27ae60' }}>{elapsed(currentEntry.clock_in)}</div>
-                <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Current session</div>
+
+            {/* Upcoming shifts */}
+            <div style={{ background: '#fff', borderRadius: '14px', padding: '1.5rem', border: '1px solid #eee' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Schedule</div>
+
+              {todayShift && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '9px', background: '#f0f6ff', border: '1px solid #d0e4fa', marginBottom: '10px' }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#185fa5', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#185fa5' }}>Today</div>
+                    <div style={{ fontSize: '13px', color: '#333', marginTop: '1px' }}>{fmt(todayShift.start_time)} – {fmt(todayShift.end_time)}{todayShift.notes ? ` · ${todayShift.notes}` : ''}</div>
+                  </div>
+                </div>
+              )}
+
+              {upcomingShifts.length === 0 && !todayShift ? (
+                <div style={{ fontSize: '13px', color: '#bbb', padding: '4px 0' }}>No upcoming shifts scheduled.</div>
+              ) : (
+                upcomingShifts.slice(0, 8).map(s => (
+                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
+                    <div style={{ width: '90px', fontSize: '12px', color: '#888', flexShrink: 0 }}>
+                      {fmtDate(s.shift_date)}
+                    </div>
+                    <div style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: '#222' }}>{fmt(s.start_time)} – {fmt(s.end_time)}</div>
+                    {s.notes && <div style={{ fontSize: '11px', color: '#bbb', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.notes}</div>}
+                    {swapShiftId === s.id ? (
+                      <button onClick={() => setSwapShiftId(null)} style={{ fontSize: '11px', color: '#888', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Cancel</button>
+                    ) : (
+                      <button
+                        onClick={() => { setSwapShiftId(s.id); setSwapTargetShiftId(''); setSwapNotes('') }}
+                        style={{ fontSize: '11px', padding: '3px 9px', borderRadius: '5px', border: '1px solid #dde1ea', background: '#fff', cursor: 'pointer', color: '#555', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        ⇔ Swap
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+
+              {/* Swap request form */}
+              {swapShiftId != null && (
+                <div style={{ marginTop: '1rem', background: '#f9fafb', borderRadius: '10px', padding: '1rem', border: '1px solid #eee' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '0.75rem' }}>Request shift swap</div>
+                  <div style={{ marginBottom: '0.65rem' }}>
+                    <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>Swap with (optional)</label>
+                    <select
+                      value={swapTargetShiftId}
+                      onChange={e => setSwapTargetShiftId(e.target.value ? Number(e.target.value) : '')}
+                      style={{ width: '100%', fontSize: '13px', padding: '7px 9px', border: '1px solid #dde1ea', borderRadius: '7px' }}
+                    >
+                      <option value="">— Let manager find cover —</option>
+                      {coworkerShifts.map(cs => (
+                        <option key={cs.id} value={cs.id}>
+                          {cs.employee_name} · {fmtDate(cs.shift_date)} {fmt(cs.start_time)}–{fmt(cs.end_time)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: '0.65rem' }}>
+                    <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>Reason (optional)</label>
+                    <input value={swapNotes} onChange={e => setSwapNotes(e.target.value)} placeholder="e.g. Doctor appointment"
+                      style={{ width: '100%', fontSize: '13px', padding: '7px 9px', border: '1px solid #dde1ea', borderRadius: '7px' }} />
+                  </div>
+                  <button
+                    onClick={submitSwapRequest}
+                    disabled={swapSaving}
+                    style={{ padding: '8px 18px', borderRadius: '7px', border: 'none', background: '#185fa5', color: '#fff', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                    {swapSaving ? 'Sending...' : 'Send swap request'}
+                  </button>
+                  {swapMsg && <div style={{ marginTop: '0.5rem', fontSize: '13px', color: swapMsg.includes('Error') ? '#c0392b' : '#27ae60' }}>{swapMsg}</div>}
+                </div>
+              )}
+            </div>
+
+            {/* Open shifts */}
+            {openShifts.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: '14px', padding: '1.5rem', border: '1px solid #d1fae5' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>
+                  Open shifts — available to claim
+                </div>
+                {openShifts.map(s => (
+                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f0fdf4' }}>
+                    <div style={{ width: '90px', fontSize: '12px', color: '#888', flexShrink: 0 }}>{fmtDate(s.shift_date)}</div>
+                    <div style={{ flex: 1, fontSize: '13px', fontWeight: 500 }}>{fmt(s.start_time)} – {fmt(s.end_time)}</div>
+                    {s.notes && <div style={{ fontSize: '11px', color: '#aaa' }}>{s.notes}</div>}
+                    <button
+                      onClick={() => claimShift(s.id)}
+                      disabled={claimingId === s.id}
+                      style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '7px', border: 'none', background: '#166534', color: '#fff', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>
+                      {claimingId === s.id ? '...' : 'Claim'}
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
-          </div>
-          {weeklyMins > 0 && (
-            <div style={{ marginTop: '12px', height: 6, background: '#f0f0f0', borderRadius: 3 }}>
-              <div style={{ height: '100%', width: `${Math.min((weeklyMins / (40 * 60)) * 100, 100)}%`, background: weeklyMins >= 40 * 60 ? '#c0392b' : '#185fa5', borderRadius: 3 }} />
-            </div>
-          )}
-        </div>
 
-        {/* Upcoming shifts */}
-        <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem', border: '1px solid #eee' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#888', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {todayShift ? 'Schedule' : 'Upcoming shifts'}
           </div>
-          {todayShift && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '8px', background: '#f0f6ff', border: '1px solid #d0e4fa', marginBottom: '8px' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#185fa5', flexShrink: 0 }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>Today</div>
-                <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>{fmt(todayShift.start_time)} – {fmt(todayShift.end_time)}{todayShift.notes ? ` · ${todayShift.notes}` : ''}</div>
-              </div>
-            </div>
-          )}
-          {upcomingShifts.length === 0 && !todayShift ? (
-            <div style={{ fontSize: '13px', color: '#bbb', padding: '8px 0' }}>No upcoming shifts scheduled.</div>
-          ) : (
-            upcomingShifts.slice(0, 7).map(s => (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '9px 0', borderBottom: '1px solid #f5f5f5' }}>
-                <div style={{ width: '80px', fontSize: '12px', color: '#888', flexShrink: 0 }}>
-                  {new Date(s.shift_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+
+          {/* RIGHT COLUMN */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+            {/* Hours this week */}
+            <div style={{ background: '#fff', borderRadius: '14px', padding: '1.5rem', border: '1px solid #eee' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>This week</div>
+              <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: '#1a1a1a', lineHeight: 1 }}>{weeklyHrs}h{weeklyMinsRem > 0 ? ` ${weeklyMinsRem}m` : ''}</div>
+                  <div style={{ fontSize: '11px', color: '#aaa', marginTop: '4px' }}>Hours worked</div>
                 </div>
-                <div style={{ flex: 1, fontSize: '13px', fontWeight: 500 }}>{fmt(s.start_time)} – {fmt(s.end_time)}</div>
-                {s.notes && <div style={{ fontSize: '11px', color: '#aaa' }}>{s.notes}</div>}
-                {swapShiftId === s.id ? (
-                  <button onClick={() => setSwapShiftId(null)} style={{ fontSize: '11px', color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel</button>
-                ) : (
-                  <button
-                    onClick={() => { setSwapShiftId(s.id); setSwapTargetShiftId(''); setSwapNotes('') }}
-                    style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '5px', border: '1px solid #dde1ea', background: '#fff', cursor: 'pointer', color: '#555', flexShrink: 0 }}>
-                    ↔ Swap
-                  </button>
+                {currentEntry && (
+                  <div>
+                    <div style={{ fontSize: '28px', fontWeight: 800, color: '#27ae60', lineHeight: 1 }}>{elapsed(currentEntry.clock_in)}</div>
+                    <div style={{ fontSize: '11px', color: '#aaa', marginTop: '4px' }}>This session</div>
+                  </div>
                 )}
               </div>
-            ))
-          )}
-
-          {/* Swap request form */}
-          {swapShiftId != null && (
-            <div style={{ marginTop: '0.75rem', background: '#f9fafb', borderRadius: '8px', padding: '0.875rem', border: '1px solid #eee' }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '0.5rem' }}>Request shift swap</div>
-              <div style={{ marginBottom: '0.5rem' }}>
-                <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>Swap with (optional — pick a specific shift)</label>
-                <select
-                  value={swapTargetShiftId}
-                  onChange={e => setSwapTargetShiftId(e.target.value ? Number(e.target.value) : '')}
-                  style={{ width: '100%', fontSize: '13px', padding: '6px 8px', border: '1px solid #dde1ea', borderRadius: '6px' }}
-                >
-                  <option value="">— Let manager find cover —</option>
-                  {coworkerShifts.map(cs => (
-                    <option key={cs.id} value={cs.id}>
-                      {cs.employee_name} · {fmtDate(cs.shift_date)} {fmt(cs.start_time)}–{fmt(cs.end_time)}
-                    </option>
-                  ))}
-                </select>
+              <div style={{ height: 6, background: '#f0f0f0', borderRadius: 3 }}>
+                <div style={{ height: '100%', width: `${Math.min((weeklyMins / (40 * 60)) * 100, 100)}%`, background: weeklyMins >= 40 * 60 ? '#c0392b' : '#185fa5', borderRadius: 3, transition: 'width 0.3s' }} />
               </div>
-              <div style={{ marginBottom: '0.5rem' }}>
-                <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>Reason (optional)</label>
-                <input value={swapNotes} onChange={e => setSwapNotes(e.target.value)} placeholder="e.g. Doctor appointment"
-                  style={{ width: '100%', fontSize: '13px', padding: '6px 8px', border: '1px solid #dde1ea', borderRadius: '6px' }} />
-              </div>
-              <button
-                onClick={submitSwapRequest}
-                disabled={swapSaving}
-                style={{ padding: '7px 16px', borderRadius: '7px', border: 'none', background: '#185fa5', color: '#fff', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
-                {swapSaving ? 'Sending...' : 'Send swap request'}
-              </button>
-              {swapMsg && <div style={{ marginTop: '0.5rem', fontSize: '13px', color: swapMsg.includes('Error') ? '#c0392b' : '#27ae60' }}>{swapMsg}</div>}
+              <div style={{ fontSize: '11px', color: '#bbb', marginTop: '5px' }}>{Math.round((weeklyMins / (40 * 60)) * 100)}% of 40h week</div>
             </div>
-          )}
 
-          {/* My swap requests */}
-          {swapRequests.length > 0 && (
-            <div style={{ marginTop: '0.75rem' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>My swap requests</div>
-              {swapRequests.slice(0, 5).map(sr => {
-                const myShift = shifts.find(s => s.id === sr.requester_shift_id) ?? upcomingShifts.find(s => s.id === sr.requester_shift_id)
-                const statusColor = sr.status === 'approved' ? '#27ae60' : sr.status === 'denied' ? '#c0392b' : '#e67e22'
-                return (
-                  <div key={sr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f5f5f5' }}>
-                    <div style={{ fontSize: '12px', color: '#555' }}>
-                      {myShift ? fmtDate(myShift.shift_date) : `Shift #${sr.requester_shift_id}`}
-                    </div>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor, textTransform: 'capitalize' }}>{sr.status}</span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Open shifts */}
-        {openShifts.length > 0 && (
-          <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem', border: '1px solid #d1fae5' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#166534', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Open shifts — available to claim
-            </div>
-            {openShifts.map(s => (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '9px 0', borderBottom: '1px solid #f0fdf4' }}>
-                <div style={{ width: '80px', fontSize: '12px', color: '#888', flexShrink: 0 }}>
-                  {fmtDate(s.shift_date)}
-                </div>
-                <div style={{ flex: 1, fontSize: '13px', fontWeight: 500 }}>{fmt(s.start_time)} – {fmt(s.end_time)}</div>
-                {s.notes && <div style={{ fontSize: '11px', color: '#aaa' }}>{s.notes}</div>}
+            {/* Time off */}
+            <div style={{ background: '#fff', borderRadius: '14px', padding: '1.5rem', border: '1px solid #eee' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Time off</div>
                 <button
-                  onClick={() => claimShift(s.id)}
-                  disabled={claimingId === s.id}
-                  style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#166534', color: '#fff', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>
-                  {claimingId === s.id ? '...' : 'Claim'}
+                  onClick={() => setShowTOForm(v => !v)}
+                  style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid #dde1ea', background: showTOForm ? '#f0f2f5' : '#fff', cursor: 'pointer', fontWeight: 500 }}
+                >
+                  {showTOForm ? 'Cancel' : '+ Request'}
                 </button>
               </div>
-            ))}
-          </div>
-        )}
 
-        {/* PTO */}
-        <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem', border: '1px solid #eee' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Time off</div>
-            <button
-              onClick={() => setShowTOForm(v => !v)}
-              style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid #dde1ea', background: showTOForm ? '#f0f2f5' : '#fff', cursor: 'pointer', fontWeight: 500 }}
-            >
-              {showTOForm ? 'Cancel' : '+ Request'}
-            </button>
-          </div>
-
-          {ptoBalance && (
-            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem' }}>
-              <div><div style={{ fontSize: '22px', fontWeight: 700 }}>{ptoBalance.remaining}</div><div style={{ fontSize: '12px', color: '#888' }}>Days remaining</div></div>
-              <div><div style={{ fontSize: '22px', fontWeight: 700, color: '#888' }}>{ptoBalance.used}</div><div style={{ fontSize: '12px', color: '#888' }}>Used this year</div></div>
-              <div><div style={{ fontSize: '22px', fontWeight: 700, color: '#bbb' }}>{ptoBalance.total}</div><div style={{ fontSize: '12px', color: '#888' }}>Total</div></div>
-            </div>
-          )}
-
-          {showTOForm && (
-            <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', border: '1px solid #eee' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>From</label>
-                  <input type="date" value={toStart} onChange={e => setToStart(e.target.value)} style={{ width: '100%', fontSize: '13px', padding: '6px 8px', border: '1px solid #dde1ea', borderRadius: '6px' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>To</label>
-                  <input type="date" value={toEnd} onChange={e => setToEnd(e.target.value)} min={toStart} style={{ width: '100%', fontSize: '13px', padding: '6px 8px', border: '1px solid #dde1ea', borderRadius: '6px' }} />
-                </div>
-              </div>
-              <div style={{ marginBottom: '0.75rem' }}>
-                <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>Type</label>
-                <select value={toType} onChange={e => setToType(e.target.value)} style={{ width: '100%', fontSize: '13px', padding: '6px 8px', border: '1px solid #dde1ea', borderRadius: '6px' }}>
-                  <option>PTO</option><option>Sick</option><option>Personal</option><option>Unpaid</option>
-                </select>
-              </div>
-              <div style={{ marginBottom: '0.75rem' }}>
-                <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>Reason (optional)</label>
-                <input value={toReason} onChange={e => setToReason(e.target.value)} placeholder="e.g. Doctor appointment" style={{ width: '100%', fontSize: '13px', padding: '6px 8px', border: '1px solid #dde1ea', borderRadius: '6px' }} />
-              </div>
-              <button
-                onClick={submitTimeOff}
-                disabled={toSaving || !toStart || !toEnd}
-                style={{ padding: '8px 18px', borderRadius: '7px', border: 'none', background: '#185fa5', color: '#fff', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
-              >
-                {toSaving ? 'Submitting...' : 'Submit request'}
-              </button>
-              {toMsg && <div style={{ marginTop: '0.5rem', fontSize: '13px', color: toMsg.includes('Error') ? '#c0392b' : '#27ae60' }}>{toMsg}</div>}
-            </div>
-          )}
-
-          {timeOffRequests.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              {timeOffRequests.slice(0, 5).map(r => (
-                <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 500 }}>{r.type}</div>
-                    <div style={{ fontSize: '11px', color: '#aaa', marginTop: '1px' }}>{fmtDate(r.start_date)} – {fmtDate(r.end_date)}</div>
+              {ptoBalance && (
+                <div style={{ display: 'flex', gap: '1.25rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #f5f5f5' }}>
+                  <div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: '#1a1a1a' }}>{ptoBalance.remaining}</div>
+                    <div style={{ fontSize: '11px', color: '#aaa' }}>Remaining</div>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor[r.status as keyof typeof statusColor] ?? '#888', textTransform: 'capitalize' }}>{r.status}</span>
+                  <div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: '#999' }}>{ptoBalance.used}</div>
+                    <div style={{ fontSize: '11px', color: '#aaa' }}>Used</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: '#ccc' }}>{ptoBalance.total}</div>
+                    <div style={{ fontSize: '11px', color: '#aaa' }}>Total</div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              )}
 
+              {showTOForm && (
+                <div style={{ background: '#f9fafb', borderRadius: '9px', padding: '1rem', marginBottom: '1rem', border: '1px solid #eee' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.65rem' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>From</label>
+                      <input type="date" value={toStart} onChange={e => setToStart(e.target.value)} style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid #dde1ea', borderRadius: '7px' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>To</label>
+                      <input type="date" value={toEnd} onChange={e => setToEnd(e.target.value)} min={toStart} style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid #dde1ea', borderRadius: '7px' }} />
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: '0.65rem' }}>
+                    <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>Type</label>
+                    <select value={toType} onChange={e => setToType(e.target.value)} style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid #dde1ea', borderRadius: '7px' }}>
+                      <option>PTO</option><option>Sick</option><option>Personal</option><option>Unpaid</option>
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>Reason (optional)</label>
+                    <input value={toReason} onChange={e => setToReason(e.target.value)} placeholder="e.g. Doctor appointment" style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid #dde1ea', borderRadius: '7px' }} />
+                  </div>
+                  <button
+                    onClick={submitTimeOff}
+                    disabled={toSaving || !toStart || !toEnd}
+                    style={{ padding: '8px 18px', borderRadius: '7px', border: 'none', background: '#185fa5', color: '#fff', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                  >
+                    {toSaving ? 'Submitting...' : 'Submit request'}
+                  </button>
+                  {toMsg && <div style={{ marginTop: '0.5rem', fontSize: '13px', color: toMsg.includes('Error') ? '#c0392b' : '#27ae60' }}>{toMsg}</div>}
+                </div>
+              )}
+
+              {timeOffRequests.length > 0 && (
+                <div>
+                  {timeOffRequests.slice(0, 5).map(r => (
+                    <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500 }}>{r.type}</div>
+                        <div style={{ fontSize: '11px', color: '#aaa', marginTop: '1px' }}>{fmtDate(r.start_date)} – {fmtDate(r.end_date)}</div>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor[r.status as keyof typeof statusColor] ?? '#888', textTransform: 'capitalize' }}>{r.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Swap requests */}
+            {swapRequests.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: '14px', padding: '1.5rem', border: '1px solid #eee' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>My swap requests</div>
+                {swapRequests.slice(0, 5).map(sr => {
+                  const myShift = shifts.find(s => s.id === sr.requester_shift_id)
+                  const swapStatusColor = sr.status === 'approved' ? '#27ae60' : sr.status === 'denied' ? '#c0392b' : '#e67e22'
+                  return (
+                    <div key={sr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>
+                      <div style={{ fontSize: '12px', color: '#555' }}>
+                        {myShift ? fmtDate(myShift.shift_date) : `Shift #${sr.requester_shift_id}`}
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: swapStatusColor, textTransform: 'capitalize' }}>{sr.status}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -327,6 +327,7 @@ export default function Dashboard({
       pay_type: 'hourly',
       pay_rate: null,
       pay_period: 'biweekly',
+      permission_level: 'employee',
     })
     setNewName(''); setNewRole(''); setNewStart(''); setNewType('Full-time')
     setNewPhone(''); setNewEmail(''); setNewAddress(''); setNewEmergencyContact('')
