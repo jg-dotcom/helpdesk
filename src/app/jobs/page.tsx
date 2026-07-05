@@ -14,11 +14,43 @@ const EMPTY_FORM = {
   description: '', requirements: '', pay_min: '', pay_max: '', pay_period: 'hourly', status: 'open',
 }
 
+type Application = {
+  id: string
+  job_posting_id: number
+  name: string
+  email: string
+  phone: string | null
+  cover_letter: string | null
+  status: 'applied' | 'interviewing' | 'offer' | 'hired' | 'rejected'
+  created_at: string
+}
+
+const STAGES: { key: Application['status']; label: string; color: string; bg: string }[] = [
+  { key: 'applied',      label: 'Applied',      color: '#6b6b6b', bg: '#f0f2f5' },
+  { key: 'interviewing', label: 'Interviewing',  color: '#185fa5', bg: '#e6f1fb' },
+  { key: 'offer',        label: 'Offer',         color: '#b45309', bg: '#fef3c7' },
+  { key: 'hired',        label: 'Hired',         color: '#15803d', bg: '#dcfce7' },
+  { key: 'rejected',     label: 'Rejected',      color: '#991b1b', bg: '#fee2e2' },
+]
+
+function stageFor(s: Application['status']) {
+  return STAGES.find(st => st.key === s) ?? STAGES[0]
+}
+
+function timeAgo(iso: string) {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  return `${days}d ago`
+}
+
 export default function JobsPage() {
   const router = useRouter()
   const [jobs, setJobs] = useState<JobPosting[]>([])
+  const [apps, setApps] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [token, setToken] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState({ ...EMPTY_FORM })
@@ -26,7 +58,7 @@ export default function JobsPage() {
   const [errors, setErrors] = useState<string[]>([])
   const [shareJobId, setShareJobId] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
-  const [appCounts, setAppCounts] = useState<Record<number, number>>({})
+  const [selected, setSelected] = useState<Application | null>(null)
 
   useEffect(() => { load() }, [])
 
@@ -34,81 +66,51 @@ export default function JobsPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
     setUserId(session.user.id)
+    setToken(session.access_token)
     const [{ data: jobData }, { data: appData }] = await Promise.all([
       supabase.from('job_postings').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
-      supabase.from('job_applications').select('job_posting_id').eq('user_id', session.user.id),
+      supabase.from('job_applications').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
     ])
     if (jobData) setJobs(jobData)
-    if (appData) {
-      const counts: Record<number, number> = {}
-      appData.forEach(a => { counts[a.job_posting_id] = (counts[a.job_posting_id] ?? 0) + 1 })
-      setAppCounts(counts)
-    }
+    if (appData) setApps(appData)
     setLoading(false)
   }
 
   function openNew() {
-    setEditingId(null)
-    setForm({ ...EMPTY_FORM })
-    setErrors([])
-    setShowForm(true)
+    setEditingId(null); setForm({ ...EMPTY_FORM }); setErrors([]); setShowForm(true)
   }
 
   function openEdit(job: JobPosting) {
     setEditingId(job.id)
     setForm({
-      title: job.title,
-      department: job.department ?? '',
-      location: job.location ?? '',
-      employment_type: job.employment_type,
-      description: job.description ?? '',
+      title: job.title, department: job.department ?? '', location: job.location ?? '',
+      employment_type: job.employment_type, description: job.description ?? '',
       requirements: job.requirements ?? '',
       pay_min: job.pay_min != null ? String(job.pay_min) : '',
       pay_max: job.pay_max != null ? String(job.pay_max) : '',
-      pay_period: job.pay_period,
-      status: job.status,
+      pay_period: job.pay_period, status: job.status,
     })
-    setErrors([])
-    setShowForm(true)
-    setShareJobId(null)
+    setErrors([]); setShowForm(true); setShareJobId(null)
   }
 
   async function handleSave() {
     const payload = {
-      title: form.title.trim(),
-      department: form.department.trim() || null,
-      location: form.location.trim() || null,
-      employment_type: form.employment_type,
-      description: form.description.trim() || null,
-      requirements: form.requirements.trim() || null,
+      title: form.title.trim(), department: form.department.trim() || null,
+      location: form.location.trim() || null, employment_type: form.employment_type,
+      description: form.description.trim() || null, requirements: form.requirements.trim() || null,
       pay_min: form.pay_min ? parseFloat(form.pay_min) : null,
       pay_max: form.pay_max ? parseFloat(form.pay_max) : null,
-      pay_period: form.pay_period,
-      status: form.status,
+      pay_period: form.pay_period, status: form.status,
     }
-
     const errs = validateJobPosting(payload)
     if (errs.length) { setErrors(errs); return }
-
-    setSaving(true)
-    setErrors([])
-
+    setSaving(true); setErrors([])
     if (editingId) {
       const { error } = await supabase.from('job_postings').update(payload).eq('id', editingId)
-      if (!error) {
-        setJobs(prev => prev.map(j => j.id === editingId ? { ...j, ...payload } : j))
-        setShowForm(false)
-      }
+      if (!error) { setJobs(prev => prev.map(j => j.id === editingId ? { ...j, ...payload } : j)); setShowForm(false) }
     } else {
-      const { data, error } = await supabase
-        .from('job_postings')
-        .insert([{ ...payload, user_id: userId }])
-        .select()
-        .single()
-      if (!error && data) {
-        setJobs(prev => [data, ...prev])
-        setShowForm(false)
-      }
+      const { data, error } = await supabase.from('job_postings').insert([{ ...payload, user_id: userId }]).select().single()
+      if (!error && data) { setJobs(prev => [data, ...prev]); setShowForm(false) }
     }
     setSaving(false)
   }
@@ -123,6 +125,23 @@ export default function JobsPage() {
     await supabase.from('job_postings').delete().eq('id', id)
     setJobs(prev => prev.filter(j => j.id !== id))
     if (shareJobId === id) setShareJobId(null)
+  }
+
+  async function moveStage(appId: string, status: Application['status']) {
+    await fetch(`/api/applications/${appId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status }),
+    })
+    setApps(prev => prev.map(a => a.id === appId ? { ...a, status } : a))
+    setSelected(prev => prev?.id === appId ? { ...prev, status } : prev)
+  }
+
+  async function deleteApp(appId: string) {
+    if (!confirm('Delete this application?')) return
+    await fetch(`/api/applications/${appId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    setApps(prev => prev.filter(a => a.id !== appId))
+    if (selected?.id === appId) setSelected(null)
   }
 
   function careersUrl(job: JobPosting) {
@@ -141,13 +160,15 @@ export default function JobsPage() {
     <div className="dash-wrap">
       <Nav active="jobs" />
       <div className="dash-content">
+
+        {/* Page header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div>
-            <div style={{ fontSize: '20px', fontWeight: 700 }}>Job postings</div>
-            <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
+            <div style={{ fontSize: '20px', fontWeight: 700 }}>Jobs & Applicants</div>
+            <div style={{ fontSize: '13px', color: '#6b6b6b', marginTop: '4px' }}>
               {userId && (
-                <>Your careers page: <a href={`/careers/${userId}`} target="_blank" rel="noopener noreferrer" style={{ color: '#185fa5' }}>{window?.location?.origin}/careers/{userId}</a>
-                  <button onClick={() => copy(`${window.location.origin}/careers/${userId}`, 'page')} style={{ marginLeft: '8px', fontSize: '11px', padding: '2px 8px', border: '1px solid #dde1ea', borderRadius: '4px', background: 'transparent', cursor: 'pointer', color: '#666' }}>
+                <>Careers page: <a href={`/careers/${userId}`} target="_blank" rel="noopener noreferrer" style={{ color: '#185fa5' }}>{typeof window !== 'undefined' ? window.location.origin : ''}/careers/{userId}</a>
+                  <button onClick={() => copy(`${window.location.origin}/careers/${userId}`, 'page')} style={{ marginLeft: '8px', fontSize: '11px', padding: '2px 8px', border: '0.5px solid rgba(0,0,0,0.22)', borderRadius: '4px', background: 'transparent', cursor: 'pointer', color: '#6b6b6b', fontFamily: 'inherit' }}>
                     {copied === 'page' ? '✓ Copied' : 'Copy link'}
                   </button>
                 </>
@@ -223,9 +244,8 @@ export default function JobsPage() {
               <div style={{ fontWeight: 600 }}>Share — {shareJob.title}</div>
               <button onClick={() => setShareJobId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#9a9a9a' }}>×</button>
             </div>
-
             <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 500 }}>Direct link</div>
+              <div style={{ fontSize: '12px', color: '#6b6b6b', marginBottom: '4px', fontWeight: 500 }}>Direct link</div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input readOnly value={careersUrl(shareJob)} style={{ flex: 1, fontSize: '12px' }} onFocus={e => e.target.select()} />
                 <button className="btn" style={{ fontSize: '12px', padding: '5px 12px', whiteSpace: 'nowrap' }} onClick={() => copy(careersUrl(shareJob), 'link')}>
@@ -233,18 +253,16 @@ export default function JobsPage() {
                 </button>
               </div>
             </div>
-
             <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 500 }}>LinkedIn post</div>
-              <textarea readOnly value={formatLinkedInPost(shareJob, careersUrl(shareJob))} style={{ width: '100%', fontSize: '12px', minHeight: '100px', resize: 'vertical', boxSizing: 'border-box' }} onFocus={e => e.target.select()} />
+              <div style={{ fontSize: '12px', color: '#6b6b6b', marginBottom: '4px', fontWeight: 500 }}>LinkedIn post</div>
+              <textarea readOnly value={formatLinkedInPost(shareJob, careersUrl(shareJob))} style={{ width: '100%', fontSize: '12px', minHeight: '100px', resize: 'vertical' }} onFocus={e => e.target.select()} />
               <button className="btn" style={{ fontSize: '12px', padding: '5px 12px', marginTop: '4px' }} onClick={() => copy(formatLinkedInPost(shareJob, careersUrl(shareJob)), 'linkedin')}>
                 {copied === 'linkedin' ? '✓ Copied' : 'Copy for LinkedIn'}
               </button>
             </div>
-
             <div>
-              <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 500 }}>Indeed post</div>
-              <textarea readOnly value={formatIndeedPost(shareJob, careersUrl(shareJob))} style={{ width: '100%', fontSize: '12px', minHeight: '100px', resize: 'vertical', boxSizing: 'border-box' }} onFocus={e => e.target.select()} />
+              <div style={{ fontSize: '12px', color: '#6b6b6b', marginBottom: '4px', fontWeight: 500 }}>Indeed post</div>
+              <textarea readOnly value={formatIndeedPost(shareJob, careersUrl(shareJob))} style={{ width: '100%', fontSize: '12px', minHeight: '100px', resize: 'vertical' }} onFocus={e => e.target.select()} />
               <button className="btn" style={{ fontSize: '12px', padding: '5px 12px', marginTop: '4px' }} onClick={() => copy(formatIndeedPost(shareJob, careersUrl(shareJob)), 'indeed')}>
                 {copied === 'indeed' ? '✓ Copied' : 'Copy for Indeed'}
               </button>
@@ -252,50 +270,136 @@ export default function JobsPage() {
           </div>
         )}
 
-        {/* Job list */}
-        <div className="card">
-          {loading ? (
-            <div className="empty-state">Loading...</div>
-          ) : jobs.length === 0 ? (
-            <div className="empty-state">No job postings yet — create your first one above.</div>
-          ) : (
-            <div className="upload-list">
-              {jobs.map(job => (
-                <div key={job.id} className="upload-item" style={{ flexWrap: 'wrap', gap: '0.5rem', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1, minWidth: '200px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                      <div className="upload-name">{job.title}</div>
-                      <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor(job.status) }}>● {statusLabel(job.status)}</span>
-                      {(appCounts[job.id] ?? 0) > 0 && (
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#185fa5', background: '#e6f1fb', borderRadius: '999px', padding: '1px 7px' }}>
-                          {appCounts[job.id]} applicant{appCounts[job.id] !== 1 ? 's' : ''}
-                        </span>
-                      )}
+        {/* Job list with inline applicants */}
+        {loading ? (
+          <div className="card"><div className="loading-state">Loading...</div></div>
+        ) : jobs.length === 0 ? (
+          <div className="card"><div className="empty-state">No job postings yet — create your first one above.</div></div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {jobs.map(job => {
+              const jobApps = apps.filter(a => a.job_posting_id === job.id)
+              return (
+                <div key={job.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                  {/* Job header row */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem 1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                        <div style={{ fontWeight: 600, fontSize: '14px' }}>{job.title}</div>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor(job.status) }}>● {statusLabel(job.status)}</span>
+                        {jobApps.length > 0 && (
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#185fa5', background: '#e6f1fb', borderRadius: '999px', padding: '1px 7px' }}>
+                            {jobApps.length} applicant{jobApps.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#9a9a9a' }}>
+                        {[job.employment_type, job.location, formatPayRange(job.pay_min, job.pay_max, job.pay_period)].filter(Boolean).join(' · ')}
+                      </div>
                     </div>
-                    <div className="upload-meta">
-                      {[job.employment_type, job.location, formatPayRange(job.pay_min, job.pay_max, job.pay_period)].filter(Boolean).join(' · ')}
+                    <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0, flexWrap: 'wrap' }}>
+                      <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => setShareJobId(shareJobId === job.id ? null : job.id)}>
+                        {shareJobId === job.id ? 'Hide' : 'Share'}
+                      </button>
+                      <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => openEdit(job)}>Edit</button>
+                      <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => toggleStatus(job)}>
+                        {job.status === 'open' ? 'Close' : 'Reopen'}
+                      </button>
+                      <button className="btn" style={{ fontSize: '12px', padding: '4px 10px', color: '#c0392b' }} onClick={() => deleteJob(job.id)}>Delete</button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0, flexWrap: 'wrap' }}>
-                    {(appCounts[job.id] ?? 0) > 0 && (
-                      <a href={`/applications?job=${job.id}`} className="btn" style={{ fontSize: '12px', padding: '4px 10px', color: '#185fa5' }}>
-                        View applicants
-                      </a>
-                    )}
-                    <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => setShareJobId(shareJobId === job.id ? null : job.id)}>
-                      {shareJobId === job.id ? 'Hide' : 'Share'}
-                    </button>
-                    <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => openEdit(job)}>Edit</button>
-                    <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => toggleStatus(job)}>
-                      {job.status === 'open' ? 'Close' : 'Reopen'}
-                    </button>
-                    <button className="btn" style={{ fontSize: '12px', padding: '4px 10px', color: '#c0392b' }} onClick={() => deleteJob(job.id)}>Delete</button>
-                  </div>
+
+                  {/* Inline applicants */}
+                  {jobApps.length > 0 && (
+                    <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.08)', padding: '0.75rem 1.25rem', background: '#fafaf9' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {jobApps.map(app => {
+                          const stage = stageFor(app.status)
+                          const isSelected = selected?.id === app.id
+                          return (
+                            <div
+                              key={app.id}
+                              onClick={() => setSelected(isSelected ? null : app)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '10px',
+                                padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                                background: isSelected ? '#e6f1fb' : '#fff',
+                                border: `0.5px solid ${isSelected ? '#185fa5' : 'rgba(0,0,0,0.10)'}`,
+                                transition: 'all 0.1s',
+                              }}
+                            >
+                              <div style={{ width: 28, height: 28, borderRadius: '50%', background: stage.bg, color: stage.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
+                                {app.name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a' }}>{app.name}</div>
+                                <div style={{ fontSize: '11px', color: '#9a9a9a' }}>{app.email}</div>
+                              </div>
+                              <span style={{ fontSize: '11px', fontWeight: 600, color: stage.color, background: stage.bg, borderRadius: '999px', padding: '2px 8px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                {stage.label}
+                              </span>
+                              <span style={{ fontSize: '11px', color: '#9a9a9a', flexShrink: 0 }}>{timeAgo(app.created_at)}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Applicant detail panel */}
+        {selected && (
+          <div className="detail-panel">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '16px' }}>{selected.name}</div>
+              <button onClick={() => setSelected(null)} className="btn-ghost" style={{ fontSize: '18px', padding: '0 4px' }}>×</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '13px', color: '#6b6b6b' }}>📧 {selected.email}</div>
+              {selected.phone && <div style={{ fontSize: '13px', color: '#6b6b6b' }}>📞 {selected.phone}</div>}
+              <div style={{ fontSize: '13px', color: '#6b6b6b' }}>🏷 {jobs.find(j => j.id === selected.job_posting_id)?.title ?? 'Unknown role'}</div>
+            </div>
+
+            {selected.cover_letter && (
+              <div style={{ marginBottom: '1.25rem' }}>
+                <div className="section-label">Cover letter</div>
+                <div style={{ fontSize: '13px', color: '#1a1a1a', lineHeight: 1.7, whiteSpace: 'pre-wrap', background: '#f7f7f5', borderRadius: '8px', padding: '0.75rem', border: '0.5px solid rgba(0,0,0,0.08)' }}>
+                  {selected.cover_letter}
+                </div>
+              </div>
+            )}
+
+            <div className="section-label">Move to stage</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem' }}>
+              {STAGES.map(stage => (
+                <button key={stage.key} onClick={() => moveStage(selected.id, stage.key)}
+                  style={{
+                    padding: '5px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                    cursor: 'pointer', border: 'none', fontFamily: 'inherit',
+                    background: selected.status === stage.key ? stage.color : stage.bg,
+                    color: selected.status === stage.key ? '#fff' : stage.color,
+                  }}>
+                  {stage.label}
+                </button>
               ))}
             </div>
-          )}
-        </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <a href={`mailto:${selected.email}`} className="btn auth-btn-primary" style={{ flex: 1, textAlign: 'center' }}>
+                Email applicant
+              </a>
+              <button onClick={() => deleteApp(selected.id)} className="btn" style={{ color: '#c0392b' }}>
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
