@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import Nav from '../components/Nav'
+import { MailIcon, PhoneIcon, TagIcon } from '../components/Icons'
 import {
   formatPayRange, validateJobPosting, statusLabel, statusColor,
   formatLinkedInPost, formatIndeedPost, type JobPosting,
@@ -360,9 +361,9 @@ export default function JobsPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '13px', color: '#6b6b6b' }}>📧 {selected.email}</div>
-              {selected.phone && <div style={{ fontSize: '13px', color: '#6b6b6b' }}>📞 {selected.phone}</div>}
-              <div style={{ fontSize: '13px', color: '#6b6b6b' }}>🏷 {jobs.find(j => j.id === selected.job_posting_id)?.title ?? 'Unknown role'}</div>
+              <div style={{ fontSize: '13px', color: '#6b6b6b', display: 'flex', alignItems: 'center', gap: '6px' }}><MailIcon size={13} />{selected.email}</div>
+              {selected.phone && <div style={{ fontSize: '13px', color: '#6b6b6b', display: 'flex', alignItems: 'center', gap: '6px' }}><PhoneIcon size={13} />{selected.phone}</div>}
+              <div style={{ fontSize: '13px', color: '#6b6b6b', display: 'flex', alignItems: 'center', gap: '6px' }}><TagIcon size={13} />{jobs.find(j => j.id === selected.job_posting_id)?.title ?? 'Unknown role'}</div>
             </div>
 
             {selected.cover_letter && (

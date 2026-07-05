@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { BellIcon } from './Icons'
+import { BellIcon, SettingsIcon, SignOutIcon } from './Icons'
 import ChatWidget from './ChatWidget'
 
 type Props = {
@@ -136,9 +136,9 @@ export default function Nav({ active }: Props) {
                 <div className="user-menu-email">{userEmail}</div>
               </div>
               <div className="user-menu-items">
-                <a href="/settings" className="user-menu-item">⚙ Settings</a>
+                <a href="/settings" className="user-menu-item" style={{ display: 'flex', alignItems: 'center', gap: '7px' }}><SettingsIcon size={14} /> Settings</a>
                 <div className="user-menu-divider" />
-                <div className="user-menu-item user-menu-signout" onClick={handleLogout}>→ Sign out</div>
+                <div className="user-menu-item user-menu-signout" onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}><SignOutIcon size={14} /> Sign out</div>
               </div>
             </div>
           )}

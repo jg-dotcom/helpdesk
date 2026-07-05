@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import Nav from '../components/Nav'
+import { ClipboardIcon, MailIcon, PhoneIcon, TagIcon } from '../components/Icons'
 
 type Application = {
   id: string
@@ -116,7 +117,7 @@ function ApplicationsPage() {
           <div className="card"><div className="loading-state">Loading...</div></div>
         ) : apps.length === 0 ? (
           <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '28px', marginBottom: '0.75rem' }}>📋</div>
+            <div style={{ marginBottom: '0.75rem', color: '#9a9a9a' }}><ClipboardIcon size={32} /></div>
             <div className="empty-state">No applications yet — they'll appear here once candidates apply via your careers page.</div>
           </div>
         ) : (
@@ -164,9 +165,9 @@ function ApplicationsPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '13px', color: '#6b6b6b' }}>📧 {selected.email}</div>
-              {selected.phone && <div style={{ fontSize: '13px', color: '#6b6b6b' }}>📞 {selected.phone}</div>}
-              <div style={{ fontSize: '13px', color: '#6b6b6b' }}>🏷 {selected.job_postings?.title ?? 'Unknown role'}</div>
+              <div style={{ fontSize: '13px', color: '#6b6b6b', display: 'flex', alignItems: 'center', gap: '6px' }}><MailIcon size={13} />{selected.email}</div>
+              {selected.phone && <div style={{ fontSize: '13px', color: '#6b6b6b', display: 'flex', alignItems: 'center', gap: '6px' }}><PhoneIcon size={13} />{selected.phone}</div>}
+              <div style={{ fontSize: '13px', color: '#6b6b6b', display: 'flex', alignItems: 'center', gap: '6px' }}><TagIcon size={13} />{selected.job_postings?.title ?? 'Unknown role'}</div>
             </div>
 
             {selected.cover_letter && (

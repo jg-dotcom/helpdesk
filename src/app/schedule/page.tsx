@@ -257,7 +257,7 @@ export default function SchedulePage() {
                 style={{ fontSize: '13px', padding: '6px 10px', border: '1px solid #dde1ea', borderRadius: '6px' }}
               />
               <button className="btn" style={{ fontSize: '13px', padding: '7px 14px' }} onClick={generateSchedule} disabled={generating}>
-                {generating ? 'Generating...' : '⚡ Auto-schedule'}
+                {generating ? 'Generating...' : 'Auto-schedule'}
               </button>
               <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }} onClick={() => setShowShiftForm(v => !v)}>
                 {showShiftForm ? 'Cancel' : '+ Add shift'}

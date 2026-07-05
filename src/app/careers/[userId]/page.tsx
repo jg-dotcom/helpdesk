@@ -58,9 +58,9 @@ export default async function CareersPage({ params }: { params: Promise<{ userId
               </div>
               <div style={{ fontSize: '13px', color: '#888', marginBottom: '0.75rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                 {job.employment_type && <span>{job.employment_type}</span>}
-                {job.location && <span>📍 {job.location}</span>}
+                {job.location && <span>{job.location}</span>}
                 {(job.pay_min || job.pay_max) && (
-                  <span>💰 {formatPayRange(job.pay_min, job.pay_max, job.pay_period)}</span>
+                  <span>{formatPayRange(job.pay_min, job.pay_max, job.pay_period)}</span>
                 )}
               </div>
               {job.description && (

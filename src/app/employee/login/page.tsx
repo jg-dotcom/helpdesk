@@ -46,7 +46,7 @@ export default function EmployeeLogin() {
         <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', boxShadow: '0 2px 16px rgba(0,0,0,0.07)' }}>
           {sent ? (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '40px', marginBottom: '1rem' }}>📬</div>
+              <div style={{ marginBottom: '1rem', color: '#185fa5' }}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></div>
               <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '0.5rem' }}>Check your email</div>
               <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.6 }}>
                 We sent a login link to <strong>{email}</strong>. Click the link to access your portal.

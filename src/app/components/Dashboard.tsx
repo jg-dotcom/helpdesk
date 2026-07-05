@@ -145,10 +145,15 @@ export default function Dashboard({
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) return
+      // Name: prefer full_name from metadata, fall back to email prefix
       const fullName: string = session.user.user_metadata?.full_name ?? ''
-      setFirstName(fullName.split(' ')[0] || session.user.email?.split('@')[0] || '')
+      const first = fullName.trim().split(' ')[0]
+      if (first) setFirstName(first)
+
+      // Business name: check DB first, then metadata
       const { data: biz } = await supabase.from('business_profiles').select('business_name').eq('user_id', session.user.id).maybeSingle()
-      if (biz?.business_name) setBusinessName(biz.business_name)
+      const bizName = biz?.business_name || (session.user.user_metadata?.business_name as string | undefined) || ''
+      if (bizName) setBusinessName(bizName)
     })
   }, [])
 
@@ -264,7 +269,7 @@ export default function Dashboard({
 
       <div className="dash-content">
         <div className="dash-greeting">
-          {greeting()}{firstName ? `, ${firstName}` : ''} 👋
+          {greeting()}{firstName ? `, ${firstName}` : ''}
         </div>
         {businessName && (
           <div style={{ fontSize: '14px', color: '#6b6b6b', marginTop: '2px', marginBottom: '0.25rem' }}>

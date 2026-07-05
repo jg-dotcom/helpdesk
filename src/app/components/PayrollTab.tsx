@@ -210,7 +210,7 @@ export default function PayrollTab({ employeeId, payType, payRate }: Props) {
           <div className="upload-list">
             {entries.map(entry => (
               <div key={entry.id} className="upload-item">
-                <div className="upload-icon">💵</div>
+                <div className="upload-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
                 <div style={{ flex: 1 }}>
                   <div className="upload-name">
                     {formatDate(entry.period_start)} – {formatDate(entry.period_end)}

@@ -288,7 +288,7 @@ export default function OnboardingFlow({ token, employeeId, userId, employeeName
 
         {currentId === 'done' && (
           <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-            <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🎉</div>
+            <div style={{ marginBottom: '1rem', color: '#185fa5' }}><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg></div>
             <div style={{ fontSize: '20px', fontWeight: 700, marginBottom: '0.5rem' }}>You're all set!</div>
             <p style={{ fontSize: '14px', color: '#666', marginBottom: '1.5rem' }}>
               Your onboarding paperwork is complete. Your employer has been notified.
