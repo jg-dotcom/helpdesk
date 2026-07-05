@@ -86,8 +86,9 @@ export default function Login() {
     const meRes = await fetch('/api/employee/me', { headers: { Authorization: `Bearer ${token}` } })
     const meData = await meRes.json()
     if (meData.employee) {
-      // Managers get full dashboard access; regular employees go to portal
-      window.location.href = meData.employee.permission_level === 'manager' ? '/' : '/portal'
+      const role = meData.employee.access_role
+      // Admins and managers get the owner dashboard; regular employees go to portal
+      window.location.href = (role === 'admin' || role === 'manager') ? '/' : '/portal'
     } else {
       window.location.href = '/'
     }

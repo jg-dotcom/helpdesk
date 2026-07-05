@@ -50,6 +50,17 @@ A running log of features that are built (or partially built) but can't go live 
 
 ## 🔵 Planned — Ready to Build When Needed
 
+### Departments System
+**What it unlocks:** Group employees into departments (e.g. Kitchen, Front of House, Bar). Managers can be assigned to one or more departments and only see/schedule employees in those departments. Employees can belong to multiple departments with one marked as primary. The shift scheduler and open shift pool filter by department.
+**Data model when ready:**
+- `departments` table — id, user_id, name, color
+- `department_members` table — employee_id, department_id, is_primary
+- `department_managers` table — employee_id, department_id
+**UX touchpoints:** Settings → new Departments tab, employee panel Departments field, shift scheduler department filter, open shift pool eligibility by department.
+**Dependencies:** Permissions system must be in place first (roles: owner/admin/manager/employee).
+
+---
+
 ### AI Chatbot — Full App Control
 **Current state:** The chatbot can already handle: list employees, analytics summary, approve/deny time off, move applicants, generate and post jobs, clock in/out (employee), check PTO, request time off, view schedule.
 **What's missing (owner side):**

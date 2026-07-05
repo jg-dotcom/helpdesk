@@ -24,6 +24,7 @@ type Props = {
   selectedEmp: Employee | null
   docsGenerated: number
   loading: boolean
+  viewerRole: 'owner' | 'admin' | 'manager' | 'employee'
   onSelectEmp: (emp: Employee) => void
   onAddEmployee: (emp: Omit<Employee, 'id'>) => void
   onUpdateEmployee: (emp: Employee) => void
@@ -127,7 +128,7 @@ function AnnouncementForm() {
 
 
 export default function Dashboard({
-  employees, selectedEmp, docsGenerated, loading,
+  employees, selectedEmp, docsGenerated, loading, viewerRole,
   onSelectEmp, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onStartAction
 }: Props) {
   const [firstName, setFirstName] = useState('')
@@ -327,7 +328,7 @@ export default function Dashboard({
       pay_type: 'hourly',
       pay_rate: null,
       pay_period: 'biweekly',
-      permission_level: 'employee',
+      access_role: 'employee',
     })
     setNewName(''); setNewRole(''); setNewStart(''); setNewType('Full-time')
     setNewPhone(''); setNewEmail(''); setNewAddress(''); setNewEmergencyContact('')
@@ -339,7 +340,7 @@ export default function Dashboard({
   return (
     <>
     <div className="dash-wrap">
-      <Nav active="dashboard" />
+      <Nav active="dashboard" viewerRole={viewerRole} />
 
       <div className="dash-content">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.25rem' }}>

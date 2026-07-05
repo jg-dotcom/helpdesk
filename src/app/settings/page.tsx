@@ -33,12 +33,13 @@ const DEFAULT_FIELDS: Field[] = [
   { id: 'dresscode', label: 'Dress code', placeholder: 'e.g. Black shirt, jeans' },
 ]
 
-type TeamMember = {
+type TeamEmployee = {
   id: number
-  member_email: string
+  name: string
+  email: string
   role: string
-  invited_at: string
-  accepted_at: string | null
+  access_role: string
+  status: string
 }
 
 const TIMEZONES = [
@@ -107,11 +108,12 @@ function SettingsContent() {
   const [notifSaving, setNotifSaving] = useState(false)
 
   // Team
-  const [members, setMembers] = useState<TeamMember[]>([])
+  const [teamEmployees, setTeamEmployees] = useState<TeamEmployee[]>([])
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<'admin' | 'manager'>('manager')
+  const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'employee'>('employee')
   const [inviting, setInviting] = useState(false)
   const [inviteMsg, setInviteMsg] = useState('')
+  const [roleUpdating, setRoleUpdating] = useState<number | null>(null)
 
   // Danger
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -127,11 +129,11 @@ function SettingsContent() {
     setAccessToken(session.access_token)
     setUserEmail(session.user.email ?? '')
 
-    const [bizRes, tmplRes, notifRes, teamRes] = await Promise.all([
+    const [bizRes, tmplRes, notifRes, empRes] = await Promise.all([
       fetch('/api/settings/business', { headers: { Authorization: `Bearer ${session.access_token}` } }),
       supabase.from('onboarding_templates').select('fields, welcome_pack').eq('user_id', session.user.id).single(),
       fetch('/api/settings/notifications', { headers: { Authorization: `Bearer ${session.access_token}` } }),
-      fetch('/api/team/invite', { headers: { Authorization: `Bearer ${session.access_token}` } }),
+      supabase.from('employees').select('id, name, email, role, access_role, status').eq('user_id', session.user.id).order('name'),
     ])
 
     const bizData = await bizRes.json()
@@ -154,8 +156,7 @@ function SettingsContent() {
       setNotifNewEmployee(notifData.prefs.new_employee ?? true)
     }
 
-    const teamData = await teamRes.json()
-    if (teamData.members) setMembers(teamData.members)
+    if (empRes.data) setTeamEmployees(empRes.data)
   }
 
   async function saveAccount() {
@@ -205,34 +206,52 @@ function SettingsContent() {
     setNotifSaving(false)
   }
 
+  async function updateEmployeeRole(empId: number, newRole: string) {
+    setRoleUpdating(empId)
+    await supabase.from('employees').update({ access_role: newRole }).eq('id', empId)
+    setTeamEmployees(prev => prev.map(e => e.id === empId ? { ...e, access_role: newRole } : e))
+    setRoleUpdating(null)
+  }
+
   async function sendInvite() {
     if (!inviteEmail.trim()) return
     setInviting(true)
     setInviteMsg('')
-    const res = await fetch('/api/team/invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      setInviteMsg(data.error)
-    } else {
-      setInviteMsg(`Invite sent to ${inviteEmail}.`)
-      setInviteEmail('')
-      load()
-    }
-    setInviting(false)
-    setTimeout(() => setInviteMsg(''), 3000)
-  }
 
-  async function removeTeamMember(id: number) {
-    await fetch('/api/team/invite', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ memberId: id }),
-    })
-    setMembers(prev => prev.filter(m => m.id !== id))
+    // Check if employee with this email already exists
+    const { data: existing } = await supabase
+      .from('employees')
+      .select('id, access_role')
+      .eq('user_id', userId)
+      .eq('email', inviteEmail.trim().toLowerCase())
+      .single()
+
+    if (existing) {
+      // Just update their role
+      await supabase.from('employees').update({ access_role: inviteRole }).eq('id', existing.id)
+      setInviteMsg(`Role updated for ${inviteEmail}.`)
+      const { data } = await supabase.from('employees').select('id, name, email, role, access_role, status').eq('user_id', userId).order('name')
+      if (data) setTeamEmployees(data)
+    } else {
+      // Send portal invite via API — creates account link
+      const res = await fetch('/api/team/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setInviteMsg(data.error ?? 'Error sending invite.')
+      } else {
+        setInviteMsg(`Invite sent to ${inviteEmail}.`)
+        const { data: emps } = await supabase.from('employees').select('id, name, email, role, access_role, status').eq('user_id', userId).order('name')
+        if (emps) setTeamEmployees(emps)
+      }
+    }
+
+    setInviteEmail('')
+    setInviting(false)
+    setTimeout(() => setInviteMsg(''), 4000)
   }
 
   async function exportData() {
@@ -450,14 +469,74 @@ function SettingsContent() {
           {/* TEAM */}
           {tab === 'team' && (
             <div>
+              {/* Role legend */}
+              <div className="card" style={{ marginBottom: '1rem' }}>
+                <div className="section-label" style={{ marginBottom: '0.75rem' }}>Access levels</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {[
+                    { label: 'Owner', color: '#185fa5', bg: '#e8f0fb', desc: 'Full access including billing and account settings. Only one per business.' },
+                    { label: 'Admin', color: '#7c3aed', bg: '#f3f0ff', desc: 'Full dashboard access — employees, shifts, payroll, hiring. Cannot delete the account or change billing.' },
+                    { label: 'Manager', color: '#d97706', bg: '#fffbeb', desc: 'Can view employees, manage shifts, approve time off and swap requests. No payroll rates or settings.' },
+                    { label: 'Employee', color: '#555', bg: '#f5f5f5', desc: 'Portal only — their own schedule, clock in/out, PTO requests, shift swaps.' },
+                  ].map(r => (
+                    <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: r.bg, color: r.color, flexShrink: 0, minWidth: '60px', textAlign: 'center' }}>{r.label}</span>
+                      <span style={{ fontSize: '12px', color: '#666' }}>{r.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Employee list with inline role change */}
+              <div className="card" style={{ marginBottom: '1rem' }}>
+                <div className="section-label" style={{ marginBottom: '0.75rem' }}>Team ({teamEmployees.length})</div>
+                {teamEmployees.length === 0 && (
+                  <div style={{ fontSize: '13px', color: '#bbb', padding: '8px 0' }}>No employees yet.</div>
+                )}
+                {teamEmployees.map(emp => {
+                  const roleColors: Record<string, { bg: string; color: string }> = {
+                    admin: { bg: '#f3f0ff', color: '#7c3aed' },
+                    manager: { bg: '#fffbeb', color: '#d97706' },
+                    employee: { bg: '#f5f5f5', color: '#555' },
+                  }
+                  const rc = roleColors[emp.access_role] ?? roleColors.employee
+                  return (
+                    <div key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#e8edf8', color: '#185fa5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
+                        {emp.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.name}</div>
+                        <div style={{ fontSize: '11px', color: '#aaa', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.email || emp.role}</div>
+                      </div>
+                      <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', background: rc.bg, color: rc.color, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {emp.access_role}
+                      </span>
+                      <select
+                        value={emp.access_role}
+                        disabled={roleUpdating === emp.id}
+                        onChange={e => updateEmployeeRole(emp.id, e.target.value)}
+                        style={{ fontSize: '12px', padding: '4px 7px', border: '1px solid #dde1ea', borderRadius: '6px', cursor: 'pointer', color: '#555', flexShrink: 0 }}
+                      >
+                        <option value="employee">Employee</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Invite new person */}
               <div className="card">
-                <div className="section-label" style={{ marginBottom: '0.5rem' }}>Invite a team member</div>
+                <div className="section-label" style={{ marginBottom: '0.5rem' }}>Invite someone new</div>
                 <div style={{ fontSize: '13px', color: '#666', marginBottom: '1rem', lineHeight: 1.5 }}>
-                  Admins have full access. Managers can view employees and approve time-off but can't change settings.
+                  If the email matches an existing employee, their access level is updated. Otherwise an invite is sent and a record is created.
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
                   <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="email@example.com" style={{ flex: 1, minWidth: '180px' }} onKeyDown={e => e.key === 'Enter' && sendInvite()} />
-                  <select value={inviteRole} onChange={e => setInviteRole(e.target.value as 'admin' | 'manager')} style={{ width: 'auto' }}>
+                  <select value={inviteRole} onChange={e => setInviteRole(e.target.value as 'admin' | 'manager' | 'employee')} style={{ width: 'auto' }}>
+                    <option value="employee">Employee</option>
                     <option value="manager">Manager</option>
                     <option value="admin">Admin</option>
                   </select>
@@ -465,30 +544,8 @@ function SettingsContent() {
                 <button className="btn auth-btn-primary" onClick={sendInvite} disabled={inviting || !inviteEmail.trim()} style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }}>
                   {inviting ? 'Sending...' : 'Send invite'}
                 </button>
-                {inviteMsg && <div className={`${inviteMsg.startsWith('Invite') ? 'done-msg' : 'auth-error'}`} style={{ marginTop: '0.5rem', fontSize: '13px' }}>{inviteMsg}</div>}
+                {inviteMsg && <div className="done-msg" style={{ marginTop: '0.5rem', fontSize: '13px' }}>{inviteMsg}</div>}
               </div>
-
-              {members.length > 0 && (
-                <div className="card" style={{ marginTop: '1rem' }}>
-                  <div className="section-label" style={{ marginBottom: '0.75rem' }}>Team members</div>
-                  {members.map(m => (
-                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '14px', fontWeight: 500 }}>{m.member_email}</div>
-                        <div style={{ fontSize: '12px', color: '#888', marginTop: '2px', textTransform: 'capitalize' }}>{m.role}</div>
-                      </div>
-                      <span style={{
-                        fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px',
-                        background: m.accepted_at ? '#e8f8ef' : '#fff8e1',
-                        color: m.accepted_at ? '#27ae60' : '#f59e0b',
-                      }}>
-                        {m.accepted_at ? 'Active' : 'Pending'}
-                      </span>
-                      <button onClick={() => removeTeamMember(m.id)} style={{ fontSize: '12px', color: '#c0392b', background: 'none', border: 'none', cursor: 'pointer' }}>Remove</button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           )}
 

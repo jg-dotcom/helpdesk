@@ -24,7 +24,8 @@ export type Employee = {
   pay_type: string
   pay_rate: number | null
   pay_period: string
-  permission_level: string
+  // 'admin' | 'manager' | 'employee' — owners are identified by business_profiles row
+  access_role: string
 }
 
 export type ActionType = 'onboarding' | 'checkin' | 'offboarding' | null
@@ -37,15 +38,45 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState('')
+  // 'owner' if they have a business_profiles row; otherwise their employee access_role
+  const [viewerRole, setViewerRole] = useState<'owner' | 'admin' | 'manager' | 'employee'>('owner')
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        window.location.href = '/login'
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) { window.location.href = '/login'; return }
+      const session = data.session
+
+      // Check if this user is an owner (has business_profiles row)
+      const { data: biz } = await supabase
+        .from('business_profiles')
+        .select('user_id')
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (biz) {
+        // Owner — use their own user_id for all queries
+        setUserId(session.user.id)
+        setUserEmail(session.user.email || '')
+        setViewerRole('owner')
+        loadData(session.user.id)
       } else {
-        setUserId(data.session.user.id)
-        setUserEmail(data.session.user.email || '')
-        loadData(data.session.user.id)
+        // Not an owner — look up employee record by email to get owner's user_id
+        const { data: emp } = await supabase
+          .from('employees')
+          .select('user_id, access_role, email')
+          .eq('email', session.user.email ?? '')
+          .single()
+
+        if (!emp) { window.location.href = '/login'; return }
+
+        const accessRole = emp.access_role as 'admin' | 'manager' | 'employee'
+        if (accessRole === 'employee') { window.location.href = '/portal'; return }
+
+        // Admin or manager — load the owner's business data
+        setUserId(emp.user_id)
+        setUserEmail(session.user.email || '')
+        setViewerRole(accessRole)
+        loadData(emp.user_id)
       }
     })
   }, [])
@@ -123,6 +154,7 @@ export default function Home() {
       selectedEmp={selectedEmp}
       docsGenerated={docsGenerated}
       loading={loading}
+      viewerRole={viewerRole}
       onSelectEmp={setSelectedEmp}
       onAddEmployee={addEmployee}
       onUpdateEmployee={updateEmployee}

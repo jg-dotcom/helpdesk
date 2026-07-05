@@ -327,7 +327,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
         date_of_birth: form.date_of_birth, status: form.status,
         i9_status: form.i9_status, w4_status: form.w4_status,
         pay_type: form.pay_type, pay_rate: form.pay_rate, pay_period: form.pay_period,
-        permission_level: form.permission_level ?? 'employee',
+        access_role: form.access_role ?? 'employee',
       })
       .eq('id', employee.id)
     if (error) {
@@ -432,7 +432,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div className="emp-panel-name">{employee.name}</div>
-            {employee.permission_level === 'manager' && (
+            {employee.access_role === 'manager' && (
               <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', background: '#dcfce7', color: '#166534', letterSpacing: '0.04em' }}>MANAGER</span>
             )}
           </div>
@@ -525,32 +525,6 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             <select value={form.status || 'active'} onChange={e => set('status', e.target.value)}>
               <option value="active">Active</option><option value="on_leave">On leave</option><option value="terminated">Terminated</option>
             </select>
-          </div>
-
-          {/* Manager permissions */}
-          <div style={{ marginTop: '1rem', padding: '0.875rem 1rem', borderRadius: '8px', background: '#f9fafb', border: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>Manager access</div>
-              <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
-                {(form.permission_level ?? 'employee') === 'manager'
-                  ? 'Can access the owner dashboard, approve time off, and manage shifts.'
-                  : 'Standard employee — portal access only.'}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => set('permission_level', (form.permission_level ?? 'employee') === 'manager' ? 'employee' : 'manager')}
-              style={{
-                flexShrink: 0,
-                fontSize: '12px', fontWeight: 600, padding: '6px 14px', borderRadius: '20px', cursor: 'pointer',
-                border: `1px solid ${(form.permission_level ?? 'employee') === 'manager' ? '#166534' : '#dde1ea'}`,
-                background: (form.permission_level ?? 'employee') === 'manager' ? '#dcfce7' : '#fff',
-                color: (form.permission_level ?? 'employee') === 'manager' ? '#166534' : '#666',
-                transition: 'all 0.15s',
-              }}
-            >
-              {(form.permission_level ?? 'employee') === 'manager' ? '✓ Manager' : 'Make manager'}
-            </button>
           </div>
 
           <div className="emp-panel-section">Contact</div>
