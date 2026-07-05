@@ -131,9 +131,9 @@ export default function Dashboard({
   const [saving, setSaving] = useState(false)
   const [showTerminated, setShowTerminated] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [openTab, setOpenTab] = useState<'info' | 'compliance' | 'onboarding' | 'offboarding'>('info')
+  const [openTab, setOpenTab] = useState<'info' | 'onboarding' | 'offboarding'>('info')
 
-  function selectEmpOnTab(emp: Employee, tab: 'info' | 'compliance' | 'onboarding' | 'offboarding') {
+  function selectEmpOnTab(emp: Employee, tab: 'info' | 'onboarding' | 'offboarding') {
     setOpenTab(tab)
     onSelectEmp(emp)
   }
@@ -306,7 +306,7 @@ export default function Dashboard({
                   return (
                     <div
                       key={issue.name}
-                      onClick={() => fullEmp && (selectedEmp?.id === fullEmp.id ? onSelectEmp(null as any) : selectEmpOnTab(fullEmp, 'compliance'))}
+                      onClick={() => fullEmp && (selectedEmp?.id === fullEmp.id ? onSelectEmp(null as any) : onSelectEmp(fullEmp))}
                       style={{ fontSize: '11px', color: '#c0392b', cursor: 'pointer' }}
                     >
                       {issue.name} — {issue.missing.join(', ')}
@@ -457,6 +457,20 @@ export default function Dashboard({
               </div>
             )}
 
+
+
+            {selectedEmp && (
+              <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '1rem' }}>
+                <EmployeePanel
+                  employee={selectedEmp}
+                  initialTab={openTab}
+                  onClose={() => { onSelectEmp(null as any); setOpenTab('info') }}
+                  onUpdated={onUpdateEmployee}
+                  onDelete={id => { onDeleteEmployee(id); onSelectEmp(null as any) }}
+                  onStartAction={onStartAction}
+                />
+              </div>
+            )}
           </div>
 
           {onboardingProgress.length > 0 && (
@@ -472,23 +486,14 @@ export default function Dashboard({
                     { label: 'Signed', done: emp.agreed },
                   ]
                   const doneCount = steps.filter(s => s.done).length
-                  const fullEmp = employees.find(e => e.id === emp.empId)
                   return (
-                    <div
-                      key={emp.empId}
-                      onClick={() => fullEmp && (selectedEmp?.id === emp.empId ? onSelectEmp(null as any) : selectEmpOnTab(fullEmp, 'compliance'))}
-                      style={{
-                        display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
-                        padding: '0.75rem', borderRadius: '8px',
-                        background: selectedEmp?.id === emp.empId ? '#f0f4fb' : '#fafafa',
-                        border: `1px solid ${selectedEmp?.id === emp.empId ? '#c2d4f0' : '#eee'}`,
-                        cursor: 'pointer', transition: 'all 0.15s',
-                      }}
-                      onMouseEnter={e => { if (selectedEmp?.id !== emp.empId) e.currentTarget.style.background = '#f4f4f2' }}
-                      onMouseLeave={e => { if (selectedEmp?.id !== emp.empId) e.currentTarget.style.background = '#fafafa' }}
-                    >
+                    <div key={emp.empId} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                      padding: '0.75rem', borderRadius: '8px',
+                      background: '#fafafa', border: '1px solid #eee',
+                    }}>
                       <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#e8edf8', color: '#185fa5', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
-                        {emp.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
+                        {emp.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '13px', fontWeight: 500, color: '#1a1a1a', marginBottom: '6px' }}>
@@ -504,7 +509,7 @@ export default function Dashboard({
                               fontWeight: s.done ? 600 : 400,
                               border: `1px solid ${s.done ? '#c3e6cb' : '#e8e8e8'}`,
                             }}>
-                              {s.done ? '✓ ' : ''}{s.label}
+                              {s.label}
                             </span>
                           ))}
                         </div>
@@ -572,19 +577,6 @@ export default function Dashboard({
           </div>
 
         </div>
-
-        {selectedEmp && (
-          <div style={{ marginTop: '1.5rem' }}>
-            <EmployeePanel
-              employee={selectedEmp}
-              initialTab={openTab}
-              onClose={() => { onSelectEmp(null as any); setOpenTab('info') }}
-              onUpdated={onUpdateEmployee}
-              onDelete={id => { onDeleteEmployee(id); onSelectEmp(null as any) }}
-              onStartAction={onStartAction}
-            />
-          </div>
-        )}
 
       </div>
     </div>

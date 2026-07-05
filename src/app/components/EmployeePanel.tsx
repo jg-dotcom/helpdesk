@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Employee } from '../page'
-import ComplianceChecklist from './ComplianceChecklist'
 import { PaperclipIcon, DollarIcon, MailIcon } from './Icons'
 
 type Props = {
@@ -24,7 +23,7 @@ const DEFAULT_OFFBOARDING_ITEMS = [
   'Exit interview completed',
 ]
 
-type Tab = 'info' | 'compliance' | 'onboarding' | 'offboarding' | 'documents' | 'payroll'
+type Tab = 'info' | 'onboarding' | 'offboarding' | 'documents' | 'payroll'
 
 type PayrollEntry = {
   id: number
@@ -339,7 +338,6 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'info', label: 'Info' },
     { key: 'onboarding', label: 'Onboarding' },
-    { key: 'compliance', label: 'Compliance' },
     { key: 'documents', label: 'Documents' },
     { key: 'payroll', label: 'Payroll' },
     { key: 'offboarding', label: 'Offboarding' },
@@ -444,22 +442,6 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             {saveMsg && <div className="done-msg">{saveMsg}</div>}
           </div>
         </div>
-      )}
-
-      {/* Compliance tab */}
-      {tab === 'compliance' && (
-        <ComplianceChecklist
-          employeeId={employee.id}
-          i9Status={form.i9_status || 'pending'}
-          w4Status={form.w4_status || 'pending'}
-          directDepositStatus={form.direct_deposit_status || 'pending'}
-          welcomePackSent={welcomePackSent}
-          documentsSigned={documentsSigned}
-          onUpdate={(field, value) => {
-            setForm(prev => ({ ...prev, [field]: value }))
-            onUpdated({ ...form, [field]: value })
-          }}
-        />
       )}
 
       {/* Onboarding tab */}
