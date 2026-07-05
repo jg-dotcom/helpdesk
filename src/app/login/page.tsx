@@ -74,8 +74,16 @@ export default function Login() {
     setLoading(true); setError('')
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { setError(error.message); setLoading(false); return }
-    // Check if this user is an employee (matched by email in employees table)
-    const meRes = await fetch('/api/employee/me', { headers: { Authorization: `Bearer ${data.session?.access_token}` } })
+    const token = data.session?.access_token
+
+    // Owners always have a business profile — check that first so an owner
+    // who is also listed as an employee still lands on the owner dashboard.
+    const bizRes = await fetch('/api/settings/business', { headers: { Authorization: `Bearer ${token}` } })
+    const bizData = await bizRes.json()
+    if (bizData.profile) { window.location.href = '/'; return }
+
+    // No business profile → must be an employee
+    const meRes = await fetch('/api/employee/me', { headers: { Authorization: `Bearer ${token}` } })
     const meData = await meRes.json()
     window.location.href = meData.employee ? '/portal' : '/'
     setLoading(false)
