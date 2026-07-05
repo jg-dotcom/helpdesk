@@ -13,7 +13,8 @@ type BusinessHours = Record<DayKey, { open: string; close: string; closed: boole
 const DAY_KEYS: DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 
 type Employee = { id: number; name: string; role: string; pay_type: string; pay_rate: number | null }
-type Shift = { id: number; employee_id: number; shift_date: string; start_time: string; end_time: string; notes: string | null; status?: string }
+type Shift = { id: number; employee_id: number | null; shift_date: string; start_time: string; end_time: string; notes: string | null; status?: string; is_open_shift?: boolean }
+type ShiftSwap = { id: number; requester_employee_id: number; requester_shift_id: number; target_employee_id: number | null; target_shift_id: number | null; status: string; notes: string | null; created_at: string }
 type TimeOffRequest = { id: number; employee_id: number; start_date: string; end_date: string; type: string; reason: string | null; status: string; created_at: string }
 type TimeEntry = { id: number; employee_id: number; clock_in: string; clock_out: string | null; total_minutes: number | null }
 type Availability = { employee_id: number; day_of_week: number; start_time: string; end_time: string }
@@ -95,6 +96,10 @@ export default function TimePage() {
   const [shiftNotes, setShiftNotes] = useState('')
   const [savingShift, setSavingShift] = useState(false)
   const [shiftMsg, setShiftMsg] = useState('')
+  const [repeatEnabled, setRepeatEnabled] = useState(false)
+  const [repeatWeeks, setRepeatWeeks] = useState(1)
+  const [shiftIsOpen, setShiftIsOpen] = useState(false)
+  const [swapRequests, setSwapRequests] = useState<ShiftSwap[]>([])
 
   // Weekly / monthly view
   const [weekOffset, setWeekOffset] = useState(0)
@@ -147,24 +152,46 @@ export default function TimePage() {
       const { data: avail } = await supabase.from('employee_availability').select('*').in('employee_id', empList.map(e => e.id))
       if (avail) setAvailability(avail)
     }
+
+    const { data: swaps } = await supabase
+      .from('shift_swaps')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+    setSwapRequests(swaps ?? [])
+
     setLoading(false)
   }
 
   // ── Shift actions ─────────────────────────────────────────────────────────
 
   async function handleAddShift() {
-    if (!shiftEmpId || !shiftDate) { setShiftMsg('Select an employee and date.'); return }
+    if (!shiftIsOpen && !shiftEmpId) { setShiftMsg('Select an employee or mark as open shift.'); return }
+    if (!shiftDate) { setShiftMsg('Select a date.'); return }
     setSavingShift(true)
-    const { data, error } = await supabase.from('shifts').insert([{
-      user_id: userId, employee_id: shiftEmpId, shift_date: shiftDate,
-      start_time: shiftStart, end_time: shiftEnd, notes: shiftNotes.trim() || null,
-    }]).select().single()
+
+    const baseDate = new Date(shiftDate + 'T00:00:00')
+    const shiftsToInsert = Array.from({ length: repeatWeeks }, (_, i) => {
+      const d = new Date(baseDate); d.setDate(baseDate.getDate() + i * 7)
+      return {
+        user_id: userId,
+        employee_id: shiftIsOpen ? null : shiftEmpId,
+        is_open_shift: shiftIsOpen,
+        shift_date: d.toISOString().slice(0, 10),
+        start_time: shiftStart, end_time: shiftEnd,
+        notes: shiftNotes.trim() || null,
+      }
+    })
+
+    const { data, error } = await supabase.from('shifts').insert(shiftsToInsert).select()
     if (error) { setShiftMsg('Error saving.') }
     else {
-      setShifts(prev => [...prev, data].sort((a, b) => a.shift_date.localeCompare(b.shift_date)))
-      setShiftMsg('Shift added.')
+      setShifts(prev => [...prev, ...(data ?? [])].sort((a, b) => a.shift_date.localeCompare(b.shift_date)))
+      setShiftMsg(repeatWeeks > 1 ? `${repeatWeeks} shifts added.` : 'Shift added.')
       setShowShiftForm(false); setShiftEmpId(''); setShiftDate(''); setShiftNotes('')
-      setTimeout(() => setShiftMsg(''), 2000)
+      setRepeatEnabled(false); setRepeatWeeks(1); setShiftIsOpen(false)
+      setTimeout(() => setShiftMsg(''), 2500)
     }
     setSavingShift(false)
   }
@@ -172,6 +199,30 @@ export default function TimePage() {
   async function handleDeleteShift(id: number) {
     await supabase.from('shifts').delete().eq('id', id)
     setShifts(prev => prev.filter(s => s.id !== id))
+  }
+
+  async function handleSwapDecision(
+    swapId: number, status: 'approved' | 'denied',
+    reqShiftId: number | null, tgtShiftId: number | null,
+    reqEmpId: number | null, tgtEmpId: number | null,
+  ) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    await fetch(`/api/shifts/swaps/${swapId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ status }),
+    })
+    if (status === 'approved' && reqShiftId && tgtShiftId && reqEmpId !== null && tgtEmpId !== null) {
+      await supabase.from('shifts').update({ employee_id: tgtEmpId }).eq('id', reqShiftId)
+      await supabase.from('shifts').update({ employee_id: reqEmpId }).eq('id', tgtShiftId)
+      setShifts(prev => prev.map(s => {
+        if (s.id === reqShiftId) return { ...s, employee_id: tgtEmpId }
+        if (s.id === tgtShiftId) return { ...s, employee_id: reqEmpId }
+        return s
+      }))
+    }
+    setSwapRequests(prev => prev.filter(s => s.id !== swapId))
   }
 
   function openShiftFormForDate(dateStr: string) {
@@ -244,7 +295,7 @@ export default function TimePage() {
   const weekShifts = shifts.filter(s => weekDays.includes(s.shift_date) && s.status !== 'called_out')
   const scheduledHours = weekShifts.reduce((sum, s) => sum + shiftHours(s), 0)
   const estimatedCost = weekShifts.reduce((sum, s) => {
-    const emp = empMap[s.employee_id]
+    const emp = s.employee_id != null ? empMap[s.employee_id] : null
     if (!emp?.pay_rate) return sum
     const hrs = shiftHours(s)
     return sum + (emp.pay_type === 'salary' ? (emp.pay_rate / 52 / 40) * hrs : emp.pay_rate * hrs)
@@ -272,6 +323,7 @@ export default function TimePage() {
   const onTimeRate = onTimeTotal > 0 ? Math.round((onTimeCount / onTimeTotal) * 100) : null
 
   const pendingRequests = requests.filter(r => r.status === 'pending')
+  const pendingSwaps = swapRequests.filter(s => s.status === 'pending')
 
   if (loading) return (
     <div className="dash-wrap"><Nav active="time" />
@@ -332,13 +384,23 @@ export default function TimePage() {
                 <div style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: '14px' }}>
                   {shiftDate ? `New shift — ${new Date(shiftDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}` : 'New shift'}
                 </div>
+                {/* Open shift toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.75rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', userSelect: 'none' }}>
+                    <input type="checkbox" checked={shiftIsOpen} onChange={e => { setShiftIsOpen(e.target.checked); if (e.target.checked) setShiftEmpId('') }} />
+                    Open shift (no employee assigned — post to pool)
+                  </label>
+                </div>
+
                 <div className="row2" style={{ marginBottom: '0.75rem' }}>
-                  <div className="field"><label>Employee</label>
-                    <select value={shiftEmpId} onChange={e => setShiftEmpId(Number(e.target.value))}>
-                      <option value="">Select...</option>
-                      {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                    </select>
-                  </div>
+                  {!shiftIsOpen && (
+                    <div className="field"><label>Employee</label>
+                      <select value={shiftEmpId} onChange={e => setShiftEmpId(Number(e.target.value))}>
+                        <option value="">Select...</option>
+                        {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                      </select>
+                    </div>
+                  )}
                   <div className="field"><label>Date</label><input type="date" value={shiftDate} onChange={e => setShiftDate(e.target.value)} /></div>
                 </div>
                 <div className="row2" style={{ marginBottom: '0.75rem' }}>
@@ -348,9 +410,23 @@ export default function TimePage() {
                 <div className="field" style={{ marginBottom: '0.75rem' }}>
                   <label>Notes (optional)</label><input value={shiftNotes} onChange={e => setShiftNotes(e.target.value)} placeholder="e.g. Opening shift" />
                 </div>
+
+                {/* Repeat weekly */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.75rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', userSelect: 'none' }}>
+                    <input type="checkbox" checked={repeatEnabled} onChange={e => { setRepeatEnabled(e.target.checked); if (!e.target.checked) setRepeatWeeks(1) }} />
+                    Repeat weekly for
+                  </label>
+                  {repeatEnabled && (
+                    <select value={repeatWeeks} onChange={e => setRepeatWeeks(Number(e.target.value))} style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #dde1ea', borderRadius: '6px' }}>
+                      {[2, 3, 4, 6, 8, 12].map(n => <option key={n} value={n}>{n} weeks</option>)}
+                    </select>
+                  )}
+                </div>
+
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                   <button className="btn auth-btn-primary" style={{ width: 'auto' }} onClick={handleAddShift} disabled={savingShift}>{savingShift ? 'Saving...' : 'Save shift'}</button>
-                  <button className="btn" style={{ width: 'auto' }} onClick={() => setShowShiftForm(false)}>Cancel</button>
+                  <button className="btn" style={{ width: 'auto' }} onClick={() => { setShowShiftForm(false); setShiftIsOpen(false); setRepeatEnabled(false); setRepeatWeeks(1) }}>Cancel</button>
                   {shiftMsg && <div className="done-msg">{shiftMsg}</div>}
                 </div>
               </div>
@@ -365,6 +441,48 @@ export default function TimePage() {
                 {genMsg && <div className={genMsg.startsWith('Error') || genMsg.startsWith('No employee') || genMsg.startsWith('No new') ? 'auth-error' : 'done-msg'} style={{ fontSize: '12px' }}>{genMsg}</div>}
               </div>
             </div>
+
+            {/* Pending swap requests */}
+            {pendingSwaps.length > 0 && (
+              <div className="card" style={{ marginBottom: '1rem', border: '1px solid #fde8c8' }}>
+                <div className="section-label" style={{ marginBottom: '0.75rem', color: '#e67e22' }}>
+                  Swap requests
+                  <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, background: '#e67e22', color: '#fff', borderRadius: '10px', padding: '1px 7px' }}>{pendingSwaps.length}</span>
+                </div>
+                {pendingSwaps.map(swap => {
+                  const requester = empMap[swap.requester_employee_id]
+                  const target = swap.target_employee_id != null ? empMap[swap.target_employee_id] : null
+                  const reqShift = shifts.find(s => s.id === swap.requester_shift_id)
+                  const tgtShift = swap.target_shift_id != null ? shifts.find(s => s.id === swap.target_shift_id) : null
+                  return (
+                    <div key={swap.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0.75rem', borderRadius: '8px', background: '#fffbf5', border: '1px solid #fde8c8', marginBottom: '0.5rem' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                          {requester?.name ?? '?'} wants to swap{target ? ` with ${target.name}` : ''}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
+                          {reqShift ? `Their shift: ${fmtDate(reqShift.shift_date)} ${fmt(reqShift.start_time)}–${fmt(reqShift.end_time)}` : ''}
+                          {tgtShift ? ` ↔ ${fmtDate(tgtShift.shift_date)} ${fmt(tgtShift.start_time)}–${fmt(tgtShift.end_time)}` : ''}
+                          {swap.notes ? ` · "${swap.notes}"` : ''}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                        <button
+                          onClick={() => handleSwapDecision(swap.id, 'approved', swap.requester_shift_id, swap.target_shift_id, swap.requester_employee_id, swap.target_employee_id)}
+                          style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #27ae60', background: '#f0faf4', color: '#27ae60', cursor: 'pointer', fontWeight: 500 }}>
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleSwapDecision(swap.id, 'denied', null, null, null, null)}
+                          style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #e0e0e0', background: '#fafafa', color: '#c0392b', cursor: 'pointer', fontWeight: 500 }}>
+                          Deny
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* View toggle */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '0.75rem' }}>
@@ -400,17 +518,18 @@ export default function TimePage() {
                           <div style={{ fontSize: '10px', color: '#ccc' }}>+ Add</div>
                         ) : dayShifts.map(s => {
                           const isCalledOut = s.status === 'called_out'
-                          const emp = empMap[s.employee_id]
-                          const empIdx = employees.findIndex(e => e.id === s.employee_id)
-                          const color = isCalledOut ? { bg: '#fff0f0', text: '#c0392b' } : EMP_COLORS[empIdx >= 0 ? empIdx % EMP_COLORS.length : 0]
+                          const isOpen = s.is_open_shift && !s.employee_id
+                          const emp = s.employee_id != null ? empMap[s.employee_id] : null
+                          const empIdx = s.employee_id != null ? employees.findIndex(e => e.id === s.employee_id) : -1
+                          const color = isOpen ? { bg: '#dcfce7', text: '#166534' } : isCalledOut ? { bg: '#fff0f0', text: '#c0392b' } : EMP_COLORS[empIdx >= 0 ? empIdx % EMP_COLORS.length : 0]
                           return (
                             <div key={s.id} style={{ marginBottom: '4px' }}>
-                              <div style={{ fontSize: '10px', background: color.bg, color: color.text, borderRadius: '4px', padding: '3px 5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '3px' }}>
+                              <div style={{ fontSize: '10px', background: color.bg, color: color.text, borderRadius: '4px', padding: '3px 5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '3px', border: isOpen ? '1px dashed #166534' : 'none' }}>
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                                  {emp?.name.split(' ')[0] ?? '?'}{isCalledOut ? ' ✗' : ''}
+                                  {isOpen ? 'OPEN' : (emp?.name.split(' ')[0] ?? '?')}{isCalledOut ? ' ✗' : ''}
                                 </span>
                                 <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                                  {!isCalledOut && emp && (
+                                  {!isCalledOut && !isOpen && emp && (
                                     <button onClick={e => { e.stopPropagation(); setCalloutTarget({ shiftId: s.id, shiftDate: s.shift_date, startTime: s.start_time, endTime: s.end_time, employee: { id: emp.id, name: emp.name } }) }}
                                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e67e22', fontSize: '10px', lineHeight: 1, padding: '0 2px' }} title="Call out">!</button>
                                   )}
@@ -493,16 +612,17 @@ export default function TimePage() {
                             {dayNum}
                           </div>
                           {visible.map(s => {
-                            const empIdx = employees.findIndex(e => e.id === s.employee_id)
-                            const color = s.status === 'called_out' ? { bg: '#fee2e2', text: '#991b1b' } : EMP_COLORS[empIdx >= 0 ? empIdx % EMP_COLORS.length : 0]
-                            const emp = empMap[s.employee_id]
+                            const isOpen = s.is_open_shift && !s.employee_id
+                            const empIdx = s.employee_id != null ? employees.findIndex(e => e.id === s.employee_id) : -1
+                            const color = isOpen ? { bg: '#dcfce7', text: '#166534' } : s.status === 'called_out' ? { bg: '#fee2e2', text: '#991b1b' } : EMP_COLORS[empIdx >= 0 ? empIdx % EMP_COLORS.length : 0]
+                            const emp = s.employee_id != null ? empMap[s.employee_id] : null
                             return (
                               <div
                                 key={s.id}
-                                title={`${emp?.name ?? 'Unknown'} · ${fmt(s.start_time)}–${fmt(s.end_time)}${s.status === 'called_out' ? ' · Called out' : ''}`}
-                                style={{ fontSize: '10px', background: color.bg, color: color.text, borderRadius: '3px', padding: '2px 4px', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 500 }}
+                                title={isOpen ? `Open shift · ${fmt(s.start_time)}–${fmt(s.end_time)}` : `${emp?.name ?? 'Unknown'} · ${fmt(s.start_time)}–${fmt(s.end_time)}${s.status === 'called_out' ? ' · Called out' : ''}`}
+                                style={{ fontSize: '10px', background: color.bg, color: color.text, borderRadius: '3px', padding: '2px 4px', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 500, border: isOpen ? '1px dashed #166534' : 'none' }}
                               >
-                                {emp?.name.split(' ')[0] ?? '?'} {s.status !== 'called_out' ? fmt(s.start_time).replace(' AM','a').replace(' PM','p') : '✗'}
+                                {isOpen ? 'OPEN' : (emp?.name.split(' ')[0] ?? '?')} {s.status !== 'called_out' ? fmt(s.start_time).replace(' AM','a').replace(' PM','p') : '✗'}
                               </div>
                             )
                           })}
