@@ -23,7 +23,7 @@ const DEFAULT_OFFBOARDING_ITEMS = [
   'Exit interview completed',
 ]
 
-type Tab = 'info' | 'onboarding' | 'offboarding' | 'documents' | 'payroll'
+type Tab = 'info' | 'onboarding' | 'offboarding' | 'documents' | 'payroll' | 'notes'
 
 type PayrollEntry = {
   id: number
@@ -99,6 +99,11 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [sendError, setSendError] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
 
+  // Notes tab state
+  type CheckinNote = { id: number; content: string; created_at: string }
+  const [checkinNotes, setCheckinNotes] = useState<CheckinNote[]>([])
+  const [notesLoading, setNotesLoading] = useState(false)
+
   // Documents tab state
   const [employeeForms, setEmployeeForms] = useState<EmployeeForm[]>([])
   const [employeeDocs, setEmployeeDocs] = useState<EmployeeDoc[]>([])
@@ -146,6 +151,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     }])
     setNoteSaving(false)
     setNoteSaved(true)
+    loadNotes()
     setTimeout(() => { setNoteSaved(false); setShowNoteBox(false); setNoteText(''); setNoteSummary([]) }, 1500)
   }
 
@@ -185,6 +191,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     loadOffboardingTemplate()
     loadDocuments()
     loadPayroll()
+    loadNotes()
     const today = new Date()
     const dayOfWeek = today.getDay()
     const start = new Date(today); start.setDate(today.getDate() - dayOfWeek)
@@ -192,6 +199,18 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     setPayPeriodStart(start.toISOString().slice(0, 10))
     setPayPeriodEnd(end.toISOString().slice(0, 10))
   }, [employee.id])
+
+  async function loadNotes() {
+    setNotesLoading(true)
+    const { data } = await supabase
+      .from('documents')
+      .select('id, content, created_at')
+      .eq('employee_name', employee.name)
+      .eq('type', 'checkin')
+      .order('created_at', { ascending: false })
+    if (data) setCheckinNotes(data)
+    setNotesLoading(false)
+  }
 
   async function loadComplianceData() {
     const { data } = await supabase
@@ -380,6 +399,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'info', label: 'Info' },
+    { key: 'notes', label: checkinNotes.length > 0 ? `Notes (${checkinNotes.length})` : 'Notes' },
     { key: 'onboarding', label: 'Onboarding' },
     { key: 'documents', label: 'Documents' },
     { key: 'payroll', label: 'Payroll' },
@@ -784,6 +804,33 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               <div style={{ fontSize: '12px', color: '#666', padding: '6px 2px', fontWeight: 500 }}>
                 Total paid: {formatMoney(payrollEntries.reduce((s, e) => s + e.gross_pay, 0))}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Notes tab */}
+      {tab === 'notes' && (
+        <div>
+          {notesLoading ? (
+            <div style={{ fontSize: '13px', color: '#999' }}>Loading...</div>
+          ) : checkinNotes.length === 0 ? (
+            <div className="empty-state">
+              No notes yet. Use the ✎ Note button above to write one.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {checkinNotes.map(note => (
+                <div key={note.id} style={{ padding: '0.875rem 1rem', borderRadius: '10px', background: '#fafafa', border: '1px solid #eee' }}>
+                  <div style={{ fontSize: '11px', color: '#9a9a9a', marginBottom: '0.5rem', fontWeight: 500 }}>
+                    {new Date(note.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    <span style={{ marginLeft: '6px' }}>
+                      · {new Date(note.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#1a1a1a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{note.content}</div>
+                </div>
+              ))}
             </div>
           )}
         </div>

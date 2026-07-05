@@ -88,6 +88,9 @@ export default function SchedulePage() {
   const [savingShift, setSavingShift] = useState(false)
   const [shiftMsg, setShiftMsg] = useState('')
 
+  // Weekly view state
+  const [weekOffset, setWeekOffset] = useState(0)
+
   useEffect(() => { load() }, [])
 
   async function load() {
@@ -216,6 +219,28 @@ export default function SchedulePage() {
     setTimeout(() => setGenMsg(''), 4000)
   }
 
+  function openShiftFormForDate(dateStr: string) {
+    setShiftDate(dateStr)
+    setShiftEmpId('')
+    setShiftStart('09:00')
+    setShiftEnd('17:00')
+    setShiftNotes('')
+    setShowShiftForm(true)
+    setTab('shifts')
+  }
+
+  // Weekly view helpers
+  function getWeekDays(offset: number) {
+    const d = new Date()
+    d.setDate(d.getDate() - d.getDay() + offset * 7)
+    d.setHours(0, 0, 0, 0)
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(d)
+      day.setDate(d.getDate() + i)
+      return day.toISOString().slice(0, 10)
+    })
+  }
+
   // Calendar helpers
   const firstDay = new Date(calYear, calMonth, 1).getDay()
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate()
@@ -335,7 +360,7 @@ export default function SchedulePage() {
                     const dayShifts = getShiftsForDate(dateStr)
                     const isToday = dateStr === now.toISOString().slice(0, 10)
                     return (
-                      <div key={day} style={{ minHeight: '70px', border: '1px solid #eee', borderRadius: '6px', padding: '4px', background: isToday ? '#f0f6ff' : '#fff' }}>
+                      <div key={day} onClick={() => openShiftFormForDate(dateStr)} style={{ minHeight: '70px', border: '1px solid #eee', borderRadius: '6px', padding: '4px', background: isToday ? '#f0f6ff' : '#fff', cursor: 'pointer', transition: 'border-color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.borderColor = '#185fa5')} onMouseLeave={e => (e.currentTarget.style.borderColor = '#eee')}>
                         <div style={{ fontSize: '12px', fontWeight: isToday ? 700 : 400, color: isToday ? '#185fa5' : '#333', marginBottom: '2px' }}>{day}</div>
                         {timeoffs.map(t => (
                           <div key={t.id} style={{ fontSize: '10px', background: typeColors[t.type] || '#185fa5', color: '#fff', borderRadius: '3px', padding: '1px 4px', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -358,68 +383,100 @@ export default function SchedulePage() {
               </div>
             )}
 
-            {tab === 'shifts' && (
-              <div className="card">
-                {showShiftForm && (
-                  <div style={{ background: '#f8f9fb', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', border: '1px solid #e8eaf0' }}>
-                    <div style={{ fontWeight: 600, marginBottom: '0.75rem' }}>New shift</div>
-                    <div className="row2" style={{ marginBottom: '0.75rem' }}>
-                      <div className="field">
-                        <label>Employee</label>
-                        <select value={shiftEmpId} onChange={e => setShiftEmpId(Number(e.target.value))}>
-                          <option value="">Select...</option>
-                          {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                        </select>
+            {tab === 'shifts' && (() => {
+              const weekDays = getWeekDays(weekOffset)
+              const weekStart = new Date(weekDays[0] + 'T00:00:00')
+              const weekEnd = new Date(weekDays[6] + 'T00:00:00')
+              const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+              const today = new Date().toISOString().slice(0, 10)
+              return (
+                <div>
+                  {showShiftForm && (
+                    <div className="card" style={{ marginBottom: '1rem' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: '14px' }}>
+                        {shiftDate ? `New shift — ${new Date(shiftDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}` : 'New shift'}
                       </div>
-                      <div className="field">
-                        <label>Date</label>
-                        <input type="date" value={shiftDate} onChange={e => setShiftDate(e.target.value)} />
-                      </div>
-                    </div>
-                    <div className="row2" style={{ marginBottom: '0.75rem' }}>
-                      <div className="field">
-                        <label>Start time</label>
-                        <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} />
-                      </div>
-                      <div className="field">
-                        <label>End time</label>
-                        <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} />
-                      </div>
-                    </div>
-                    <div className="field" style={{ marginBottom: '0.75rem' }}>
-                      <label>Notes (optional)</label>
-                      <input value={shiftNotes} onChange={e => setShiftNotes(e.target.value)} placeholder="e.g. Opening shift" />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <button className="btn auth-btn-primary" style={{ width: 'auto' }} onClick={handleAddShift} disabled={savingShift}>
-                        {savingShift ? 'Saving...' : 'Save shift'}
-                      </button>
-                      {shiftMsg && <div className="done-msg">{shiftMsg}</div>}
-                    </div>
-                  </div>
-                )}
-                {genMsg && <div className={genMsg.startsWith('Error') || genMsg.startsWith('No employee') || genMsg.startsWith('No new') ? 'auth-error' : 'done-msg'} style={{ marginBottom: '1rem' }}>{genMsg}</div>}
-                {shifts.length === 0 ? (
-                  <div className="empty-state">No shifts scheduled yet.</div>
-                ) : (
-                  <div className="upload-list">
-                    {shifts.map(s => {
-                      const emp = empMap[s.employee_id]
-                      return (
-                        <div key={s.id} className="upload-item">
-                          <div className="emp-initials">{emp?.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2) ?? '?'}</div>
-                          <div style={{ flex: 1 }}>
-                            <div className="upload-name">{emp?.name ?? 'Unknown'}</div>
-                            <div className="upload-meta">{formatDate(s.shift_date)} · {formatTime(s.start_time)} – {formatTime(s.end_time)}{s.notes ? ` · ${s.notes}` : ''}</div>
-                          </div>
-                          <button className="btn" style={{ fontSize: '12px', padding: '4px 10px', color: '#c0392b' }} onClick={() => handleDeleteShift(s.id)}>Remove</button>
+                      <div className="row2" style={{ marginBottom: '0.75rem' }}>
+                        <div className="field">
+                          <label>Employee</label>
+                          <select value={shiftEmpId} onChange={e => setShiftEmpId(Number(e.target.value))}>
+                            <option value="">Select...</option>
+                            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                          </select>
                         </div>
-                      )
-                    })}
+                        <div className="field">
+                          <label>Date</label>
+                          <input type="date" value={shiftDate} onChange={e => setShiftDate(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="row2" style={{ marginBottom: '0.75rem' }}>
+                        <div className="field">
+                          <label>Start time</label>
+                          <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} />
+                        </div>
+                        <div className="field">
+                          <label>End time</label>
+                          <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="field" style={{ marginBottom: '0.75rem' }}>
+                        <label>Notes (optional)</label>
+                        <input value={shiftNotes} onChange={e => setShiftNotes(e.target.value)} placeholder="e.g. Opening shift" />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <button className="btn auth-btn-primary" style={{ width: 'auto' }} onClick={handleAddShift} disabled={savingShift}>
+                          {savingShift ? 'Saving...' : 'Save shift'}
+                        </button>
+                        <button className="btn" style={{ width: 'auto' }} onClick={() => setShowShiftForm(false)}>Cancel</button>
+                        {shiftMsg && <div className="done-msg">{shiftMsg}</div>}
+                      </div>
+                    </div>
+                  )}
+
+                  {genMsg && <div className={genMsg.startsWith('Error') || genMsg.startsWith('No employee') || genMsg.startsWith('No new') ? 'auth-error' : 'done-msg'} style={{ marginBottom: '1rem' }}>{genMsg}</div>}
+
+                  {/* Week navigator */}
+                  <div className="card">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                      <button className="btn" style={{ padding: '4px 10px', fontSize: '14px' }} onClick={() => setWeekOffset(o => o - 1)}>←</button>
+                      <div style={{ fontWeight: 600, fontSize: '14px' }}>{weekLabel}</div>
+                      <button className="btn" style={{ padding: '4px 10px', fontSize: '14px' }} onClick={() => setWeekOffset(o => o + 1)}>→</button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
+                      {weekDays.map((dateStr, i) => {
+                        const dayShifts = shifts.filter(s => s.shift_date === dateStr)
+                        const isToday = dateStr === today
+                        const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i]
+                        const dayNum = new Date(dateStr + 'T00:00:00').getDate()
+                        return (
+                          <div
+                            key={dateStr}
+                            onClick={() => openShiftFormForDate(dateStr)}
+                            style={{ minHeight: '100px', border: `1px solid ${isToday ? '#185fa5' : '#eee'}`, borderRadius: '8px', padding: '8px', background: isToday ? '#f0f6ff' : '#fafafa', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                            onMouseEnter={e => (e.currentTarget.style.borderColor = '#185fa5')}
+                            onMouseLeave={e => (e.currentTarget.style.borderColor = isToday ? '#185fa5' : '#eee')}
+                          >
+                            <div style={{ fontSize: '11px', fontWeight: 600, color: isToday ? '#185fa5' : '#888', marginBottom: '6px' }}>{dayName} {dayNum}</div>
+                            {dayShifts.length === 0 ? (
+                              <div style={{ fontSize: '10px', color: '#ccc', marginTop: '4px' }}>+ Add</div>
+                            ) : dayShifts.map(s => (
+                              <div key={s.id} style={{ marginBottom: '4px' }}>
+                                <div style={{ fontSize: '10px', background: '#e8edf8', color: '#185fa5', borderRadius: '4px', padding: '3px 5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '3px' }}>
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>{empMap[s.employee_id]?.name.split(' ')[0] ?? '?'}</span>
+                                  <button onClick={e => { e.stopPropagation(); handleDeleteShift(s.id) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0392b', fontSize: '11px', lineHeight: 1, padding: 0, flexShrink: 0 }}>×</button>
+                                </div>
+                                <div style={{ fontSize: '10px', color: '#888', marginTop: '1px' }}>{formatTime(s.start_time)}–{formatTime(s.end_time)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )
+            })()}
           </>
         )}
       </div>

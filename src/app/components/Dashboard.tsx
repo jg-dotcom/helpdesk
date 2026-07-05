@@ -70,6 +70,12 @@ function fmtShortDate(s: string) {
   return new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function formatTime(t: string) {
+  const [h, m] = t.split(':')
+  const hour = parseInt(h)
+  return `${hour % 12 || 12}:${m} ${hour < 12 ? 'AM' : 'PM'}`
+}
+
 function AnnouncementForm() {
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
@@ -147,6 +153,7 @@ export default function Dashboard({
   const [clockedInEntries, setClockedInEntries] = useState<{ employee_id: number }[]>([])
   const [weeklyMins, setWeeklyMins] = useState<Record<number, number>>({})
   const [upcomingTimeOff, setUpcomingTimeOff] = useState<TimeOffRequest[]>([])
+  const [todayShifts, setTodayShifts] = useState<{ employee_id: number; start_time: string; end_time: string }[]>([])
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
 
   function selectEmpOnTab(emp: Employee, tab: 'info' | 'onboarding' | 'offboarding') {
@@ -259,10 +266,11 @@ export default function Dashboard({
     const today = new Date().toISOString().slice(0, 10)
     const twoWeeks = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-    const [{ data: clockedIn }, { data: weekly }, { data: upcoming }] = await Promise.all([
+    const [{ data: clockedIn }, { data: weekly }, { data: upcoming }, { data: todayScheduled }] = await Promise.all([
       supabase.from('time_entries').select('employee_id').eq('user_id', session.user.id).is('clock_out', null),
       supabase.from('time_entries').select('employee_id, total_minutes, clock_in, clock_out').eq('user_id', session.user.id).gte('clock_in', weekStartISO()),
       supabase.from('time_off_requests').select('*').eq('user_id', session.user.id).eq('status', 'approved').gte('end_date', today).lte('start_date', twoWeeks).order('start_date'),
+      supabase.from('shifts').select('employee_id, start_time, end_time').eq('user_id', session.user.id).eq('shift_date', today).order('start_time'),
     ])
 
     setClockedInEntries(clockedIn ?? [])
@@ -277,6 +285,7 @@ export default function Dashboard({
     setWeeklyMins(mins)
 
     setUpcomingTimeOff(upcoming ?? [])
+    setTodayShifts(todayScheduled ?? [])
   }
 
   async function handleTimeOff(id: number, status: 'approved' | 'denied') {
@@ -695,6 +704,51 @@ export default function Dashboard({
                     )
                   })}
                 </div>
+              </div>
+            )
+          })()}
+
+          {/* Today's coverage */}
+          {todayShifts.length > 0 && (() => {
+            const clockedInIds = new Set(clockedInEntries.map(c => c.employee_id))
+            const covered = todayShifts.filter(s => clockedInIds.has(s.employee_id))
+            const gaps = todayShifts.filter(s => !clockedInIds.has(s.employee_id))
+            const allGood = gaps.length === 0
+            return (
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div className="section-label" style={{ marginBottom: 0 }}>Today&apos;s coverage</div>
+                  <span style={{ fontSize: '12px', fontWeight: 600, padding: '2px 8px', borderRadius: '10px', background: allGood ? '#e8f8ef' : '#fff5f5', color: allGood ? '#27ae60' : '#c0392b', border: `1px solid ${allGood ? '#c3e6cb' : '#fcd4d4'}` }}>
+                    {covered.length}/{todayShifts.length} clocked in
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  {todayShifts.map((s, i) => {
+                    const emp = employees.find(e => e.id === s.employee_id)
+                    const isClockedIn = clockedInIds.has(s.employee_id)
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0.55rem 0.75rem', borderRadius: '8px', background: isClockedIn ? '#f4fbf7' : '#fff9f9', border: `1px solid ${isClockedIn ? '#d4edda' : '#fcd4d4'}` }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: isClockedIn ? '#d4edda' : '#fcd4d4', color: isClockedIn ? '#27ae60' : '#c0392b', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {emp ? initials(emp.name) : '??'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 500 }}>{emp?.name ?? 'Unknown'}</div>
+                          <div style={{ fontSize: '11px', color: '#9a9a9a', marginTop: '1px' }}>
+                            {formatTime(s.start_time)} – {formatTime(s.end_time)}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: isClockedIn ? '#27ae60' : '#c0392b', flexShrink: 0 }}>
+                          {isClockedIn ? '● In' : '○ Gap'}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {!allGood && (
+                  <div style={{ marginTop: '0.65rem', fontSize: '12px', color: '#c0392b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    ⚠ {gaps.length} scheduled employee{gaps.length !== 1 ? 's' : ''} not yet clocked in
+                  </div>
+                )}
               </div>
             )
           })()}
