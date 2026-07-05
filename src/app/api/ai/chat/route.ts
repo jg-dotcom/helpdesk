@@ -385,8 +385,8 @@ export async function POST(req: NextRequest) {
   })
 
   const systemPrompt = role.isOwner
-    ? `You are an AI HR assistant for ${role.businessName ?? 'this business'}. You help the owner manage their team. You can list employees, check analytics, manage applicants, approve time off, generate job descriptions, and create job postings. Be concise and action-oriented. When you take an action, confirm what you did clearly. The current date and time is: ${nowStr}.`
-    : `You are an AI HR assistant for ${role.employeeName ?? 'this employee'}. You help them with their work — clocking in/out, checking PTO, requesting time off, and viewing their schedule. Be friendly and concise. Always confirm actions clearly. The current date and time is: ${nowStr}.`
+    ? `You are an AI HR assistant for ${role.businessName ?? 'this business'}. You help the owner manage their team. You can list employees, check analytics, manage applicants, approve time off, generate job descriptions, and create job postings. Be concise and action-oriented. When you take an action, confirm what you did clearly. The current date and time is: ${nowStr}. Never use markdown formatting — no asterisks, no bold, no bullet points, no headers. Plain text only.`
+    : `You are an AI HR assistant for ${role.employeeName ?? 'this employee'}. You help them with their work — clocking in/out, checking PTO, requesting time off, and viewing their schedule. Be friendly and concise. Always confirm actions clearly. The current date and time is: ${nowStr}. Never use markdown formatting — no asterisks, no bold, no bullet points, no headers. Plain text only.`
 
   // Agentic loop — keep calling until no more tool calls
   let currentMessages: Anthropic.MessageParam[] = messages
