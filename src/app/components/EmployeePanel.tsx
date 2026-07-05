@@ -126,6 +126,49 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [offboardingSaving, setOffboardingSaving] = useState(false)
   const [offboardingDone, setOffboardingDone] = useState(false)
 
+  // Inline note box state
+  const [showNoteBox, setShowNoteBox] = useState(false)
+  const [noteText, setNoteText] = useState('')
+  const [noteSummary, setNoteSummary] = useState<string[]>([])
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteSaved, setNoteSaved] = useState(false)
+  const [noteGenerating, setNoteGenerating] = useState(false)
+
+  async function saveNote() {
+    if (!noteText.trim()) return
+    setNoteSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    await supabase.from('documents').insert([{
+      type: 'checkin',
+      employee_name: employee.name,
+      content: noteText.trim(),
+      user_id: session?.user.id,
+    }])
+    setNoteSaving(false)
+    setNoteSaved(true)
+    setTimeout(() => { setNoteSaved(false); setShowNoteBox(false); setNoteText(''); setNoteSummary([]) }, 1500)
+  }
+
+  async function generateNote() {
+    setNoteGenerating(true)
+    setNoteSummary([])
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'checkin', employee, notes: noteText }),
+    })
+    const data = await res.json()
+    try {
+      const parsed = JSON.parse(data.text)
+      if (parsed.summary && parsed.note) {
+        setNoteSummary(parsed.summary)
+        setNoteText(parsed.note)
+      } else { setNoteText(data.text) }
+    } catch { setNoteText(data.text) }
+    setNoteGenerating(false)
+    setNoteSaved(false)
+  }
+
   function animateClose() {
     setClosing(true)
     setTimeout(() => onClose(), 400)
@@ -349,10 +392,52 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
         <div>
           <div className="emp-panel-name">{employee.name}</div>
           <div className="emp-panel-role">{employee.role}</div>
-          <a href={`/employees/${employee.id}`} style={{ fontSize: '12px', color: '#185fa5', marginTop: '2px', display: 'inline-block' }}>View full profile →</a>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '4px', alignItems: 'center' }}>
+            <a href={`/employees/${employee.id}`} style={{ fontSize: '12px', color: '#185fa5' }}>View full profile →</a>
+            <button
+              onClick={() => { setShowNoteBox(v => !v); setNoteSaved(false) }}
+              style={{ fontSize: '12px', color: showNoteBox ? '#185fa5' : '#6b6b6b', background: showNoteBox ? '#e8edf8' : '#f0f0f0', border: 'none', borderRadius: '6px', padding: '2px 9px', cursor: 'pointer', fontWeight: 500 }}
+            >
+              ✎ Note
+            </button>
+          </div>
         </div>
         <button className="emp-panel-close" onClick={animateClose}>×</button>
       </div>
+
+      {showNoteBox && (
+        <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f8f9fb', borderRadius: '10px', border: '1px solid #e4e7f0' }}>
+          {noteSummary.length > 0 && (
+            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+              {noteSummary.map(tag => (
+                <span key={tag} style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: '#e8edf8', color: '#185fa5', fontWeight: 500 }}>{tag}</span>
+              ))}
+            </div>
+          )}
+          <textarea
+            value={noteText}
+            onChange={e => { setNoteText(e.target.value); setNoteSaved(false) }}
+            placeholder="Write a quick note about this employee, or add your observations and hit Generate..."
+            style={{ width: '100%', minHeight: '80px', border: '1px solid #e0e3eb', borderRadius: '6px', padding: '8px', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', outline: 'none', background: '#fff', lineHeight: 1.5 }}
+          />
+          <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={saveNote}
+              disabled={!noteText.trim() || noteSaving || noteSaved}
+              style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: 'none', background: noteSaved ? '#27ae60' : '#185fa5', color: '#fff', cursor: 'pointer', fontWeight: 500, opacity: (!noteText.trim() || noteSaving) ? 0.5 : 1 }}
+            >
+              {noteSaving ? 'Saving...' : noteSaved ? '✓ Saved' : 'Save note'}
+            </button>
+            <button
+              onClick={generateNote}
+              disabled={noteGenerating}
+              style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid #d0d5e8', background: '#fff', color: '#185fa5', cursor: 'pointer', fontWeight: 500 }}
+            >
+              {noteGenerating ? 'Generating...' : '✦ Generate with AI'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid #eee', marginBottom: '1.25rem', gap: 0 }}>
@@ -442,11 +527,6 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             {saveMsg && <div className="done-msg">{saveMsg}</div>}
           </div>
 
-          <div style={{ marginTop: '1.25rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-            <button className="action-card-sm" onClick={() => onStartAction('checkin')}>
-              <span>✓</span> Write a check-in note
-            </button>
-          </div>
         </div>
       )}
 
