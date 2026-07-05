@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import Nav from '../components/Nav'
 
@@ -31,7 +32,10 @@ function timeAgo(iso: string) {
   return `${days}d ago`
 }
 
-export default function ApplicationsPage() {
+function ApplicationsPage() {
+  const searchParams = useSearchParams()
+  const jobIdParam = searchParams.get('job')
+
   const [apps, setApps] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Application | null>(null)
@@ -39,11 +43,14 @@ export default function ApplicationsPage() {
   const [token, setToken] = useState('')
 
   const load = useCallback(async (tok: string) => {
-    const res = await fetch('/api/applications', { headers: { Authorization: `Bearer ${tok}` } })
+    const url = jobIdParam
+      ? `/api/applications?job_id=${jobIdParam}`
+      : '/api/applications'
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${tok}` } })
     const d = await res.json()
     setApps(d.applications ?? [])
     setLoading(false)
-  }, [])
+  }, [jobIdParam])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -81,12 +88,22 @@ export default function ApplicationsPage() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <div>
-            <div style={{ fontSize: '20px', fontWeight: 700 }}>Applicants</div>
-            <div style={{ fontSize: '13px', color: '#6b6b6b', marginTop: '4px' }}>
-              {apps.length} total application{apps.length !== 1 ? 's' : ''}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ fontSize: '20px', fontWeight: 700 }}>Applicants</div>
+              {jobIdParam && apps.length > 0 && (
+                <span style={{ fontSize: '12px', fontWeight: 500, color: '#185fa5', background: '#e6f1fb', borderRadius: '999px', padding: '2px 10px' }}>
+                  {apps[0].job_postings?.title ?? 'Filtered role'}
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: '13px', color: '#6b6b6b', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {apps.length} application{apps.length !== 1 ? 's' : ''}
+              {jobIdParam && (
+                <a href="/applications" style={{ fontSize: '12px', color: '#9a9a9a' }}>← Show all</a>
+              )}
             </div>
           </div>
-          {jobTitles.length > 1 && (
+          {!jobIdParam && jobTitles.length > 1 && (
             <select value={filterJob} onChange={e => setFilterJob(e.target.value)}
               style={{ width: 'auto', padding: '7px 10px' }}>
               <option value="all">All roles</option>
@@ -188,5 +205,13 @@ export default function ApplicationsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function ApplicationsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="dash-wrap"><Nav active="applications" /><div className="dash-content"><div className="card"><div className="loading-state">Loading...</div></div></div></div>}>
+      <ApplicationsPage />
+    </Suspense>
   )
 }

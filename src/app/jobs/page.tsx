@@ -26,6 +26,7 @@ export default function JobsPage() {
   const [errors, setErrors] = useState<string[]>([])
   const [shareJobId, setShareJobId] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [appCounts, setAppCounts] = useState<Record<number, number>>({})
 
   useEffect(() => { load() }, [])
 
@@ -33,12 +34,16 @@ export default function JobsPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
     setUserId(session.user.id)
-    const { data } = await supabase
-      .from('job_postings')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-    if (data) setJobs(data)
+    const [{ data: jobData }, { data: appData }] = await Promise.all([
+      supabase.from('job_postings').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
+      supabase.from('job_applications').select('job_posting_id').eq('user_id', session.user.id),
+    ])
+    if (jobData) setJobs(jobData)
+    if (appData) {
+      const counts: Record<number, number> = {}
+      appData.forEach(a => { counts[a.job_posting_id] = (counts[a.job_posting_id] ?? 0) + 1 })
+      setAppCounts(counts)
+    }
     setLoading(false)
   }
 
@@ -261,12 +266,22 @@ export default function JobsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
                       <div className="upload-name">{job.title}</div>
                       <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor(job.status) }}>● {statusLabel(job.status)}</span>
+                      {(appCounts[job.id] ?? 0) > 0 && (
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#185fa5', background: '#e6f1fb', borderRadius: '999px', padding: '1px 7px' }}>
+                          {appCounts[job.id]} applicant{appCounts[job.id] !== 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                     <div className="upload-meta">
                       {[job.employment_type, job.location, formatPayRange(job.pay_min, job.pay_max, job.pay_period)].filter(Boolean).join(' · ')}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0, flexWrap: 'wrap' }}>
+                    {(appCounts[job.id] ?? 0) > 0 && (
+                      <a href={`/applications?job=${job.id}`} className="btn" style={{ fontSize: '12px', padding: '4px 10px', color: '#185fa5' }}>
+                        View applicants
+                      </a>
+                    )}
                     <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => setShareJobId(shareJobId === job.id ? null : job.id)}>
                       {shareJobId === job.id ? 'Hide' : 'Share'}
                     </button>
