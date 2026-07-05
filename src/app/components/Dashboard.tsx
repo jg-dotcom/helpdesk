@@ -112,6 +112,8 @@ export default function Dashboard({
   employees, selectedEmp, docsGenerated, loading,
   onSelectEmp, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onStartAction
 }: Props) {
+  const [firstName, setFirstName] = useState('')
+  const [businessName, setBusinessName] = useState('')
   const [complianceIssues, setComplianceIssues] = useState<{ name: string; missing: string[] }[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [newName, setNewName] = useState('')
@@ -139,6 +141,16 @@ export default function Dashboard({
     empId: number; name: string; role: string; sentAt: string;
     w4: boolean; i9: boolean; deposit: boolean; availability: boolean; agreed: boolean;
   }[]>([])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return
+      const fullName: string = session.user.user_metadata?.full_name ?? ''
+      setFirstName(fullName.split(' ')[0] || session.user.email?.split('@')[0] || '')
+      const { data: biz } = await supabase.from('business_profiles').select('business_name').eq('user_id', session.user.id).maybeSingle()
+      if (biz?.business_name) setBusinessName(biz.business_name)
+    })
+  }, [])
 
   useEffect(() => {
     loadComplianceIssues()
@@ -251,7 +263,14 @@ export default function Dashboard({
       <Nav active="dashboard" />
 
       <div className="dash-content">
-        <div className="dash-greeting">{greeting()}</div>
+        <div className="dash-greeting">
+          {greeting()}{firstName ? `, ${firstName}` : ''} 👋
+        </div>
+        {businessName && (
+          <div style={{ fontSize: '14px', color: '#6b6b6b', marginTop: '2px', marginBottom: '0.25rem' }}>
+            Here&apos;s how <strong>{businessName}</strong> is doing today.
+          </div>
+        )}
 
         <div className="dash-stats">
           <div className="stat">
