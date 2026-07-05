@@ -173,6 +173,7 @@ export default function ActionScreen({ employee, action, onBack, onDocDone, user
   const [lastDay, setLastDay] = useState('')
   const [reason, setReason] = useState('New job')
   const [output, setOutput] = useState('')
+  const [checkinSummary, setCheckinSummary] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [doneMsg, setDoneMsg] = useState('')
@@ -241,6 +242,7 @@ export default function ActionScreen({ employee, action, onBack, onDocDone, user
     setLoading(true)
     setDoneMsg('')
     setSaved(false)
+    setCheckinSummary([])
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -248,7 +250,22 @@ export default function ActionScreen({ employee, action, onBack, onDocDone, user
         body: JSON.stringify({ action, employee, notes, lastDay, reason }),
       })
       const data = await res.json()
-      setOutput(data.text || 'Error generating response.')
+      const raw = data.text || 'Error generating response.'
+      if (action === 'checkin') {
+        try {
+          const parsed = JSON.parse(raw)
+          if (parsed.summary && parsed.note) {
+            setCheckinSummary(parsed.summary)
+            setOutput(parsed.note)
+          } else {
+            setOutput(raw)
+          }
+        } catch {
+          setOutput(raw)
+        }
+      } else {
+        setOutput(raw)
+      }
     } catch {
       setOutput('Something went wrong. Please try again.')
     }
@@ -456,6 +473,15 @@ export default function ActionScreen({ employee, action, onBack, onDocDone, user
         {output && action === 'checkin' && (
           <div className="card">
             <div className="section-label">Generated document</div>
+            {checkinSummary.length > 0 && (
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                {checkinSummary.map(tag => (
+                  <span key={tag} style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '20px', background: '#e8edf8', color: '#185fa5', fontWeight: 500 }}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="output">{output}</div>
             <div className="doc-actions">
               <button className="doc-btn" onClick={copyDoc}>Copy</button>

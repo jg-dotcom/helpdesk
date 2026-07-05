@@ -30,7 +30,16 @@ Write the welcome pack with these sections:
 Keep it under 400 words total. Plain language, no corporate HR jargon. Format it cleanly so it reads like a real document.`
 
   } else if (action === 'checkin') {
-    prompt = `Write a short, honest performance check-in note for a small business owner's records about their employee ${employee.name} (${employee.role}). Based on these notes from the owner: "${notes || 'Generally doing well, no major issues'}". Write 2-3 sentences summarizing performance, note one strength and one area to improve. Keep it factual and fair. Plain language, no HR buzzwords.`
+    prompt = `You are writing a performance check-in note for a small business owner's HR records.
+
+Employee: ${employee.name} (${employee.role})
+Owner's notes: "${notes || 'Generally doing well, no major issues'}"
+
+Return a JSON object with exactly two fields:
+1. "summary": an array of 2–4 short descriptive words or phrases capturing the employee at a glance (e.g. ["Reliable", "Customer-focused", "Needs inventory work"]).
+2. "note": a 2–3 sentence plain text check-in note. Mention one strength and one area to improve. No asterisks, no markdown, no bullet points, no headers — plain sentences only.
+
+Return only valid JSON, nothing else.`
 
   } else if (action === 'offboarding') {
     prompt = `Create a simple offboarding checklist for a small business. Employee: ${employee.name}, Role: ${employee.role}, Last day: ${lastDay || 'their last day'}, Reason: ${reason || 'personal reasons'}. List 7-8 practical steps the owner needs to take: keys/access, final pay, any paperwork, notifying the team, a farewell message. Keep it plain and actionable — this owner is not an HR professional. End with a one-sentence note about staying on good terms.`
