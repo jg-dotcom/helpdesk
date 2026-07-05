@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { PhoneIcon, MessageIcon, MailIcon } from './Icons'
 
 type Employee = {
   id: number
@@ -185,17 +186,17 @@ export default function CalloutModal({ shiftId, shiftDate, startTime, endTime, c
                     <>
                       <a
                         href={`tel:${emp.phone.replace(/\D/g, '')}`}
-                        style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d0d5e8', background: '#f5f6fa', color: '#185fa5', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }}
+                        style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d0d5e8', background: '#f5f6fa', color: '#185fa5', textDecoration: 'none', fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                         title="Call"
                       >
-                        Call
+                        <PhoneIcon size={13} /> Call
                       </a>
                       <a
                         href={`sms:${emp.phone.replace(/\D/g, '')}?body=${smsBody}`}
-                        style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d0d5e8', background: '#f5f6fa', color: '#185fa5', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }}
+                        style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d0d5e8', background: '#f5f6fa', color: '#185fa5', textDecoration: 'none', fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                         title="Text"
                       >
-                        Text
+                        <MessageIcon size={13} /> Text
                       </a>
                     </>
                   )}
@@ -214,9 +215,9 @@ export default function CalloutModal({ shiftId, shiftDate, startTime, endTime, c
             <button
               onClick={notifyAll}
               disabled={sending}
-              style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#185fa5', color: '#fff', cursor: 'pointer', fontWeight: 600, flex: 1 }}
+              style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#185fa5', color: '#fff', cursor: 'pointer', fontWeight: 600, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
-              {sending ? 'Sending...' : `Email all ${eligible.length} available`}
+              {sending ? 'Sending...' : <><MailIcon size={13} /> Email all {eligible.length} available</>}
             </button>
           )}
           {!marked && (
