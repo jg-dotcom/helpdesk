@@ -72,9 +72,12 @@ export default function Login() {
 
   async function handleSignIn() {
     setLoading(true); setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) setError(error.message)
-    else window.location.href = '/'
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) { setError(error.message); setLoading(false); return }
+    // Check if this user is an employee (matched by email in employees table)
+    const meRes = await fetch('/api/employee/me', { headers: { Authorization: `Bearer ${data.session?.access_token}` } })
+    const meData = await meRes.json()
+    window.location.href = meData.employee ? '/portal' : '/'
     setLoading(false)
   }
 

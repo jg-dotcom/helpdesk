@@ -89,6 +89,8 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
   const [welcomePackSent, setWelcomePackSent] = useState(false)
+  const [portalInviteSending, setPortalInviteSending] = useState(false)
+  const [portalInviteMsg, setPortalInviteMsg] = useState('')
   const [documentsSigned, setDocumentsSigned] = useState(false)
   const [closing, setClosing] = useState(false)
 
@@ -336,6 +338,23 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     setSaving(false)
   }
 
+  async function sendPortalInvite() {
+    if (!employee.email) { setPortalInviteMsg('Employee has no email on file.'); return }
+    setPortalInviteSending(true); setPortalInviteMsg('')
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+    if (!accessToken) { setPortalInviteMsg('Not signed in.'); setPortalInviteSending(false); return }
+    const res = await fetch('/api/employee/portal-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ employeeId: employee.id }),
+    })
+    const data = await res.json()
+    setPortalInviteMsg(res.ok ? `Invite sent to ${employee.email}.` : (data.error ?? 'Error sending invite.'))
+    setPortalInviteSending(false)
+    setTimeout(() => setPortalInviteMsg(''), 4000)
+  }
+
   async function sendWelcomePack() {
     setSending(true)
     setSendError('')
@@ -579,6 +598,26 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               </div>
             </>
           )}
+
+          {/* Portal invite */}
+          <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #f0f0f0' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>Employee portal access</div>
+            <p style={{ fontSize: '13px', color: '#666', marginBottom: '0.75rem' }}>
+              Send {employee.name} a login link to the employee portal — they can view their schedule, clock in/out, and request time off.
+            </p>
+            {employee.email ? (
+              <>
+                <button className="btn" style={{ width: 'auto', fontSize: '13px' }} onClick={sendPortalInvite} disabled={portalInviteSending}>
+                  {portalInviteSending ? 'Sending...' : `Send portal invite → ${employee.email}`}
+                </button>
+                {portalInviteMsg && (
+                  <div className={portalInviteMsg.startsWith('Invite') ? 'done-msg' : 'auth-error'} style={{ marginTop: '0.5rem', fontSize: '13px' }}>{portalInviteMsg}</div>
+                )}
+              </>
+            ) : (
+              <div style={{ fontSize: '13px', color: '#c0392b' }}>Add an email address to this employee first.</div>
+            )}
+          </div>
         </div>
       )}
 
