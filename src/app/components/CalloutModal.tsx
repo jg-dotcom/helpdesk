@@ -188,14 +188,14 @@ export default function CalloutModal({ shiftId, shiftDate, startTime, endTime, c
                         style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d0d5e8', background: '#f5f6fa', color: '#185fa5', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }}
                         title="Call"
                       >
-                        📞 Call
+                        Call
                       </a>
                       <a
                         href={`sms:${emp.phone.replace(/\D/g, '')}?body=${smsBody}`}
                         style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d0d5e8', background: '#f5f6fa', color: '#185fa5', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }}
                         title="Text"
                       >
-                        💬 Text
+                        Text
                       </a>
                     </>
                   )}
@@ -216,7 +216,7 @@ export default function CalloutModal({ shiftId, shiftDate, startTime, endTime, c
               disabled={sending}
               style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#185fa5', color: '#fff', cursor: 'pointer', fontWeight: 600, flex: 1 }}
             >
-              {sending ? 'Sending...' : `📧 Email all ${eligible.length} available`}
+              {sending ? 'Sending...' : `Email all ${eligible.length} available`}
             </button>
           )}
           {!marked && (
