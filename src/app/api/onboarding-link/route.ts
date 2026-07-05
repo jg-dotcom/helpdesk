@@ -60,25 +60,25 @@ export async function POST(req: NextRequest) {
       .single()
     const bizName = profile?.business_name ?? 'Your employer'
 
-    // Generate portal magic link so employee can log in right away
+    // Generate magic link redirecting to /portal/setup so employee sets a password
     let portalLinkHtml = ''
     const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: employeeEmail,
-      options: { redirectTo: `${appUrl}/portal` },
+      options: { redirectTo: `${appUrl}/portal/setup` },
     })
     if (linkData?.properties?.action_link) {
-      const magicLink = linkData.properties.action_link
+      const setupLink = linkData.properties.action_link
       portalLinkHtml = `
-        <tr><td style="padding: 0 0 24px;">
-          <p style="margin: 0 0 12px; font-size: 15px; font-weight: 600; color: #111;">Step 2 — Access your employee portal</p>
+        <tr><td style="padding: 24px 0 0;">
+          <p style="margin: 0 0 12px; font-size: 15px; font-weight: 600; color: #111;">Step 2 — Create your employee account</p>
           <p style="margin: 0 0 16px; font-size: 14px; color: #555; line-height: 1.6;">
-            View your schedule, clock in and out, check your hours, and request time off — all in one place.
+            Set up your account to view your schedule, clock in and out, check your hours, and request time off.
           </p>
-          <a href="${magicLink}" style="display:inline-block;background:#185fa5;color:#fff;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none;">
-            Open my portal →
+          <a href="${setupLink}" style="display:inline-block;background:#185fa5;color:#fff;font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none;">
+            Create my account →
           </a>
-          <p style="margin: 10px 0 0; font-size: 12px; color: #999;">This link expires in 1 hour. After signing in, bookmark the portal for easy access.</p>
+          <p style="margin: 10px 0 0; font-size: 12px; color: #999;">This setup link expires in 1 hour. After creating your account, sign in anytime at <a href="${appUrl}/login" style="color:#185fa5;">${appUrl}/login</a>.</p>
         </td></tr>
       `
     }
