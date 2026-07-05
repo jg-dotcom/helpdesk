@@ -151,7 +151,8 @@ export default function Dashboard({
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const fullName: string = user.user_metadata?.full_name ?? ''
-        const first = fullName.trim().split(' ')[0]
+        // Fall back to email prefix for accounts that predate the name field
+        const first = fullName.trim().split(' ')[0] || (user.email ?? '').split('@')[0] || ''
         if (first) setFirstName(first)
       }
 
@@ -160,8 +161,9 @@ export default function Dashboard({
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
-        const data = await res.json()
-        const bizName: string = data?.profile?.business_name ?? ''
+        const d = await res.json()
+        // profile.business_name may exist but be null/empty for old accounts
+        const bizName: string = d?.profile?.business_name ?? ''
         if (bizName) setBusinessName(bizName)
       }
     })
@@ -281,11 +283,12 @@ export default function Dashboard({
         <div className="dash-greeting">
           {greeting()}{firstName ? `, ${firstName}` : ''}
         </div>
-        {businessName && (
-          <div style={{ fontSize: '14px', color: '#6b6b6b', marginTop: '2px', marginBottom: '0.25rem' }}>
-            Here&apos;s how <strong>{businessName}</strong> is doing today.
-          </div>
-        )}
+        <div style={{ fontSize: '14px', color: '#6b6b6b', marginTop: '2px', marginBottom: '0.25rem' }}>
+          {businessName
+            ? <>Here&apos;s how <strong>{businessName}</strong> is doing today.</>
+            : <><a href="/settings" style={{ color: '#185fa5' }}>Add your business name</a> in Settings.</>
+          }
+        </div>
 
         <div className="dash-stats">
           <div className="stat">
