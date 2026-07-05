@@ -91,7 +91,11 @@ export default function ComplianceChecklist({
             onClick={item.onToggle && saving !== item.key ? item.onToggle : undefined}
           >
             <div className={`compliance-check${item.checked ? ' checked' : ''}`}>
-              {item.checked ? '✓' : ''}
+              {item.checked && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20,6 9,17 4,12" />
+                </svg>
+              )}
             </div>
             <div style={{ flex: 1 }}>
               <div className="compliance-label">{item.label}</div>

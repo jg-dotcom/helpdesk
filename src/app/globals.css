@@ -1303,7 +1303,7 @@ body:has(.dash-wrap) {
 
 .compliance-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
@@ -1326,11 +1326,10 @@ body:has(.dash-wrap) {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
   flex-shrink: 0;
   color: transparent;
   transition: all 0.15s;
+  margin-top: 1px;
 }
 
 .compliance-check.checked {
