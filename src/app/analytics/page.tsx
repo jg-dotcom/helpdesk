@@ -90,62 +90,61 @@ export default function AnalyticsPage() {
   }, [])
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f8fa', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div className="dash-wrap">
       <Nav active="analytics" />
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <div className="dash-content">
 
-        <div style={{ marginBottom: '1.75rem' }}>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Analytics</h1>
-          <div style={{ fontSize: '13px', color: '#888', marginTop: '2px' }}>Last 8 weeks</div>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700 }}>Analytics</div>
+          <div style={{ fontSize: '13px', color: '#6b6b6b', marginTop: '4px' }}>Last 8 weeks</div>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '4rem', color: '#aaa' }}>Loading...</div>
+          <div className="card"><div className="loading-state">Loading...</div></div>
         ) : (
           <>
-            {/* Summary cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
-              {[
-                { label: 'Total payroll (8 wks)', value: summary ? fmtMoney(summary.totalPayroll) : '—', color: '#185fa5' },
-                { label: 'Hours worked (8 wks)', value: summary ? `${summary.totalHours}h` : '—', color: '#27ae60' },
-                { label: 'Active employees', value: summary ? String(summary.activeEmployees) : '—', color: '#b45309' },
-              ].map(card => (
-                <div key={card.label} style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem 1.5rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                  <div style={{ fontSize: '12px', color: '#888', marginBottom: '0.5rem', fontWeight: 500 }}>{card.label}</div>
-                  <div style={{ fontSize: '28px', fontWeight: 800, color: card.color }}>{card.value}</div>
-                </div>
-              ))}
+            {/* Summary stat cards */}
+            <div className="dash-stats" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '1.5rem' }}>
+              <div className="stat-card">
+                <div className="stat-label">Total payroll (8 wks)</div>
+                <div className="stat-value" style={{ color: '#185fa5' }}>{summary ? fmtMoney(summary.totalPayroll) : '—'}</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Hours worked (8 wks)</div>
+                <div className="stat-value" style={{ color: '#15803d' }}>{summary ? `${summary.totalHours}h` : '—'}</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Active employees</div>
+                <div className="stat-value" style={{ color: '#b45309' }}>{summary ? String(summary.activeEmployees) : '—'}</div>
+              </div>
             </div>
 
             {/* Charts row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-
-              {/* Labor cost by week */}
-              <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#111', marginBottom: '1rem' }}>Labor cost by week</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="card">
+                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '1rem' }}>Labor cost by week</div>
                 {laborByWeek.every(w => w.cost === 0) ? (
-                  <div style={{ fontSize: '13px', color: '#bbb', textAlign: 'center', padding: '2rem 0' }}>No payroll data yet.</div>
+                  <div className="empty-state">No payroll data yet.</div>
                 ) : (
                   <BarChart data={laborByWeek as unknown as Record<string, unknown>[]} valueKey="cost" labelKey="week" color="#185fa5" unit="$" />
                 )}
               </div>
 
-              {/* Headcount over time */}
-              <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#111', marginBottom: '1rem' }}>Headcount growth</div>
+              <div className="card">
+                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '1rem' }}>Headcount growth</div>
                 {headcountData.length === 0 ? (
-                  <div style={{ fontSize: '13px', color: '#bbb', textAlign: 'center', padding: '2rem 0' }}>No employee data yet.</div>
+                  <div className="empty-state">No employee data yet.</div>
                 ) : (
-                  <BarChart data={headcountData as unknown as Record<string, unknown>[]} valueKey="count" labelKey="month" color="#27ae60" unit="" />
+                  <BarChart data={headcountData as unknown as Record<string, unknown>[]} valueKey="count" labelKey="month" color="#15803d" unit="" />
                 )}
               </div>
             </div>
 
             {/* Hours per employee */}
-            <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111', marginBottom: '1rem' }}>Hours worked per employee (8 wks)</div>
+            <div className="card">
+              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '1rem' }}>Hours worked per employee (8 wks)</div>
               {hoursData.length === 0 ? (
-                <div style={{ fontSize: '13px', color: '#bbb', textAlign: 'center', padding: '2rem 0' }}>No time-tracking data yet.</div>
+                <div className="empty-state">No time-tracking data yet.</div>
               ) : (
                 <HBarChart data={hoursData} />
               )}

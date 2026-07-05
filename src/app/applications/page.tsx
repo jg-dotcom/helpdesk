@@ -16,8 +16,8 @@ type Application = {
 }
 
 const STAGES: { key: Application['status']; label: string; color: string; bg: string }[] = [
-  { key: 'applied',      label: 'Applied',      color: '#666',    bg: '#f0f2f5' },
-  { key: 'interviewing', label: 'Interviewing',  color: '#185fa5', bg: '#e8f0fb' },
+  { key: 'applied',      label: 'Applied',      color: '#6b6b6b', bg: '#f0f2f5' },
+  { key: 'interviewing', label: 'Interviewing',  color: '#185fa5', bg: '#e6f1fb' },
   { key: 'offer',        label: 'Offer',         color: '#b45309', bg: '#fef3c7' },
   { key: 'hired',        label: 'Hired',         color: '#15803d', bg: '#dcfce7' },
   { key: 'rejected',     label: 'Rejected',      color: '#991b1b', bg: '#fee2e2' },
@@ -74,19 +74,21 @@ export default function ApplicationsPage() {
   const filtered = filterJob === 'all' ? apps : apps.filter(a => a.job_postings?.title === filterJob)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f8fa', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div className="dash-wrap">
       <Nav active="applications" />
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <div className="dash-content">
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <div>
-            <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Applicants</h1>
-            <div style={{ fontSize: '13px', color: '#888', marginTop: '2px' }}>{apps.length} total application{apps.length !== 1 ? 's' : ''}</div>
+            <div style={{ fontSize: '20px', fontWeight: 700 }}>Applicants</div>
+            <div style={{ fontSize: '13px', color: '#6b6b6b', marginTop: '4px' }}>
+              {apps.length} total application{apps.length !== 1 ? 's' : ''}
+            </div>
           </div>
           {jobTitles.length > 1 && (
             <select value={filterJob} onChange={e => setFilterJob(e.target.value)}
-              style={{ padding: '7px 10px', border: '1px solid #dde1ea', borderRadius: '8px', fontSize: '13px', background: '#fff' }}>
+              style={{ width: 'auto', padding: '7px 10px' }}>
               <option value="all">All roles</option>
               {jobTitles.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -94,53 +96,42 @@ export default function ApplicationsPage() {
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>Loading...</div>
+          <div className="card"><div className="loading-state">Loading...</div></div>
         ) : apps.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '4rem', background: '#fff', borderRadius: '12px', border: '1px solid #eee' }}>
-            <div style={{ fontSize: '32px', marginBottom: '0.75rem' }}>📋</div>
-            <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>No applications yet</div>
-            <div style={{ fontSize: '13px', color: '#888' }}>Applications submitted via your careers page will appear here.</div>
+          <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '28px', marginBottom: '0.75rem' }}>📋</div>
+            <div className="empty-state">No applications yet — they'll appear here once candidates apply via your careers page.</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
+          <div className="kanban-board">
             {STAGES.map(stage => {
               const stageApps = filtered.filter(a => a.status === stage.key)
               return (
-                <div key={stage.key} style={{ minWidth: '220px', flex: '1' }}>
-                  {/* Column header */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
-                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#333' }}>{stage.label}</span>
-                    <span style={{
-                      background: stage.bg, color: stage.color,
-                      borderRadius: '999px', fontSize: '11px', fontWeight: 700,
-                      padding: '2px 8px',
-                    }}>{stageApps.length}</span>
+                <div key={stage.key} className="kanban-col">
+                  <div className="kanban-col-header">
+                    <span className="kanban-col-title">{stage.label}</span>
+                    <span className="kanban-badge" style={{ background: stage.bg, color: stage.color }}>
+                      {stageApps.length}
+                    </span>
                   </div>
 
-                  {/* Cards */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {stageApps.map(app => (
-                      <div
-                        key={app.id}
-                        onClick={() => setSelected(selected?.id === app.id ? null : app)}
-                        style={{
-                          background: '#fff', border: `1px solid ${selected?.id === app.id ? '#185fa5' : '#e5e7eb'}`,
-                          borderRadius: '10px', padding: '0.875rem', cursor: 'pointer',
-                          boxShadow: selected?.id === app.id ? '0 0 0 2px #bfdbfe' : 'none',
-                          transition: 'all 0.1s',
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '2px' }}>{app.name}</div>
-                        <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>{app.job_postings?.title ?? '—'}</div>
-                        <div style={{ fontSize: '11px', color: '#aaa' }}>{timeAgo(app.created_at)}</div>
+                  {stageApps.map(app => (
+                    <div
+                      key={app.id}
+                      className={`kanban-card${selected?.id === app.id ? ' selected' : ''}`}
+                      onClick={() => setSelected(selected?.id === app.id ? null : app)}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>{app.name}</div>
+                      <div style={{ fontSize: '12px', color: '#6b6b6b', marginBottom: '4px' }}>
+                        {app.job_postings?.title ?? '—'}
                       </div>
-                    ))}
-                    {stageApps.length === 0 && (
-                      <div style={{ padding: '1rem', background: '#fafafa', borderRadius: '10px', border: '1px dashed #e5e7eb', fontSize: '12px', color: '#bbb', textAlign: 'center' }}>
-                        Empty
-                      </div>
-                    )}
-                  </div>
+                      <div style={{ fontSize: '11px', color: '#9a9a9a' }}>{timeAgo(app.created_at)}</div>
+                    </div>
+                  ))}
+
+                  {stageApps.length === 0 && (
+                    <div className="kanban-empty">Empty</div>
+                  )}
                 </div>
               )
             })}
@@ -149,35 +140,34 @@ export default function ApplicationsPage() {
 
         {/* Detail panel */}
         {selected && (
-          <div style={{
-            position: 'fixed', right: 0, top: 0, bottom: 0, width: '360px',
-            background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,0.1)',
-            padding: '1.5rem', overflowY: 'auto', zIndex: 100,
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-              <div style={{ fontWeight: 700, fontSize: '17px' }}>{selected.name}</div>
-              <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#888' }}>×</button>
+          <div className="detail-panel">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '16px' }}>{selected.name}</div>
+              <button onClick={() => setSelected(null)} className="btn-ghost" style={{ fontSize: '18px', padding: '0 4px' }}>×</button>
             </div>
 
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '0.5rem' }}>📧 {selected.email}</div>
-            {selected.phone && <div style={{ fontSize: '13px', color: '#666', marginBottom: '0.5rem' }}>📞 {selected.phone}</div>}
-            <div style={{ fontSize: '13px', color: '#666', marginBottom: '1.25rem' }}>🏷 {selected.job_postings?.title ?? 'Unknown role'}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '13px', color: '#6b6b6b' }}>📧 {selected.email}</div>
+              {selected.phone && <div style={{ fontSize: '13px', color: '#6b6b6b' }}>📞 {selected.phone}</div>}
+              <div style={{ fontSize: '13px', color: '#6b6b6b' }}>🏷 {selected.job_postings?.title ?? 'Unknown role'}</div>
+            </div>
 
             {selected.cover_letter && (
               <div style={{ marginBottom: '1.25rem' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Cover letter</div>
-                <div style={{ fontSize: '13px', color: '#333', lineHeight: 1.7, whiteSpace: 'pre-wrap', background: '#f7f8fa', borderRadius: '8px', padding: '0.75rem' }}>
+                <div className="section-label">Cover letter</div>
+                <div style={{ fontSize: '13px', color: '#1a1a1a', lineHeight: 1.7, whiteSpace: 'pre-wrap', background: '#f7f7f5', borderRadius: '8px', padding: '0.75rem', border: '0.5px solid rgba(0,0,0,0.08)' }}>
                   {selected.cover_letter}
                 </div>
               </div>
             )}
 
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Move to stage</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem' }}>
+            <div className="section-label">Move to stage</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem' }}>
               {STAGES.map(stage => (
                 <button key={stage.key} onClick={() => moveStage(selected.id, stage.key)}
                   style={{
-                    padding: '5px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: 'none',
+                    padding: '5px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                    cursor: 'pointer', border: 'none', fontFamily: 'inherit',
                     background: selected.status === stage.key ? stage.color : stage.bg,
                     color: selected.status === stage.key ? '#fff' : stage.color,
                   }}>
@@ -187,14 +177,12 @@ export default function ApplicationsPage() {
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <a href={`mailto:${selected.email}`} style={{
-                flex: 1, textAlign: 'center', padding: '8px', background: '#185fa5', color: '#fff',
-                borderRadius: '8px', fontSize: '13px', fontWeight: 600, textDecoration: 'none',
-              }}>Email applicant</a>
-              <button onClick={() => deleteApp(selected.id)} style={{
-                padding: '8px 14px', background: '#fee2e2', color: '#991b1b',
-                border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-              }}>Delete</button>
+              <a href={`mailto:${selected.email}`} className="btn auth-btn-primary" style={{ flex: 1, textAlign: 'center' }}>
+                Email applicant
+              </a>
+              <button onClick={() => deleteApp(selected.id)} className="btn" style={{ color: '#c0392b' }}>
+                Delete
+              </button>
             </div>
           </div>
         )}
