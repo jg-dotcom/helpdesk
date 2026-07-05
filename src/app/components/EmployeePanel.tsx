@@ -124,6 +124,13 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [paySaving, setPaySaving] = useState(false)
   const [payMsg, setPayMsg] = useState('')
 
+  // Department assignment state
+  type DeptOption = { id: number; name: string; color: string }
+  const [allDepts, setAllDepts] = useState<DeptOption[]>([])
+  const [memberDepts, setMemberDepts] = useState<Set<number>>(new Set())
+  const [primaryDept, setPrimaryDept] = useState<number | null>(null)
+  const [deptsSaving, setDeptsSaving] = useState(false)
+
   // Offboarding tab state
   const [lastDay, setLastDay] = useState('')
   const [reason, setReason] = useState('Resignation')
@@ -194,6 +201,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     loadDocuments()
     loadPayroll()
     loadNotes()
+    loadDepartments()
     const today = new Date()
     const dayOfWeek = today.getDay()
     const start = new Date(today); start.setDate(today.getDate() - dayOfWeek)
@@ -309,6 +317,37 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     const items = data?.offboarding_checklist?.length ? data.offboarding_checklist : DEFAULT_OFFBOARDING_ITEMS
     setChecklistItems(items)
     setChecked(new Array(items.length).fill(false))
+  }
+
+  async function loadDepartments() {
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) return
+    const [{ data: depts }, { data: members }] = await Promise.all([
+      supabase.from('departments').select('id, name, color').eq('user_id', sessionData.session.user.id).order('name'),
+      supabase.from('department_members').select('department_id, is_primary').eq('employee_id', employee.id),
+    ])
+    if (depts) setAllDepts(depts)
+    if (members) {
+      setMemberDepts(new Set(members.map((m: { department_id: number }) => m.department_id)))
+      const primary = members.find((m: { is_primary: boolean }) => m.is_primary)
+      setPrimaryDept(primary?.department_id ?? null)
+    }
+  }
+
+  async function saveDepartments() {
+    setDeptsSaving(true)
+    // Delete all existing memberships for this employee
+    await supabase.from('department_members').delete().eq('employee_id', employee.id)
+    // Re-insert current selections
+    if (memberDepts.size > 0) {
+      const rows = Array.from(memberDepts).map(deptId => ({
+        employee_id: employee.id,
+        department_id: deptId,
+        is_primary: deptId === primaryDept,
+      }))
+      await supabase.from('department_members').insert(rows)
+    }
+    setDeptsSaving(false)
   }
 
   function set(field: keyof Employee, value: string) {
@@ -561,6 +600,40 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             <div className="field"><label>SSN (last 4)</label><input value={form.ssn_last4 || ''} onChange={e => set('ssn_last4', e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" maxLength={4} /></div>
             <div className="field"><label>Date of birth</label><input type="date" value={form.date_of_birth || ''} onChange={e => set('date_of_birth', e.target.value)} /></div>
           </div>
+
+          {allDepts.length > 0 && (
+            <>
+              <div className="emp-panel-section">Departments</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.5rem' }}>
+                {allDepts.map(dept => {
+                  const isMember = memberDepts.has(dept.id)
+                  return (
+                    <label key={dept.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: 8, background: isMember ? '#f4f6fc' : 'transparent', cursor: 'pointer', userSelect: 'none' }}>
+                      <input type="checkbox" checked={isMember} onChange={() => {
+                        setMemberDepts(prev => {
+                          const next = new Set(prev)
+                          if (next.has(dept.id)) { next.delete(dept.id); if (primaryDept === dept.id) setPrimaryDept(null) }
+                          else next.add(dept.id)
+                          return next
+                        })
+                      }} style={{ width: 14, height: 14, flexShrink: 0 }} />
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: dept.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: '13px', flex: 1 }}>{dept.name}</span>
+                      {isMember && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '11px', color: '#888', cursor: 'pointer' }}>
+                          <input type="radio" name="primary_dept" checked={primaryDept === dept.id} onChange={() => setPrimaryDept(dept.id)} style={{ width: 12, height: 12 }} />
+                          Primary
+                        </label>
+                      )}
+                    </label>
+                  )
+                })}
+              </div>
+              <button className="btn" onClick={saveDepartments} disabled={deptsSaving} style={{ fontSize: '12px', padding: '5px 12px', width: 'auto', marginBottom: '0.5rem' }}>
+                {deptsSaving ? 'Saving...' : 'Save departments'}
+              </button>
+            </>
+          )}
 
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem', alignItems: 'center' }}>
             <button className="btn auth-btn-primary" onClick={save} disabled={saving} style={{ width: 'auto' }}>

@@ -25,6 +25,7 @@ type Props = {
   docsGenerated: number
   loading: boolean
   viewerRole: 'owner' | 'admin' | 'manager' | 'employee'
+  viewerPerms: Record<string, boolean> | null
   onSelectEmp: (emp: Employee) => void
   onAddEmployee: (emp: Omit<Employee, 'id'>) => void
   onUpdateEmployee: (emp: Employee) => void
@@ -128,7 +129,7 @@ function AnnouncementForm() {
 
 
 export default function Dashboard({
-  employees, selectedEmp, docsGenerated, loading, viewerRole,
+  employees, selectedEmp, docsGenerated, loading, viewerRole, viewerPerms,
   onSelectEmp, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onStartAction
 }: Props) {
   const [firstName, setFirstName] = useState('')
@@ -158,6 +159,9 @@ export default function Dashboard({
   const [upcomingTimeOff, setUpcomingTimeOff] = useState<TimeOffRequest[]>([])
   const [todayShifts, setTodayShifts] = useState<{ id: number; employee_id: number; start_time: string; end_time: string; status?: string }[]>([])
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
+  const [departments, setDepartments] = useState<{ id: number; name: string; color: string }[]>([])
+  const [deptMembers, setDeptMembers] = useState<Record<number, number[]>>({}) // employee_id → dept_ids
+  const [filterDept, setFilterDept] = useState<number | null>(null)
 
   type CalloutTarget = { shiftId: number; shiftDate: string; startTime: string; endTime: string; employee: { id: number; name: string } }
   const [calloutTarget, setCalloutTarget] = useState<CalloutTarget | null>(null)
@@ -203,7 +207,26 @@ export default function Dashboard({
     loadOnboardingProgress()
     loadTimeOffRequests()
     loadOperationalData()
+    loadDepartments()
   }, [docsGenerated, employees])
+
+  async function loadDepartments() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const [{ data: depts }, { data: members }] = await Promise.all([
+      supabase.from('departments').select('id, name, color').eq('user_id', session.user.id).order('name'),
+      supabase.from('department_members').select('employee_id, department_id'),
+    ])
+    if (depts) setDepartments(depts)
+    if (members) {
+      const map: Record<number, number[]> = {}
+      members.forEach((m: { employee_id: number; department_id: number }) => {
+        if (!map[m.employee_id]) map[m.employee_id] = []
+        map[m.employee_id].push(m.department_id)
+      })
+      setDeptMembers(map)
+    }
+  }
 
   async function loadComplianceIssues() {
     const active = employees.filter(e => !e.status || e.status === 'active')
@@ -340,7 +363,7 @@ export default function Dashboard({
   return (
     <>
     <div className="dash-wrap">
-      <Nav active="dashboard" viewerRole={viewerRole} />
+      <Nav active="dashboard" viewerRole={viewerRole} viewerPerms={viewerPerms} />
 
       <div className="dash-content">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.25rem' }}>
@@ -533,6 +556,26 @@ export default function Dashboard({
               </div>
             )}
 
+            {/* Department filter */}
+            {departments.length > 0 && (
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                <button
+                  onClick={() => setFilterDept(null)}
+                  style={{ fontSize: '11px', padding: '3px 10px', borderRadius: 10, border: `1.5px solid ${filterDept === null ? '#185fa5' : '#dde1ea'}`, background: filterDept === null ? '#185fa5' : '#fff', color: filterDept === null ? '#fff' : '#555', fontWeight: 600, cursor: 'pointer' }}
+                >All</button>
+                {departments.map(dept => (
+                  <button
+                    key={dept.id}
+                    onClick={() => setFilterDept(filterDept === dept.id ? null : dept.id)}
+                    style={{ fontSize: '11px', padding: '3px 10px', borderRadius: 10, border: `1.5px solid ${filterDept === dept.id ? dept.color : '#dde1ea'}`, background: filterDept === dept.id ? dept.color : '#fff', color: filterDept === dept.id ? '#fff' : '#555', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+                  >
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: filterDept === dept.id ? 'rgba(255,255,255,0.8)' : dept.color, display: 'inline-block' }} />
+                    {dept.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {filterPaperwork && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', background: '#fff5f5', border: '1px solid #fcd4d4', marginBottom: '0.75rem', fontSize: '13px', color: '#c0392b' }}>
                 <span>Showing {complianceIssues.length} employee{complianceIssues.length !== 1 ? 's' : ''} with incomplete paperwork</span>
@@ -551,40 +594,52 @@ export default function Dashboard({
                 {employees.filter(emp => {
                   if (!showTerminated && emp.status === 'terminated') return false
                   if (filterPaperwork && !complianceIssues.find(c => c.name === emp.name)) return false
+                  if (filterDept !== null && !deptMembers[emp.id]?.includes(filterDept)) return false
                   if (searchQuery) {
                     const q = searchQuery.toLowerCase()
                     return emp.name.toLowerCase().includes(q) || emp.role?.toLowerCase().includes(q)
                   }
                   return true
-                }).map(emp => (
-                  <div
-                    key={emp.id}
-                    className={`emp-card${selectedEmp?.id === emp.id ? ' selected' : ''}`}
-                    onClick={() => onSelectEmp(selectedEmp?.id === emp.id ? null as any : emp)}
-                  >
-                    <div className="emp-card-top">
-                      <div className="avatar">{initials(emp.name)}</div>
-                    </div>
-                    <div className="emp-name">{emp.name}</div>
-                    <div className="emp-role">{emp.role}</div>
-                    <div className="emp-tenure">{emp.type} · {tenure(emp.start)}</div>
-                    {emp.status && emp.status !== 'active' && (
-                      <div style={{ marginTop: '0.25rem' }}>
-                        <span className={`badge ${emp.status === 'terminated' ? 'badge-red' : 'badge-yellow'}`}>
-                          {emp.status === 'on_leave' ? 'On leave' : 'Terminated'}
-                        </span>
+                }).map(emp => {
+                  const empDeptIds = deptMembers[emp.id] ?? []
+                  const empDepts = departments.filter(d => empDeptIds.includes(d.id))
+                  return (
+                    <div
+                      key={emp.id}
+                      className={`emp-card${selectedEmp?.id === emp.id ? ' selected' : ''}`}
+                      onClick={() => onSelectEmp(selectedEmp?.id === emp.id ? null as any : emp)}
+                    >
+                      <div className="emp-card-top">
+                        <div className="avatar">{initials(emp.name)}</div>
                       </div>
-                    )}
-                    {(() => {
-                      const issue = complianceIssues.find(c => c.name === emp.name)
-                      return issue ? (
-                        <div style={{ marginTop: '0.35rem', fontSize: '11px', color: '#9a9a9a' }}>
-                          {issue.missing.join(', ')} pending
+                      <div className="emp-name">{emp.name}</div>
+                      <div className="emp-role">{emp.role}</div>
+                      <div className="emp-tenure">{emp.type} · {tenure(emp.start)}</div>
+                      {empDepts.length > 0 && (
+                        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                          {empDepts.map(d => (
+                            <span key={d.id} style={{ fontSize: '10px', padding: '1px 6px', borderRadius: 8, background: d.color + '22', color: d.color, fontWeight: 600, border: `1px solid ${d.color}44` }}>{d.name}</span>
+                          ))}
                         </div>
-                      ) : null
-                    })()}
-                  </div>
-                ))}
+                      )}
+                      {emp.status && emp.status !== 'active' && (
+                        <div style={{ marginTop: '0.25rem' }}>
+                          <span className={`badge ${emp.status === 'terminated' ? 'badge-red' : 'badge-yellow'}`}>
+                            {emp.status === 'on_leave' ? 'On leave' : 'Terminated'}
+                          </span>
+                        </div>
+                      )}
+                      {(() => {
+                        const issue = complianceIssues.find(c => c.name === emp.name)
+                        return issue ? (
+                          <div style={{ marginTop: '0.35rem', fontSize: '11px', color: '#9a9a9a' }}>
+                            {issue.missing.join(', ')} pending
+                          </div>
+                        ) : null
+                      })()}
+                    </div>
+                  )
+                })}
               </div>
             )}
 

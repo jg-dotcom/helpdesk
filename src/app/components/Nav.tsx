@@ -8,6 +8,7 @@ import ChatWidget from './ChatWidget'
 type Props = {
   active: 'dashboard' | 'time' | 'hiring' | 'payroll' | 'reports' | 'settings'
   viewerRole?: 'owner' | 'admin' | 'manager' | 'employee'
+  viewerPerms?: Record<string, boolean> | null
 }
 
 type Notification = { id: number; message: string; created_at: string; read: boolean }
@@ -23,9 +24,12 @@ function timeAgo(iso: string) {
   return `${Math.floor(days / 7)}w ago`
 }
 
-export default function Nav({ active, viewerRole = 'owner' }: Props) {
-  const canSeePayroll = viewerRole === 'owner' || viewerRole === 'admin'
-  const canSeeSettings = viewerRole === 'owner' || viewerRole === 'admin'
+export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props) {
+  const isOwnerOrAdmin = viewerRole === 'owner' || viewerRole === 'admin'
+  // Granular: if viewerPerms set, use those; otherwise fall back to role preset
+  const canSeePayroll = isOwnerOrAdmin || (viewerPerms?.payroll_view ?? false) || (viewerPerms?.payroll_log ?? false)
+  const canSeeHiring = isOwnerOrAdmin || (viewerPerms?.hiring_view ?? false)
+  const canSeeSettings = isOwnerOrAdmin
   const [userEmail, setUserEmail] = useState('')
   const [showMenu, setShowMenu] = useState(false)
   const [showNotifs, setShowNotifs] = useState(false)
@@ -96,7 +100,7 @@ export default function Nav({ active, viewerRole = 'owner' }: Props) {
         <nav className="dash-nav-links">
           <a href="/" className={`dash-nav-link${active === 'dashboard' ? ' active' : ''}`}>Dashboard</a>
           <a href="/time" className={`dash-nav-link${active === 'time' ? ' active' : ''}`}>Time</a>
-          <a href="/hiring" className={`dash-nav-link${active === 'hiring' ? ' active' : ''}`}>Hiring</a>
+          {canSeeHiring && <a href="/hiring" className={`dash-nav-link${active === 'hiring' ? ' active' : ''}`}>Hiring</a>}
           {canSeePayroll && <a href="/payroll" className={`dash-nav-link${active === 'payroll' ? ' active' : ''}`}>Payroll</a>}
           {canSeePayroll && <a href="/reports" className={`dash-nav-link${active === 'reports' ? ' active' : ''}`}>Reports</a>}
         </nav>

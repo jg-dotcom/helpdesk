@@ -40,6 +40,7 @@ export default function Home() {
   const [userEmail, setUserEmail] = useState('')
   // 'owner' if they have a business_profiles row; otherwise their employee access_role
   const [viewerRole, setViewerRole] = useState<'owner' | 'admin' | 'manager' | 'employee'>('owner')
+  const [viewerPerms, setViewerPerms] = useState<Record<string, boolean> | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -63,7 +64,7 @@ export default function Home() {
         // Not an owner — look up employee record by email to get owner's user_id
         const { data: emp } = await supabase
           .from('employees')
-          .select('user_id, access_role, email')
+          .select('user_id, access_role, email, permissions')
           .eq('email', session.user.email ?? '')
           .single()
 
@@ -76,6 +77,7 @@ export default function Home() {
         setUserId(emp.user_id)
         setUserEmail(session.user.email || '')
         setViewerRole(accessRole)
+        if (emp.permissions) setViewerPerms(emp.permissions)
         loadData(emp.user_id)
       }
     })
@@ -155,6 +157,7 @@ export default function Home() {
       docsGenerated={docsGenerated}
       loading={loading}
       viewerRole={viewerRole}
+      viewerPerms={viewerPerms}
       onSelectEmp={setSelectedEmp}
       onAddEmployee={addEmployee}
       onUpdateEmployee={updateEmployee}

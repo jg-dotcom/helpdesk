@@ -8,7 +8,7 @@ import DocumentLibrary from '../components/DocumentLibrary'
 import { Suspense } from 'react'
 import { ReceiptIcon, CalendarIcon, BookOpenIcon } from '../components/Icons'
 
-type Tab = 'account' | 'hours' | 'onboarding' | 'notifications' | 'billing' | 'team' | 'integrations' | 'danger'
+type Tab = 'account' | 'hours' | 'onboarding' | 'notifications' | 'billing' | 'team' | 'departments' | 'integrations' | 'danger'
 
 type DayKey = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'
 type DayHours = { open: string; close: string; closed: boolean }
@@ -40,6 +40,31 @@ type TeamEmployee = {
   role: string
   access_role: string
   status: string
+  permissions: Record<string, boolean> | null
+}
+
+type Department = { id: number; name: string; color: string }
+
+const PERM_KEYS = ['schedule_edit','schedule_pool','schedule_swaps','employees_view','employees_edit','employees_manage','pto_approve','payroll_view','payroll_log','hiring_view'] as const
+type PermKey = typeof PERM_KEYS[number]
+
+const ROLE_PRESETS: Record<string, Record<PermKey, boolean>> = {
+  employee: { schedule_edit: false, schedule_pool: false, schedule_swaps: false, employees_view: false, employees_edit: false, employees_manage: false, pto_approve: false, payroll_view: false, payroll_log: false, hiring_view: false },
+  manager:  { schedule_edit: true,  schedule_pool: true,  schedule_swaps: true,  employees_view: true,  employees_edit: false, employees_manage: false, pto_approve: true,  payroll_view: false, payroll_log: false, hiring_view: false },
+  admin:    { schedule_edit: true,  schedule_pool: true,  schedule_swaps: true,  employees_view: true,  employees_edit: true,  employees_manage: true,  pto_approve: true,  payroll_view: true,  payroll_log: true,  hiring_view: true  },
+}
+
+const PERM_META: Record<PermKey, { label: string; sub: string; section: string }> = {
+  schedule_edit:     { label: 'Edit shifts',               sub: 'Add, change, and delete shifts',          section: 'Scheduling' },
+  schedule_pool:     { label: 'Manage open pool',          sub: 'Post and assign uncovered shifts',         section: 'Scheduling' },
+  schedule_swaps:    { label: 'Approve swaps',             sub: 'Approve or deny shift swap requests',      section: 'Scheduling' },
+  employees_view:    { label: 'View profiles',             sub: 'See employee info and documents',          section: 'Employees'  },
+  employees_edit:    { label: 'Edit profiles',             sub: 'Update employee records',                  section: 'Employees'  },
+  employees_manage:  { label: 'Add and remove employees',  sub: 'Hire and offboard team members',           section: 'Employees'  },
+  pto_approve:       { label: 'Approve time-off requests', sub: 'Review and action PTO requests',           section: 'Time off'   },
+  payroll_view:      { label: 'View pay rates',            sub: "See other employees' pay",                 section: 'Payroll'    },
+  payroll_log:       { label: 'Log payroll entries',       sub: 'Record pay runs',                          section: 'Payroll'    },
+  hiring_view:       { label: 'View and manage applicants',sub: 'Access the hiring pipeline',               section: 'Hiring'     },
 }
 
 const TIMEZONES = [
@@ -115,6 +140,20 @@ function SettingsContent() {
   const [inviteMsg, setInviteMsg] = useState('')
   const [roleUpdating, setRoleUpdating] = useState<number | null>(null)
 
+  // Departments
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [newDeptName, setNewDeptName] = useState('')
+  const [newDeptColor, setNewDeptColor] = useState('#185fa5')
+  const [editingDept, setEditingDept] = useState<number | null>(null)
+  const [editDeptName, setEditDeptName] = useState('')
+  const [deptSaving, setDeptSaving] = useState(false)
+
+  // Granular permissions panel (inside Team tab)
+  const [permEmployee, setPermEmployee] = useState<TeamEmployee | null>(null)
+  const [permValues, setPermValues] = useState<Record<PermKey, boolean>>(ROLE_PRESETS.employee)
+  const [permSaving, setPermSaving] = useState(false)
+  const [permSaved, setPermSaved] = useState(false)
+
   // Danger
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -129,11 +168,12 @@ function SettingsContent() {
     setAccessToken(session.access_token)
     setUserEmail(session.user.email ?? '')
 
-    const [bizRes, tmplRes, notifRes, empRes] = await Promise.all([
+    const [bizRes, tmplRes, notifRes, empRes, deptRes] = await Promise.all([
       fetch('/api/settings/business', { headers: { Authorization: `Bearer ${session.access_token}` } }),
       supabase.from('onboarding_templates').select('fields, welcome_pack').eq('user_id', session.user.id).single(),
       fetch('/api/settings/notifications', { headers: { Authorization: `Bearer ${session.access_token}` } }),
-      supabase.from('employees').select('id, name, email, role, access_role, status').eq('user_id', session.user.id).order('name'),
+      supabase.from('employees').select('id, name, email, role, access_role, status, permissions').eq('user_id', session.user.id).order('name'),
+      supabase.from('departments').select('id, name, color').eq('user_id', session.user.id).order('name'),
     ])
 
     const bizData = await bizRes.json()
@@ -157,6 +197,7 @@ function SettingsContent() {
     }
 
     if (empRes.data) setTeamEmployees(empRes.data)
+    if (deptRes.data) setDepartments(deptRes.data)
   }
 
   async function saveAccount() {
@@ -213,6 +254,52 @@ function SettingsContent() {
     setRoleUpdating(null)
   }
 
+  async function createDept() {
+    if (!newDeptName.trim()) return
+    setDeptSaving(true)
+    const { data } = await supabase.from('departments').insert([{ user_id: userId, name: newDeptName.trim(), color: newDeptColor }]).select().single()
+    if (data) setDepartments(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+    setNewDeptName('')
+    setNewDeptColor('#185fa5')
+    setDeptSaving(false)
+  }
+
+  async function saveDeptName(id: number) {
+    if (!editDeptName.trim()) return
+    await supabase.from('departments').update({ name: editDeptName.trim() }).eq('id', id)
+    setDepartments(prev => prev.map(d => d.id === id ? { ...d, name: editDeptName.trim() } : d))
+    setEditingDept(null)
+  }
+
+  async function deleteDept(id: number) {
+    await supabase.from('departments').delete().eq('id', id)
+    setDepartments(prev => prev.filter(d => d.id !== id))
+    if (permEmployee) setPermEmployee(null)
+  }
+
+  function openPermPanel(emp: TeamEmployee) {
+    if (permEmployee?.id === emp.id) { setPermEmployee(null); return }
+    const base = ROLE_PRESETS[emp.access_role] ?? ROLE_PRESETS.employee
+    const merged = { ...base, ...(emp.permissions ?? {}) } as Record<PermKey, boolean>
+    setPermValues(merged)
+    setPermEmployee(emp)
+    setPermSaved(false)
+  }
+
+  function applyRolePreset(role: string) {
+    setPermValues({ ...ROLE_PRESETS[role] ?? ROLE_PRESETS.employee })
+  }
+
+  async function savePermissions() {
+    if (!permEmployee) return
+    setPermSaving(true)
+    await supabase.from('employees').update({ permissions: permValues }).eq('id', permEmployee.id)
+    setTeamEmployees(prev => prev.map(e => e.id === permEmployee.id ? { ...e, permissions: permValues } : e))
+    setPermSaving(false)
+    setPermSaved(true)
+    setTimeout(() => setPermSaved(false), 2000)
+  }
+
   async function sendInvite() {
     if (!inviteEmail.trim()) return
     setInviting(true)
@@ -230,7 +317,7 @@ function SettingsContent() {
       // Just update their role
       await supabase.from('employees').update({ access_role: inviteRole }).eq('id', existing.id)
       setInviteMsg(`Role updated for ${inviteEmail}.`)
-      const { data } = await supabase.from('employees').select('id, name, email, role, access_role, status').eq('user_id', userId).order('name')
+      const { data } = await supabase.from('employees').select('id, name, email, role, access_role, status, permissions').eq('user_id', userId).order('name')
       if (data) setTeamEmployees(data)
     } else {
       // Send portal invite via API — creates account link
@@ -244,7 +331,7 @@ function SettingsContent() {
         setInviteMsg(data.error ?? 'Error sending invite.')
       } else {
         setInviteMsg(`Invite sent to ${inviteEmail}.`)
-        const { data: emps } = await supabase.from('employees').select('id, name, email, role, access_role, status').eq('user_id', userId).order('name')
+        const { data: emps } = await supabase.from('employees').select('id, name, email, role, access_role, status, permissions').eq('user_id', userId).order('name')
         if (emps) setTeamEmployees(emps)
       }
     }
@@ -278,6 +365,7 @@ function SettingsContent() {
     { key: 'notifications', label: 'Notifications' },
     { key: 'billing', label: 'Billing' },
     { key: 'team', label: 'Team' },
+    { key: 'departments', label: 'Departments' },
     { key: 'integrations', label: 'Integrations' },
     { key: 'danger', label: 'Danger zone' },
   ]
@@ -500,28 +588,75 @@ function SettingsContent() {
                     employee: { bg: '#f5f5f5', color: '#555' },
                   }
                   const rc = roleColors[emp.access_role] ?? roleColors.employee
+                  const isOpen = permEmployee?.id === emp.id
+                  const hasCustom = emp.permissions !== null
                   return (
-                    <div key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#e8edf8', color: '#185fa5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
-                        {emp.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.name}</div>
-                        <div style={{ fontSize: '11px', color: '#aaa', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.email || emp.role}</div>
-                      </div>
-                      <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', background: rc.bg, color: rc.color, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        {emp.access_role}
-                      </span>
-                      <select
-                        value={emp.access_role}
-                        disabled={roleUpdating === emp.id}
-                        onChange={e => updateEmployeeRole(emp.id, e.target.value)}
-                        style={{ fontSize: '12px', padding: '4px 7px', border: '1px solid #dde1ea', borderRadius: '6px', cursor: 'pointer', color: '#555', flexShrink: 0 }}
+                    <div key={emp.id}>
+                      <div
+                        onClick={() => openPermPanel(emp)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: isOpen ? 'none' : '1px solid #f5f5f5', cursor: 'pointer' }}
                       >
-                        <option value="employee">Employee</option>
-                        <option value="manager">Manager</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#e8edf8', color: '#185fa5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
+                          {emp.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.name}</div>
+                          <div style={{ fontSize: '11px', color: '#aaa', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.email || emp.role}</div>
+                        </div>
+                        {hasCustom && <span style={{ fontSize: '10px', color: '#185fa5', background: '#e8f0fb', padding: '2px 7px', borderRadius: 10, fontWeight: 600, flexShrink: 0 }}>Custom</span>}
+                        <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', background: rc.bg, color: rc.color, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          {emp.access_role}
+                        </span>
+                        <select
+                          value={emp.access_role}
+                          disabled={roleUpdating === emp.id}
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => { e.stopPropagation(); updateEmployeeRole(emp.id, e.target.value) }}
+                          style={{ fontSize: '12px', padding: '4px 7px', border: '1px solid #dde1ea', borderRadius: '6px', cursor: 'pointer', color: '#555', flexShrink: 0 }}
+                        >
+                          <option value="employee">Employee</option>
+                          <option value="manager">Manager</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                        <span style={{ fontSize: '14px', color: '#bbb', flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
+                      </div>
+
+                      {/* Inline permission panel */}
+                      {isOpen && (
+                        <div style={{ background: '#f9fafc', border: '1px solid #e8eaf0', borderRadius: 10, padding: '1rem', marginBottom: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
+                            <span style={{ fontSize: '12px', color: '#888' }}>Apply preset:</span>
+                            {(['employee','manager','admin'] as const).map(r => (
+                              <button key={r} onClick={() => applyRolePreset(r)} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: 10, border: '1px solid #dde1ea', background: '#fff', cursor: 'pointer', color: '#555', fontWeight: 500, textTransform: 'capitalize' }}>{r}</button>
+                            ))}
+                          </div>
+                          {(['Scheduling','Employees','Time off','Payroll','Hiring'] as const).map(section => (
+                            <div key={section}>
+                              <div style={{ fontSize: '10px', fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '8px 0 4px', borderBottom: '1px solid #eee', marginBottom: 2 }}>{section}</div>
+                              {PERM_KEYS.filter(k => PERM_META[k].section === section).map(key => (
+                                <div key={key} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f3f4f6', gap: 8 }}>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '12px', fontWeight: 500, color: '#333' }}>{PERM_META[key].label}</div>
+                                    <div style={{ fontSize: '11px', color: '#aaa' }}>{PERM_META[key].sub}</div>
+                                  </div>
+                                  <button
+                                    onClick={() => setPermValues(prev => ({ ...prev, [key]: !prev[key] }))}
+                                    style={{ width: 38, height: 21, borderRadius: 11, border: 'none', cursor: 'pointer', background: permValues[key] ? '#185fa5' : '#d0d5dd', position: 'relative', flexShrink: 0, transition: 'background 0.15s' }}
+                                  >
+                                    <span style={{ position: 'absolute', top: 3, left: permValues[key] ? 19 : 3, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left 0.15s', display: 'block' }} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.75rem' }}>
+                            <button className="btn auth-btn-primary" onClick={savePermissions} disabled={permSaving} style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }}>
+                              {permSaving ? 'Saving...' : 'Save permissions'}
+                            </button>
+                            {permSaved && <span style={{ fontSize: '12px', color: '#27ae60' }}>Saved.</span>}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -545,6 +680,55 @@ function SettingsContent() {
                   {inviting ? 'Sending...' : 'Send invite'}
                 </button>
                 {inviteMsg && <div className="done-msg" style={{ marginTop: '0.5rem', fontSize: '13px' }}>{inviteMsg}</div>}
+              </div>
+            </div>
+          )}
+
+          {/* DEPARTMENTS */}
+          {tab === 'departments' && (
+            <div>
+              <div className="card" style={{ marginBottom: '1rem' }}>
+                <div className="section-label" style={{ marginBottom: '0.75rem' }}>Departments</div>
+                <div style={{ fontSize: '13px', color: '#666', marginBottom: '1rem', lineHeight: 1.5 }}>
+                  Group your team by department. Assign employees in their profile.
+                </div>
+                {departments.length === 0 && (
+                  <div style={{ fontSize: '13px', color: '#bbb', padding: '8px 0', marginBottom: '0.75rem' }}>No departments yet.</div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                  {departments.map((dept, i) => (
+                    <div key={dept.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: i < departments.length - 1 ? '1px solid #f5f5f5' : 'none' }}>
+                      <div style={{ width: 12, height: 12, borderRadius: '50%', background: dept.color, flexShrink: 0 }} />
+                      {editingDept === dept.id ? (
+                        <>
+                          <input value={editDeptName} onChange={e => setEditDeptName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveDeptName(dept.id); if (e.key === 'Escape') setEditingDept(null) }} style={{ flex: 1, fontSize: '13px', padding: '4px 8px' }} autoFocus />
+                          <button className="btn auth-btn-primary" style={{ fontSize: '12px', padding: '4px 10px', width: 'auto' }} onClick={() => saveDeptName(dept.id)}>Save</button>
+                          <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => setEditingDept(null)}>Cancel</button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: '#1a1a1a' }}>{dept.name}</span>
+                          <button onClick={() => { setEditingDept(dept.id); setEditDeptName(dept.name) }} style={{ fontSize: '12px', color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>Rename</button>
+                          <button onClick={() => deleteDept(dept.id)} style={{ fontSize: '12px', color: '#c0392b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>Delete</button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="section-label" style={{ marginBottom: '0.75rem' }}>Add department</div>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input value={newDeptName} onChange={e => setNewDeptName(e.target.value)} placeholder="e.g. Kitchen" onKeyDown={e => e.key === 'Enter' && createDept()} style={{ flex: 1, minWidth: '140px' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', color: '#888' }}>Color</label>
+                    <input type="color" value={newDeptColor} onChange={e => setNewDeptColor(e.target.value)} style={{ width: 32, height: 32, padding: 2, border: '1px solid #dde1ea', borderRadius: 6, cursor: 'pointer' }} />
+                  </div>
+                  <button className="btn auth-btn-primary" onClick={createDept} disabled={deptSaving || !newDeptName.trim()} style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }}>
+                    {deptSaving ? 'Adding...' : '+ Add'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
