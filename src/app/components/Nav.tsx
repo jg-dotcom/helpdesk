@@ -6,7 +6,7 @@ import { BellIcon, SettingsIcon, SignOutIcon } from './Icons'
 import ChatWidget from './ChatWidget'
 
 type Props = {
-  active: 'dashboard' | 'time' | 'hiring' | 'payroll' | 'reports' | 'settings'
+  active: 'dashboard' | 'time' | 'hiring' | 'payroll' | 'reports' | 'settings' | 'messages'
   viewerRole?: 'owner' | 'admin' | 'manager' | 'employee'
   viewerPerms?: Record<string, boolean> | null
 }
@@ -34,15 +34,27 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
   const [showMenu, setShowMenu] = useState(false)
   const [showNotifs, setShowNotifs] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadMessages, setUnreadMessages] = useState(0)
   const menuRef = useRef<HTMLDivElement>(null)
   const notifsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) return
       setUserEmail(session.user.email ?? '')
+
+      // Load unread message count
+      fetch('/api/messages/channels', { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then(r => r.json())
+        .then(data => {
+          if (data.channels) {
+            const total = (data.channels as { unreadCount: number }[]).reduce((s, c) => s + c.unreadCount, 0)
+            setUnreadMessages(total)
+          }
+        })
+        .catch(() => {})
 
       supabase
         .from('notifications')
@@ -103,6 +115,14 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
           {canSeeHiring && <a href="/hiring" className={`dash-nav-link${active === 'hiring' ? ' active' : ''}`}>Hiring</a>}
           {canSeePayroll && <a href="/payroll" className={`dash-nav-link${active === 'payroll' ? ' active' : ''}`}>Payroll</a>}
           {canSeePayroll && <a href="/reports" className={`dash-nav-link${active === 'reports' ? ' active' : ''}`}>Reports</a>}
+          <a href="/messages" className={`dash-nav-link${active === 'messages' ? ' active' : ''}`} style={{ position: 'relative' }}>
+            Messages
+            {unreadMessages > 0 && (
+              <span style={{ position: 'absolute', top: '-4px', right: '-10px', minWidth: '16px', height: '16px', borderRadius: '99px', background: '#185fa5', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                {unreadMessages}
+              </span>
+            )}
+          </a>
         </nav>
       </div>
 

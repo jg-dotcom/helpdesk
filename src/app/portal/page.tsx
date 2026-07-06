@@ -73,6 +73,20 @@ export default function PortalPage() {
   // Claim open shift
   const [claimingId, setClaimingId] = useState<number | null>(null)
 
+  // Messages
+  const [activeTab, setActiveTab] = useState<'home' | 'messages'>('home')
+  const [chatBusinessId, setChatBusinessId] = useState('')
+  const [chatChannels, setChatChannels] = useState<{ id: string; name: string; type: 'group' | 'dm'; unreadCount: number; lastMessage: { sender_name: string; content: string; created_at: string } | null }[]>([])
+  const [activeChatChannel, setActiveChatChannel] = useState<{ id: string; name: string; type: 'group' | 'dm' } | null>(null)
+  const [chatMessages, setChatMessages] = useState<{ id: number; sender_id: string; sender_name: string; content: string; created_at: string }[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatSending, setChatSending] = useState(false)
+  const [chatLoadingThread, setChatLoadingThread] = useState(false)
+  const [chatUserId, setChatUserId] = useState('')
+  const chatBottomRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLTextAreaElement>(null)
+  const [unreadMessages, setUnreadMessages] = useState(0)
+
   // Pending onboarding
   const [onboardingToken, setOnboardingToken] = useState<string | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -87,6 +101,7 @@ export default function PortalPage() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { window.location.href = '/login'; return }
       setToken(session.access_token)
+      setChatUserId(session.user.id)
       await loadAll(session.access_token)
     })
     const t = setInterval(() => setTicker(n => n + 1), 60000)
@@ -139,7 +154,55 @@ export default function PortalPage() {
     setCurrentEntry(allEntries.find(e => !e.clock_out) ?? null)
     setWeekEntries(allEntries.filter(e => e.clock_out))
     setLoading(false)
+
+    // Load chat channels
+    const chatRes = await fetch('/api/messages/channels', { headers })
+    const chatData = await chatRes.json()
+    if (chatRes.ok && chatData.channels) {
+      setChatBusinessId(chatData.businessId)
+      setChatChannels(chatData.channels)
+      const total = chatData.channels.reduce((s: number, c: { unreadCount: number }) => s + c.unreadCount, 0)
+      setUnreadMessages(total)
+    }
   }
+
+  // Realtime: subscribe to new chat messages
+  useEffect(() => {
+    if (!chatBusinessId || !chatUserId) return
+    const sub = supabase
+      .channel(`chat:portal:${chatBusinessId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `business_id=eq.${chatBusinessId}`,
+      }, (payload) => {
+        const msg = payload.new as { id: number; sender_id: string; sender_name: string; content: string; created_at: string; channel: string }
+        // Add to thread if viewing that channel
+        setActiveChatChannel(ch => {
+          if (ch?.id === msg.channel) {
+            setChatMessages(prev => [...prev, msg])
+            setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+          }
+          return ch
+        })
+        // Update channel list
+        setChatChannels(prev => prev.map(c => {
+          if (c.id === msg.channel) {
+            const isViewing = activeChatChannel?.id === msg.channel
+            return {
+              ...c,
+              lastMessage: { sender_name: msg.sender_name, content: msg.content, created_at: msg.created_at },
+              unreadCount: (msg.sender_id !== chatUserId && !isViewing) ? c.unreadCount + 1 : c.unreadCount,
+            }
+          }
+          return c
+        }))
+        if (msg.sender_id !== chatUserId) setUnreadMessages(prev => prev + 1)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(sub) }
+  }, [chatBusinessId, chatUserId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function openOnboarding() {
     if (!onboardingToken || !token) return
@@ -151,6 +214,52 @@ export default function PortalPage() {
     const data = await res.json()
     if (res.ok) { setOnboardingData(data); setShowOnboarding(true) }
     setOnboardingLoading(false)
+  }
+
+  async function openChatChannel(ch: typeof chatChannels[0]) {
+    setActiveChatChannel(ch)
+    setChatLoadingThread(true)
+    setChatMessages([])
+    const res = await fetch(`/api/messages/thread?channel=${ch.id}&businessId=${chatBusinessId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    if (res.ok) setChatMessages(data.messages)
+    setChatLoadingThread(false)
+    setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'auto' }), 80)
+    if (ch.unreadCount > 0) {
+      fetch('/api/messages/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ channel: ch.id, businessId: chatBusinessId }),
+      })
+      setChatChannels(prev => prev.map(c => c.id === ch.id ? { ...c, unreadCount: 0 } : c))
+      setUnreadMessages(prev => Math.max(0, prev - ch.unreadCount))
+    }
+  }
+
+  async function sendChatMessage() {
+    const content = chatInput.trim()
+    if (!content || chatSending || !activeChatChannel) return
+    setChatInput('')
+    setChatSending(true)
+    const res = await fetch('/api/messages/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ channel: activeChatChannel.id, businessId: chatBusinessId, content }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setChatMessages(prev => [...prev, data.message])
+      setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+      setChatChannels(prev => prev.map(c =>
+        c.id === activeChatChannel.id
+          ? { ...c, lastMessage: { sender_name: data.message.sender_name, content: data.message.content, created_at: data.message.created_at } }
+          : c
+      ))
+    }
+    setChatSending(false)
+    setTimeout(() => chatInputRef.current?.focus(), 50)
   }
 
   async function clockIn() {
@@ -262,6 +371,34 @@ export default function PortalPage() {
         <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.5px' }}>help<span style={{ color: '#185fa5' }}>desk</span></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
 
+          {/* Tab nav */}
+          <div style={{ display: 'flex', gap: '2px', background: '#f0f2f5', borderRadius: '8px', padding: '3px' }}>
+            {(['home', 'messages'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => {
+                  setActiveTab(tab)
+                  if (tab === 'messages' && chatChannels.length > 0 && !activeChatChannel) {
+                    openChatChannel(chatChannels[0])
+                  }
+                }}
+                style={{
+                  padding: '5px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 500,
+                  border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  background: activeTab === tab ? '#fff' : 'transparent',
+                  color: activeTab === tab ? '#1a1a1a' : '#888',
+                  transition: 'all 0.15s',
+                  position: 'relative',
+                }}
+              >
+                {tab === 'home' ? 'Home' : 'Messages'}
+                {tab === 'messages' && unreadMessages > 0 && (
+                  <span style={{ position: 'absolute', top: '1px', right: '1px', width: 8, height: 8, borderRadius: '50%', background: '#185fa5' }} />
+                )}
+              </button>
+            ))}
+          </div>
+
           {/* Bell */}
           <div ref={bellRef} style={{ position: 'relative' }}>
             <button
@@ -303,8 +440,134 @@ export default function PortalPage() {
         </div>
       </div>
 
+      {/* Messages tab */}
+      {activeTab === 'messages' && (
+        <div style={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
+          {/* Channel sidebar */}
+          <div style={{ width: '240px', flexShrink: 0, background: '#fff', borderRight: '0.5px solid #eee', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '1rem 1rem 0.5rem', borderBottom: '0.5px solid #f0f0f0' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Messages</div>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {chatChannels.map(ch => (
+                <div
+                  key={ch.id}
+                  onClick={() => openChatChannel(ch)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
+                    cursor: 'pointer',
+                    background: activeChatChannel?.id === ch.id ? '#f0f6ff' : 'transparent',
+                    borderLeft: `3px solid ${activeChatChannel?.id === ch.id ? '#185fa5' : 'transparent'}`,
+                  }}
+                >
+                  <div style={{
+                    width: 34, height: 34, borderRadius: ch.type === 'group' ? '8px' : '50%',
+                    background: ch.type === 'group' ? '#185fa5' : '#e8f0fe',
+                    color: ch.type === 'group' ? '#fff' : '#185fa5',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: ch.type === 'group' ? '14px' : '11px', fontWeight: 700, flexShrink: 0,
+                  }}>
+                    {ch.type === 'group'
+                      ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      : ch.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+                    }
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: ch.unreadCount > 0 ? 700 : 500, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {ch.name}
+                    </div>
+                    {ch.lastMessage && (
+                      <div style={{ fontSize: '11px', color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {ch.lastMessage.content}
+                      </div>
+                    )}
+                  </div>
+                  {ch.unreadCount > 0 && (
+                    <div style={{ minWidth: 18, height: 18, borderRadius: '99px', background: '#185fa5', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', flexShrink: 0 }}>
+                      {ch.unreadCount}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Thread */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {activeChatChannel && (
+              <div style={{ background: '#fff', borderBottom: '0.5px solid #eee', padding: '0 1.25rem', height: '52px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a' }}>{activeChatChannel.name}</div>
+                <div style={{ fontSize: '12px', color: '#999' }}>{activeChatChannel.type === 'group' ? 'Team chat' : 'Direct message'}</div>
+              </div>
+            )}
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem' }}>
+              {chatLoadingThread ? (
+                <div style={{ textAlign: 'center', color: '#bbb', fontSize: '13px', paddingTop: '2rem' }}>Loading…</div>
+              ) : chatMessages.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#bbb', fontSize: '13px', paddingTop: '4rem' }}>No messages yet.</div>
+              ) : chatMessages.map((msg, i) => {
+                const isMe = msg.sender_id === chatUserId
+                const prevMsg = chatMessages[i - 1]
+                const showName = !isMe && prevMsg?.sender_id !== msg.sender_id
+
+                return (
+                  <div key={msg.id} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: '5px', marginTop: showName ? '10px' : 0 }}>
+                    {!isMe && (
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#e8f0fe', color: '#185fa5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0, marginRight: '8px', alignSelf: 'flex-end', opacity: showName ? 1 : 0 }}>
+                        {msg.sender_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div style={{ maxWidth: '72%' }}>
+                      {showName && <div style={{ fontSize: '11px', color: '#888', fontWeight: 600, marginBottom: '3px', marginLeft: '2px' }}>{msg.sender_name}</div>}
+                      <div style={{
+                        padding: '8px 12px',
+                        borderRadius: isMe ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
+                        background: isMe ? '#185fa5' : '#fff',
+                        color: isMe ? '#fff' : '#1a1a1a',
+                        fontSize: '14px', lineHeight: 1.5,
+                        border: isMe ? 'none' : '0.5px solid #e8eaed',
+                        wordBreak: 'break-word', whiteSpace: 'pre-wrap',
+                      }}>
+                        {msg.content}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              <div ref={chatBottomRef} />
+            </div>
+
+            {activeChatChannel && (
+              <div style={{ background: '#fff', borderTop: '0.5px solid #eee', padding: '0.75rem 1.25rem', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', background: '#f5f6fa', borderRadius: '10px', padding: '7px 10px', border: '0.5px solid #eee' }}>
+                  <textarea
+                    ref={chatInputRef}
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage() } }}
+                    placeholder={`Message ${activeChatChannel.name}…`}
+                    rows={1}
+                    disabled={chatSending}
+                    style={{ flex: 1, resize: 'none', fontSize: '14px', padding: '3px 2px', border: 'none', background: 'transparent', fontFamily: 'inherit', outline: 'none', lineHeight: 1.5, maxHeight: '80px', overflowY: 'auto', color: '#1a1a1a' }}
+                    onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = `${Math.min(t.scrollHeight, 80)}px` }}
+                  />
+                  <button
+                    onClick={sendChatMessage}
+                    disabled={chatSending || !chatInput.trim()}
+                    style={{ width: 32, height: 32, borderRadius: '7px', border: 'none', flexShrink: 0, background: chatInput.trim() && !chatSending ? '#185fa5' : '#dde1ea', color: '#fff', cursor: chatInput.trim() && !chatSending ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Page body */}
-      <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      {activeTab === 'home' && <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '2rem 1.5rem' }}>
 
         {/* Greeting row */}
         <div style={{ marginBottom: '1.75rem' }}>
@@ -621,7 +884,7 @@ export default function PortalPage() {
 
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }
