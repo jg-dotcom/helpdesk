@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import OnboardingFlow from '../sign/[token]/OnboardingFlow'
 
 type Employee = { id: number; name: string; role: string; email: string }
 type Shift = { id: number; shift_date: string; start_time: string; end_time: string; notes: string | null; status?: string }
@@ -74,6 +75,9 @@ export default function PortalPage() {
 
   // Pending onboarding
   const [onboardingToken, setOnboardingToken] = useState<string | null>(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [onboardingData, setOnboardingData] = useState<{ token: string; employeeId: number; userId: string; employeeName: string; welcomePack: string | null; docs: { id: number; file_name: string; file_size: number; url: string | null }[] } | null>(null)
+  const [onboardingLoading, setOnboardingLoading] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -118,6 +122,18 @@ export default function PortalPage() {
     setCurrentEntry(allEntries.find(e => !e.clock_out) ?? null)
     setWeekEntries(allEntries.filter(e => e.clock_out))
     setLoading(false)
+  }
+
+  async function openOnboarding() {
+    if (!onboardingToken || !token) return
+    if (onboardingData) { setShowOnboarding(true); return }
+    setOnboardingLoading(true)
+    const res = await fetch(`/api/portal/onboarding-data?token=${onboardingToken}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    if (res.ok) { setOnboardingData(data); setShowOnboarding(true) }
+    setOnboardingLoading(false)
   }
 
   async function clockIn() {
@@ -254,9 +270,9 @@ export default function PortalPage() {
 
         {/* Onboarding banner */}
         {onboardingToken && (
-          <a
-            href={`/sign/${onboardingToken}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f0f6ff', border: '1px solid #c5dcf7', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem', textDecoration: 'none', color: 'inherit' }}
+          <div
+            onClick={openOnboarding}
+            style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f0f6ff', border: '1px solid #c5dcf7', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem', cursor: 'pointer' }}
           >
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#185fa5', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -265,8 +281,32 @@ export default function PortalPage() {
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#185fa5' }}>You have onboarding paperwork to complete</div>
               <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>W-4, I-9, direct deposit, and more — takes about 5 minutes.</div>
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#185fa5', whiteSpace: 'nowrap' }}>Start now →</div>
-          </a>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#185fa5', whiteSpace: 'nowrap' }}>{onboardingLoading ? 'Loading…' : 'Start now →'}</div>
+          </div>
+        )}
+
+        {/* Onboarding modal */}
+        {showOnboarding && onboardingData && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, overflowY: 'auto' }}>
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem' }}>
+              <div style={{ width: '100%', maxWidth: '600px', background: '#fff', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
+                <button
+                  onClick={() => setShowOnboarding(false)}
+                  style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', fontSize: '20px', color: '#aaa', cursor: 'pointer', zIndex: 1, lineHeight: 1 }}
+                >✕</button>
+                <OnboardingFlow
+                  token={onboardingData.token}
+                  employeeId={onboardingData.employeeId}
+                  userId={onboardingData.userId}
+                  employeeName={onboardingData.employeeName}
+                  welcomePack={onboardingData.welcomePack}
+                  docs={onboardingData.docs}
+                  isModal
+                  onComplete={() => { setShowOnboarding(false); setOnboardingToken(null) }}
+                />
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Two-column grid */}

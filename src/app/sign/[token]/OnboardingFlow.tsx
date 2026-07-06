@@ -23,6 +23,8 @@ type Props = {
   welcomePack: string | null
   docs: Doc[]
   isReturning?: boolean
+  isModal?: boolean
+  onComplete?: () => void
 }
 
 function formatSize(bytes: number) {
@@ -182,7 +184,7 @@ function DocumentSignStep({ token, employeeName, docs, onComplete }: {
   )
 }
 
-export default function OnboardingFlow({ token, employeeId, userId, employeeName, welcomePack, docs, isReturning }: Props) {
+export default function OnboardingFlow({ token, employeeId, userId, employeeName, welcomePack, docs, isReturning, isModal, onComplete }: Props) {
   const [step, setStep] = useState(0)
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError] = useState('')
@@ -252,11 +254,10 @@ export default function OnboardingFlow({ token, employeeId, userId, employeeName
     )
   }
 
-  return (
-    <div className="sign-wrap">
-      <div className="sign-card" style={{ alignSelf: 'flex-start' }}>
-        <div className="logo">help<span>desk</span></div>
-        <h1>Welcome, {employeeName.split(' ')[0]}!</h1>
+  const inner = (
+    <div style={isModal ? { padding: '2rem' } : undefined}>
+      {!isModal && <div className="logo">help<span>desk</span></div>}
+      <h1>Welcome, {employeeName.split(' ')[0]}!</h1>
 
         <div style={{ marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -313,18 +314,19 @@ export default function OnboardingFlow({ token, employeeId, userId, employeeName
             <p style={{ fontSize: '14px', color: '#666', marginBottom: '1.5rem' }}>
               Your onboarding paperwork is complete. Your employer has been notified.
             </p>
-            <button
-              className="btn"
-              onClick={goToPortal}
-              disabled={portalLoading}
-              style={{ marginBottom: '0.75rem' }}
-            >
-              {portalLoading ? 'Loading…' : 'Set up your employee account →'}
-            </button>
-            {portalError && <div className="auth-error" style={{ fontSize: '13px', marginBottom: '0.75rem' }}>{portalError}</div>}
-            <p style={{ fontSize: '12px', color: '#bbb' }}>
-              View your schedule, clock in and out, and request time off.
-            </p>
+            {onComplete ? (
+              <button className="btn auth-btn-primary" onClick={onComplete} style={{ width: 'auto' }}>
+                Back to portal →
+              </button>
+            ) : (
+              <>
+                <button className="btn" onClick={goToPortal} disabled={portalLoading} style={{ marginBottom: '0.75rem' }}>
+                  {portalLoading ? 'Loading…' : 'Set up your employee account →'}
+                </button>
+                {portalError && <div className="auth-error" style={{ fontSize: '13px', marginBottom: '0.75rem' }}>{portalError}</div>}
+                <p style={{ fontSize: '12px', color: '#bbb' }}>View your schedule, clock in and out, and request time off.</p>
+              </>
+            )}
           </div>
         )}
 
@@ -336,6 +338,15 @@ export default function OnboardingFlow({ token, employeeId, userId, employeeName
             )}
           </div>
         )}
+    </div>
+  )
+
+  if (isModal) return inner
+
+  return (
+    <div className="sign-wrap">
+      <div className="sign-card" style={{ alignSelf: 'flex-start' }}>
+        {inner}
       </div>
     </div>
   )
