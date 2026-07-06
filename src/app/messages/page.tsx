@@ -331,9 +331,8 @@ export default function MessagesPage() {
                 Loading…
               </div>
             ) : messages.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#bbb', gap: '8px' }}>
-                <div style={{ fontSize: '32px' }}>💬</div>
-                <div style={{ fontSize: '14px' }}>No messages yet. Say hello!</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#bbb', fontSize: '14px' }}>
+                No messages yet. Say hello!
               </div>
             ) : (
               grouped.map(group => (
