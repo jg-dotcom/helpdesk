@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
   // For owner: get all active employees to build DM channels
   const employeeMap: Record<number, string> = {}
-  const dmEmpIds: number[] = []
+  let dmEmpIds: number[] = []
 
   if (isOwner) {
     const { data: employees } = await supabaseAdmin
