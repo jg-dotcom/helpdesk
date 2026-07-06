@@ -72,6 +72,9 @@ export default function PortalPage() {
   // Claim open shift
   const [claimingId, setClaimingId] = useState<number | null>(null)
 
+  // Pending onboarding
+  const [onboardingToken, setOnboardingToken] = useState<string | null>(null)
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { window.location.href = '/login'; return }
@@ -84,7 +87,7 @@ export default function PortalPage() {
 
   async function loadAll(tk: string) {
     const headers = { Authorization: `Bearer ${tk}` }
-    const [meRes, shiftsRes, ptoRes, toRes, entriesRes, openRes, swapRes, coworkerRes] = await Promise.all([
+    const [meRes, shiftsRes, ptoRes, toRes, entriesRes, openRes, swapRes, coworkerRes, onboardRes] = await Promise.all([
       fetch('/api/employee/me', { headers }),
       fetch('/api/employee/shifts', { headers }),
       fetch('/api/employee/pto-balance', { headers }),
@@ -93,15 +96,17 @@ export default function PortalPage() {
       fetch('/api/employee/open-shifts', { headers }),
       fetch('/api/employee/swap-requests', { headers }),
       fetch('/api/employee/coworker-shifts', { headers }),
+      fetch('/api/portal/onboarding-check', { headers }),
     ])
-    const [me, sh, pto, to, ents, open, swaps, coworkers] = await Promise.all([
+    const [me, sh, pto, to, ents, open, swaps, coworkers, onboard] = await Promise.all([
       meRes.json(), shiftsRes.json(), ptoRes.json(), toRes.json(), entriesRes.json(),
-      openRes.json(), swapRes.json(), coworkerRes.json(),
+      openRes.json(), swapRes.json(), coworkerRes.json(), onboardRes.json(),
     ])
 
     if (!me.employee) { window.location.href = '/'; return }
 
     setEmployee(me.employee)
+    if (onboard?.token) setOnboardingToken(onboard.token)
     setShifts(sh.shifts ?? [])
     setOpenShifts(open.shifts ?? [])
     setSwapRequests(swaps.swaps ?? [])
@@ -246,6 +251,23 @@ export default function PortalPage() {
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </div>
         </div>
+
+        {/* Onboarding banner */}
+        {onboardingToken && (
+          <a
+            href={`/sign/${onboardingToken}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f0f6ff', border: '1px solid #c5dcf7', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem', textDecoration: 'none', color: 'inherit' }}
+          >
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#185fa5', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#185fa5' }}>You have onboarding paperwork to complete</div>
+              <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>W-4, I-9, direct deposit, and more — takes about 5 minutes.</div>
+            </div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#185fa5', whiteSpace: 'nowrap' }}>Start now →</div>
+          </a>
+        )}
 
         {/* Two-column grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.25rem', alignItems: 'start' }}>

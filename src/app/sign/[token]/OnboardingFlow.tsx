@@ -184,6 +184,26 @@ function DocumentSignStep({ token, employeeName, docs, onComplete }: {
 
 export default function OnboardingFlow({ token, employeeId, userId, employeeName, welcomePack, docs, isReturning }: Props) {
   const [step, setStep] = useState(0)
+  const [portalLoading, setPortalLoading] = useState(false)
+  const [portalError, setPortalError] = useState('')
+
+  async function goToPortal() {
+    setPortalLoading(true)
+    setPortalError('')
+    try {
+      const res = await fetch('/api/onboarding/portal-setup-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setPortalError(data.error ?? 'Could not generate link.'); setPortalLoading(false); return }
+      window.location.href = data.url
+    } catch {
+      setPortalError('Something went wrong. Try again.')
+      setPortalLoading(false)
+    }
+  }
 
   const STEPS = useMemo(() => {
     const base = [
@@ -293,8 +313,17 @@ export default function OnboardingFlow({ token, employeeId, userId, employeeName
             <p style={{ fontSize: '14px', color: '#666', marginBottom: '1.5rem' }}>
               Your onboarding paperwork is complete. Your employer has been notified.
             </p>
-            <p style={{ fontSize: '13px', color: '#999' }}>
-              Bookmark this page — you can come back anytime to request time off or update your availability.
+            <button
+              className="btn"
+              onClick={goToPortal}
+              disabled={portalLoading}
+              style={{ marginBottom: '0.75rem' }}
+            >
+              {portalLoading ? 'Loading…' : 'Set up your employee account →'}
+            </button>
+            {portalError && <div className="auth-error" style={{ fontSize: '13px', marginBottom: '0.75rem' }}>{portalError}</div>}
+            <p style={{ fontSize: '12px', color: '#bbb' }}>
+              View your schedule, clock in and out, and request time off.
             </p>
           </div>
         )}

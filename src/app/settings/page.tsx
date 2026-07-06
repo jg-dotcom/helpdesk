@@ -147,6 +147,7 @@ function SettingsContent() {
   const [editingDept, setEditingDept] = useState<number | null>(null)
   const [editDeptName, setEditDeptName] = useState('')
   const [deptSaving, setDeptSaving] = useState(false)
+  const [showTerminated, setShowTerminated] = useState(false)
 
   // Granular permissions panel (inside Team tab)
   const [permEmployee, setPermEmployee] = useState<TeamEmployee | null>(null)
@@ -577,11 +578,26 @@ function SettingsContent() {
 
               {/* Employee list with inline role change */}
               <div className="card" style={{ marginBottom: '1rem' }}>
-                <div className="section-label" style={{ marginBottom: '0.75rem' }}>Team ({teamEmployees.length})</div>
-                {teamEmployees.length === 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                  <div className="section-label" style={{ marginBottom: 0 }}>
+                    Team ({teamEmployees.filter(e => showTerminated || e.status !== 'terminated').length})
+                  </div>
+                  {teamEmployees.some(e => e.status === 'terminated') && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#888', cursor: 'pointer', userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={showTerminated}
+                        onChange={e => setShowTerminated(e.target.checked)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      Show terminated
+                    </label>
+                  )}
+                </div>
+                {teamEmployees.filter(e => showTerminated || e.status !== 'terminated').length === 0 && (
                   <div style={{ fontSize: '13px', color: '#bbb', padding: '8px 0' }}>No employees yet.</div>
                 )}
-                {teamEmployees.map(emp => {
+                {teamEmployees.filter(e => showTerminated || e.status !== 'terminated').map(emp => {
                   const roleColors: Record<string, { bg: string; color: string }> = {
                     admin: { bg: '#f3f0ff', color: '#7c3aed' },
                     manager: { bg: '#fffbeb', color: '#d97706' },
