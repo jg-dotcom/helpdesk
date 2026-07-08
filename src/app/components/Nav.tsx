@@ -281,6 +281,23 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
         <span className="sidebar-logo-text">Helpdesk</span>
       </div>
 
+      {/* ── Search / Command palette ── */}
+      <div style={{ padding: '8px 8px 4px' }}>
+        <button
+          onClick={() => setShowPalette(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '7px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', color: '#64748b', fontSize: '12px', fontWeight: 400, transition: 'background 0.12s' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+        >
+          <IconSearch />
+          <span style={{ flex: 1, textAlign: 'left', color: '#475569' }}>Search…</span>
+          <span style={{ display: 'flex', gap: '3px' }}>
+            <span style={{ fontSize: '10px', color: '#334155', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', padding: '1px 4px', fontFamily: 'monospace' }}>⌘</span>
+            <span style={{ fontSize: '10px', color: '#334155', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', padding: '1px 4px', fontFamily: 'monospace' }}>K</span>
+          </span>
+        </button>
+      </div>
+
       {/* ── Nav items ── */}
       <div className="sidebar-nav-area">
 
@@ -353,21 +370,6 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
 
       {/* ── Bottom: notifications + user ── */}
       <div className="sidebar-bottom">
-
-        {/* Search / Command palette button */}
-        <button
-          onClick={() => setShowPalette(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '7px 8px', borderRadius: '7px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '12px', fontWeight: 500, marginBottom: '2px', transition: 'background 0.12s' }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-        >
-          <IconSearch />
-          Search
-          <span style={{ marginLeft: 'auto', display: 'flex', gap: '3px' }}>
-            <span style={{ fontSize: '10px', color: '#334155', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', padding: '1px 4px', fontFamily: 'monospace' }}>⌘</span>
-            <span style={{ fontSize: '10px', color: '#334155', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', padding: '1px 4px', fontFamily: 'monospace' }}>K</span>
-          </span>
-        </button>
 
         {/* Notification bell row */}
         <div ref={notifsRef} style={{ position: 'relative' }}>
