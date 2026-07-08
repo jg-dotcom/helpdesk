@@ -139,6 +139,7 @@ export default function Dashboard({
   const [annMsg, setAnnMsg] = useState('')
   const [annSending, setAnnSending] = useState(false)
   const [annResult, setAnnResult] = useState('')
+  const [seeding, setSeeding] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -271,6 +272,23 @@ export default function Dashboard({
     })
     setPendingSwaps(prev => prev.filter(s => s.id !== id))
     setApproving(p => ({ ...p, [`swap_${id}`]: false }))
+  }
+
+  async function seedDemo() {
+    if (!token) return
+    setSeeding(true)
+    const res = await fetch('/api/seed-demo', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    if (res.ok) {
+      // Reload the page to pull in all the new data
+      window.location.reload()
+    } else {
+      alert(data.error || 'Failed to load demo data')
+      setSeeding(false)
+    }
   }
 
   async function sendAnnouncement() {
@@ -665,7 +683,17 @@ export default function Dashboard({
           {loading ? (
             <div style={{ padding: '2rem', textAlign: 'center', fontSize: '13px', color: '#475569' }}>Loading your team…</div>
           ) : employees.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', fontSize: '13px', color: '#475569' }}>No employees yet — add your first one above.</div>
+            <div style={{ padding: '2.5rem 2rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: '#94a3b8', marginBottom: '8px' }}>No employees yet</div>
+              <div style={{ fontSize: '12px', color: '#475569', marginBottom: '20px' }}>Add your first employee above, or load demo data to see what the dashboard looks like when it&apos;s fully populated.</div>
+              <button
+                onClick={seedDemo}
+                disabled={seeding}
+                style={{ padding: '9px 20px', borderRadius: '8px', background: seeding ? '#334155' : '#1d4ed8', color: seeding ? '#64748b' : '#fff', border: 'none', fontSize: '13px', fontWeight: 500, cursor: seeding ? 'not-allowed' : 'pointer' }}
+              >
+                {seeding ? 'Loading demo data…' : 'Load demo data'}
+              </button>
+            </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1px', background: 'rgba(255,255,255,0.04)' }}>
               {employees.filter(emp => {
