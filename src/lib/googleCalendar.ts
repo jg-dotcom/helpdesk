@@ -61,11 +61,14 @@ export function createCalendarEvent(
   startTime: string, // HH:MM:SS
   endTime: string,
   timeZone = 'America/New_York',
+  attendeeEmails: string[] = [],
 ) {
   return googleRequest('POST', '/calendars/primary/events', accessToken, {
     summary,
     description,
     start: { dateTime: `${dateStr}T${startTime}`, timeZone },
     end: { dateTime: `${dateStr}T${endTime}`, timeZone },
+    attendees: attendeeEmails.map(email => ({ email })),
+    sendUpdates: attendeeEmails.length > 0 ? 'all' : 'none',
   })
 }

@@ -43,48 +43,55 @@ export async function POST(req: NextRequest) {
   const start = periodStart ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   const end = periodEnd ?? now.toISOString().slice(0, 10)
 
-  // Fetch payroll entries
-  const { data: entries, error: entErr } = await supabase
-    .from('payroll_entries')
-    .select('id, employee_id, gross_pay, period_start, period_end, created_at')
+  // Fetch finalized payroll runs in range, with their line items
+  const { data: runs, error: runErr } = await supabase
+    .from('payroll_runs')
+    .select('id, period_start, period_end, run_date, status')
     .eq('user_id', user.id)
+    .eq('status', 'finalized')
     .gte('period_start', start)
     .lte('period_end', end)
 
-  if (entErr) return NextResponse.json({ error: 'Could not load payroll entries.' }, { status: 500 })
-  if (!entries || entries.length === 0) {
-    return NextResponse.json({ pushed: 0, message: 'No payroll entries found in that range.' })
+  if (runErr) return NextResponse.json({ error: 'Could not load payroll runs.' }, { status: 500 })
+
+  if (!runs || runs.length === 0) {
+    return NextResponse.json({ pushed: 0, message: 'No finalized payroll runs found in that range.' })
   }
 
-  // Fetch employee names
-  const empIds = [...new Set(entries.map(e => e.employee_id))]
-  const { data: employees } = await supabase
-    .from('employees')
-    .select('id, name')
-    .in('id', empIds)
+  const runIds = runs.map(r => r.id)
+  const runMap = new Map(runs.map(r => [r.id, r]))
 
-  const empMap = new Map((employees ?? []).map(e => [e.id, e.name as string]))
+  const { data: items, error: itemErr } = await supabase
+    .from('payroll_run_items')
+    .select('id, run_id, employee_name, gross_pay, net_pay, deductions')
+    .in('run_id', runIds)
+
+  if (itemErr) return NextResponse.json({ error: 'Could not load payroll items.' }, { status: 500 })
+  if (!items || items.length === 0) {
+    return NextResponse.json({ pushed: 0, message: 'No payroll line items found.' })
+  }
 
   let pushed = 0
   const errors: string[] = []
 
-  for (const entry of entries) {
-    const empName = empMap.get(entry.employee_id) ?? 'Employee'
-    const txnDate = entry.period_end ?? entry.created_at?.slice(0, 10) ?? end
-    const memo = `Payroll: ${empName} (${entry.period_start} – ${entry.period_end})`
+  for (const item of items) {
+    const run = runMap.get(item.run_id)
+    if (!run) continue
+    const txnDate = run.period_end
+    const memo = `Payroll: ${item.employee_name} (${run.period_start} – ${run.period_end})`
 
     try {
       await createPayrollExpense(
         conn.realm_id,
         accessToken,
-        empName,
-        entry.gross_pay,
+        item.employee_name,
+        item.gross_pay,
         txnDate,
         memo,
       )
       pushed++
     } catch (err) {
-      errors.push(`${empName}: ${err}`)
+      errors.push(`${item.employee_name}: ${err}`)
     }
   }
 

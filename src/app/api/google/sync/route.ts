@@ -61,11 +61,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ pushed: 0, message: 'No shifts found in that range.' })
   }
 
-  // Fetch employee names
+  // Fetch employee names and emails
   const empIds = [...new Set(shifts.map(s => s.employee_id))]
   const { data: employees } = await supabase
     .from('employees')
-    .select('id, name, role')
+    .select('id, name, role, email')
     .in('id', empIds)
 
   const empMap = new Map((employees ?? []).map(e => [e.id, e]))
@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
     const role = emp?.role ?? ''
     const notes = shift.notes ? `\n${shift.notes}` : ''
     const description = [role, notes].filter(Boolean).join('\n')
+    const attendees = emp?.email ? [emp.email] : []
 
     try {
       await createCalendarEvent(
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
         shift.start_time,
         shift.end_time,
         timeZone,
+        attendees,
       )
       pushed++
     } catch (err) {
