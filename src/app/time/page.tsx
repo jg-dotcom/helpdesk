@@ -348,39 +348,41 @@ export default function TimePage() {
       <div className="dash-content">
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ fontSize: '20px', fontWeight: 700 }}>Time</div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn-ghost" onClick={() => { setShowShiftForm(true); setTab('shifts') }}>+ Add shift</button>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Time</div>
+          <button
+            onClick={() => { setShowShiftForm(true); setTab('shifts') }}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '8px', background: '#1d4ed8', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add shift
+          </button>
         </div>
 
         {/* Stat row */}
-        <div className="dash-stats" style={{ marginBottom: '1.25rem' }}>
-          <div className="stat">
-            <div className="stat-n">{scheduledHours % 1 === 0 ? scheduledHours : scheduledHours.toFixed(1)}h</div>
-            <div className="stat-l">Scheduled this week</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1.25rem' }}>
+          <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: '#f1f5f9', letterSpacing: '-0.02em' }}>{scheduledHours % 1 === 0 ? scheduledHours : scheduledHours.toFixed(1)}h</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Scheduled this week</div>
           </div>
-          <div className="stat">
-            <div className="stat-n" style={{ fontSize: '20px' }}>{estimatedCost > 0 ? `$${estimatedCost.toFixed(0)}` : '—'}</div>
-            <div className="stat-l">Est. labor cost</div>
+          <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: '#f1f5f9', letterSpacing: '-0.02em' }}>{estimatedCost > 0 ? `$${estimatedCost.toFixed(0)}` : '—'}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Est. labor cost</div>
           </div>
-          <div className="stat">
-            <div className="stat-n" style={{ color: clockedIn.length > 0 ? '#27ae60' : '#aaa' }}>{clockedIn.length}</div>
-            <div className="stat-l">Clocked in now</div>
+          <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: clockedIn.length > 0 ? '#4ade80' : '#475569', letterSpacing: '-0.02em' }}>{clockedIn.length}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Clocked in now</div>
           </div>
-          {onTimeRate !== null && (
-            <div className="stat">
-              <div className="stat-n" style={{ color: onTimeRate >= 80 ? '#27ae60' : '#e67e22' }}>{onTimeRate}%</div>
-              <div className="stat-l">On-time this week</div>
-            </div>
-          )}
+          <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: onTimeRate === null ? '#475569' : onTimeRate >= 80 ? '#4ade80' : '#fbbf24', letterSpacing: '-0.02em' }}>{onTimeRate !== null ? `${onTimeRate}%` : '—'}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>On-time this week</div>
+          </div>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #eee', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.07)', marginBottom: '1.25rem' }}>
           {([['shifts', 'Shifts'], ['timeoff', `Time Off${pendingRequests.length > 0 ? ` (${pendingRequests.length})` : ''}`], ['timesheets', 'Timesheets']] as [typeof tab, string][]).map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key)} style={{ padding: '8px 18px', fontWeight: tab === key ? 700 : 400, fontSize: '14px', color: tab === key ? '#185fa5' : '#666', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid #185fa5' : '2px solid transparent', marginBottom: '-2px', cursor: 'pointer' }}>
+            <button key={key} onClick={() => setTab(key)} style={{ padding: '8px 18px', fontWeight: tab === key ? 600 : 400, fontSize: '13px', color: tab === key ? '#93c5fd' : '#64748b', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid #3b82f6' : '2px solid transparent', marginBottom: '-1px', cursor: 'pointer', fontFamily: 'inherit' }}>
               {label}
             </button>
           ))}
@@ -390,27 +392,19 @@ export default function TimePage() {
         {tab === 'shifts' && (
           <div>
             {showShiftForm && (
-              <div className="card" style={{ marginBottom: '1rem' }}>
-                <div style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: '14px' }}>
+              <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
+                <div style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: '14px', color: '#f1f5f9' }}>
                   {shiftDate ? `New shift — ${new Date(shiftDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}` : 'New shift'}
                 </div>
-                {/* Open shift toggle */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.75rem' }}>
                   <button
                     type="button"
                     onClick={() => { setShiftIsOpen(v => !v); if (!shiftIsOpen) setShiftEmpId('') }}
-                    style={{
-                      fontSize: '13px', fontWeight: 500, padding: '5px 14px', borderRadius: '20px', cursor: 'pointer',
-                      border: `1px solid ${shiftIsOpen ? '#166534' : '#dde1ea'}`,
-                      background: shiftIsOpen ? '#dcfce7' : '#fff',
-                      color: shiftIsOpen ? '#166534' : '#666',
-                      transition: 'all 0.15s',
-                    }}
+                    style={{ fontSize: '12px', fontWeight: 500, padding: '4px 12px', borderRadius: '20px', cursor: 'pointer', border: `1px solid ${shiftIsOpen ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.12)'}`, background: shiftIsOpen ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.04)', color: shiftIsOpen ? '#4ade80' : '#94a3b8', transition: 'all 0.15s', fontFamily: 'inherit' }}
                   >
                     {shiftIsOpen ? '✓ Open shift (no employee)' : 'Open shift — post to pool'}
                   </button>
                 </div>
-
                 <div className="row2" style={{ marginBottom: '0.75rem' }}>
                   {!shiftIsOpen && (
                     <div className="field"><label>Employee</label>
@@ -429,36 +423,31 @@ export default function TimePage() {
                 <div className="field" style={{ marginBottom: '0.75rem' }}>
                   <label>Notes (optional)</label><input value={shiftNotes} onChange={e => setShiftNotes(e.target.value)} placeholder="e.g. Opening shift" />
                 </div>
-
-                {/* Repeat weekly */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.75rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#94a3b8', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                     <input type="checkbox" checked={repeatEnabled} onChange={e => { setRepeatEnabled(e.target.checked); if (!e.target.checked) setRepeatWeeks(1) }} />
                     Repeat weekly for
                   </label>
                   {repeatEnabled && (
-                    <select value={repeatWeeks} onChange={e => setRepeatWeeks(Number(e.target.value))} style={{ fontSize: '13px', padding: '4px 8px', border: '1px solid #dde1ea', borderRadius: '6px' }}>
+                    <select value={repeatWeeks} onChange={e => setRepeatWeeks(Number(e.target.value))} style={{ fontSize: '12px', padding: '4px 8px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: '#0f172a', color: '#e2e8f0' }}>
                       {[2, 3, 4, 6, 8, 12].map(n => <option key={n} value={n}>{n} weeks</option>)}
                     </select>
                   )}
                 </div>
-
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                  <button className="btn auth-btn-primary" style={{ width: 'auto' }} onClick={handleAddShift} disabled={savingShift}>{savingShift ? 'Saving...' : 'Save shift'}</button>
-                  <button className="btn" style={{ width: 'auto' }} onClick={() => { setShowShiftForm(false); setShiftIsOpen(false); setRepeatEnabled(false); setRepeatWeeks(1) }}>Cancel</button>
-                  {shiftMsg && <div className="done-msg">{shiftMsg}</div>}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button style={{ padding: '7px 16px', borderRadius: '8px', background: '#1d4ed8', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }} onClick={handleAddShift} disabled={savingShift}>{savingShift ? 'Saving…' : 'Save shift'}</button>
+                  <button style={{ padding: '7px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => { setShowShiftForm(false); setShiftIsOpen(false); setRepeatEnabled(false); setRepeatWeeks(1) }}>Cancel</button>
+                  {shiftMsg && <span style={{ fontSize: '12px', color: '#4ade80' }}>{shiftMsg}</span>}
                 </div>
               </div>
             )}
 
             {/* Generate */}
-            <div className="card" style={{ marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>Auto-generate from availability</div>
-                <input type="date" value={genWeekStart} onChange={e => setGenWeekStart(e.target.value)} style={{ fontSize: '12px', padding: '4px 8px', border: '1px solid #dde1ea', borderRadius: '6px' }} />
-                <button className="btn" style={{ width: 'auto', fontSize: '12px' }} onClick={generateSchedule} disabled={generating}>{generating ? 'Generating...' : 'Generate week'}</button>
-                {genMsg && <div className={genMsg.startsWith('Error') || genMsg.startsWith('No employee') || genMsg.startsWith('No new') ? 'auth-error' : 'done-msg'} style={{ fontSize: '12px' }}>{genMsg}</div>}
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}>
+              <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>Auto-generate from availability</span>
+              <input type="date" value={genWeekStart} onChange={e => setGenWeekStart(e.target.value)} style={{ fontSize: '12px', padding: '4px 8px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: '#0f172a', color: '#94a3b8' }} />
+              <button style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit' }} onClick={generateSchedule} disabled={generating}>{generating ? 'Generating…' : 'Generate week'}</button>
+              {genMsg && <span style={{ fontSize: '12px', color: genMsg.startsWith('Error') || genMsg.startsWith('No employee') || genMsg.startsWith('No new') ? '#f87171' : '#4ade80' }}>{genMsg}</span>}
             </div>
 
             {/* Open shift pool */}
@@ -466,22 +455,22 @@ export default function TimePage() {
               const openPool = shifts.filter(s => s.is_open_shift && !s.employee_id)
               if (!openPool.length) return null
               return (
-                <div className="card" style={{ marginBottom: '1rem', border: '1px solid #d1fae5' }}>
+                <div style={{ background: '#1e293b', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.75rem' }}>
-                    <div className="section-label" style={{ color: '#166534' }}>Open shift pool</div>
-                    <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, background: '#166534', color: '#fff', borderRadius: '10px', padding: '1px 7px' }}>{openPool.length}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Open shift pool</span>
+                    <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, background: 'rgba(34,197,94,0.15)', color: '#4ade80', borderRadius: '10px', padding: '1px 7px' }}>{openPool.length}</span>
                   </div>
                   {openPool.map(s => {
                     const isPast = s.shift_date < today
                     return (
-                      <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.75rem', borderRadius: '8px', background: isPast ? '#fff9f0' : '#f0fdf4', border: `1px solid ${isPast ? '#fde8c8' : '#d1fae5'}`, marginBottom: '0.5rem' }}>
-                        <div style={{ width: '110px', fontSize: '12px', flexShrink: 0, fontWeight: isPast ? 600 : 400, color: isPast ? '#c0392b' : '#555' }}>
+                      <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.75rem', borderRadius: '8px', background: isPast ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isPast ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.06)'}`, marginBottom: '0.5rem' }}>
+                        <div style={{ width: '110px', fontSize: '12px', flexShrink: 0, color: isPast ? '#f87171' : '#94a3b8' }}>
                           {new Date(s.shift_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                          {isPast && <span style={{ display: 'block', fontSize: '10px', color: '#e67e22' }}>overdue</span>}
+                          {isPast && <span style={{ display: 'block', fontSize: '10px', color: '#fbbf24' }}>overdue</span>}
                         </div>
-                        <div style={{ flex: 1, fontSize: '13px', fontWeight: 500 }}>
+                        <div style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>
                           {fmt(s.start_time)} – {fmt(s.end_time)}
-                          {s.notes && <span style={{ fontWeight: 400, color: '#888', fontSize: '12px' }}> · {s.notes}</span>}
+                          {s.notes && <span style={{ fontWeight: 400, color: '#64748b', fontSize: '12px' }}> · {s.notes}</span>}
                         </div>
                         <select
                           defaultValue=""
@@ -491,15 +480,12 @@ export default function TimePage() {
                             await supabase.from('shifts').update({ employee_id: empId, is_open_shift: false }).eq('id', s.id)
                             setShifts(prev => prev.map(sh => sh.id === s.id ? { ...sh, employee_id: empId, is_open_shift: false } : sh))
                           }}
-                          style={{ fontSize: '12px', padding: '4px 8px', border: '1px solid #dde1ea', borderRadius: '6px', cursor: 'pointer', background: '#fff' }}
+                          style={{ fontSize: '12px', padding: '4px 8px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer', background: '#0f172a', color: '#e2e8f0' }}
                         >
-                          <option value="">Assign to...</option>
+                          <option value="">Assign to…</option>
                           {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                         </select>
-                        <button
-                          onClick={() => handleDeleteShift(s.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0392b', fontSize: '18px', lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
-                          title="Remove shift">×</button>
+                        <button onClick={() => handleDeleteShift(s.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', fontSize: '18px', lineHeight: 1, padding: '0 2px', flexShrink: 0 }}>×</button>
                       </div>
                     )
                   })}
@@ -509,10 +495,10 @@ export default function TimePage() {
 
             {/* Pending swap requests */}
             {pendingSwaps.length > 0 && (
-              <div className="card" style={{ marginBottom: '1rem', border: '1px solid #fde8c8' }}>
-                <div className="section-label" style={{ marginBottom: '0.75rem', color: '#e67e22' }}>
-                  Swap requests
-                  <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, background: '#e67e22', color: '#fff', borderRadius: '10px', padding: '1px 7px' }}>{pendingSwaps.length}</span>
+              <div style={{ background: '#1e293b', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Swap requests</span>
+                  <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, background: 'rgba(245,158,11,0.15)', color: '#fbbf24', borderRadius: '10px', padding: '1px 7px' }}>{pendingSwaps.length}</span>
                 </div>
                 {pendingSwaps.map(swap => {
                   const requester = empMap[swap.requester_employee_id]
@@ -552,7 +538,7 @@ export default function TimePage() {
             {/* View toggle */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '0.75rem' }}>
               {(['grid', 'week', 'month'] as const).map(v => (
-                <button key={v} onClick={() => setShiftView(v)} style={{ padding: '5px 14px', fontSize: '13px', fontWeight: shiftView === v ? 600 : 400, borderRadius: '6px', border: `1px solid ${shiftView === v ? '#185fa5' : '#dde1ea'}`, background: shiftView === v ? '#185fa5' : '#fff', color: shiftView === v ? '#fff' : '#555', cursor: 'pointer' }}>
+                <button key={v} onClick={() => setShiftView(v)} style={{ padding: '5px 14px', fontSize: '12px', fontWeight: shiftView === v ? 600 : 400, borderRadius: '6px', border: `1px solid ${shiftView === v ? 'rgba(29,78,216,0.6)' : 'rgba(255,255,255,0.08)'}`, background: shiftView === v ? 'rgba(29,78,216,0.25)' : 'rgba(255,255,255,0.03)', color: shiftView === v ? '#93c5fd' : '#64748b', cursor: 'pointer', fontFamily: 'inherit' }}>
                   {v === 'grid' ? 'Schedule' : v.charAt(0).toUpperCase() + v.slice(1)}
                 </button>
               ))}
@@ -671,11 +657,11 @@ export default function TimePage() {
 
             {/* ── WEEK VIEW ── */}
             {shiftView === 'week' && (
-              <div className="card">
+              <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <button className="btn" style={{ padding: '4px 10px', fontSize: '14px' }} onClick={() => setWeekOffset(o => o - 1)}>←</button>
-                  <div style={{ fontWeight: 600, fontSize: '14px' }}>{weekLabel}</div>
-                  <button className="btn" style={{ padding: '4px 10px', fontSize: '14px' }} onClick={() => setWeekOffset(o => o + 1)}>→</button>
+                  <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o - 1)}>←</button>
+                  <div style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9' }}>{weekLabel}</div>
+                  <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o + 1)}>→</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
                   {weekDays.map((dateStr, i) => {
@@ -730,12 +716,12 @@ export default function TimePage() {
               const { label: monthLabel, month: currentMonth, days } = getMonthGrid(monthOffset)
               const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
               return (
-                <div className="card" style={{ padding: '1rem' }}>
+                <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem' }}>
                   {/* Month nav */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                    <button className="btn" style={{ padding: '4px 10px', fontSize: '14px' }} onClick={() => setMonthOffset(o => o - 1)}>←</button>
-                    <div style={{ fontWeight: 600, fontSize: '14px' }}>{monthLabel}</div>
-                    <button className="btn" style={{ padding: '4px 10px', fontSize: '14px' }} onClick={() => setMonthOffset(o => o + 1)}>→</button>
+                    <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setMonthOffset(o => o - 1)}>←</button>
+                    <div style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9' }}>{monthLabel}</div>
+                    <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setMonthOffset(o => o + 1)}>→</button>
                   </div>
 
                   {/* Employee color legend */}
@@ -819,26 +805,26 @@ export default function TimePage() {
         {tab === 'timeoff' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {pendingRequests.length > 0 && (
-              <div className="card">
-                <div className="section-label" style={{ marginBottom: '0.75rem' }}>
-                  Pending requests
-                  <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, background: '#185fa5', color: '#fff', borderRadius: '10px', padding: '1px 7px' }}>{pendingRequests.length}</span>
+              <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#f1f5f9', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pending requests</span>
+                  <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, background: 'rgba(29,78,216,0.2)', color: '#93c5fd', borderRadius: '10px', padding: '1px 7px' }}>{pendingRequests.length}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {pendingRequests.map(req => {
                     const emp = employees.find(e => e.id === req.employee_id)
                     return (
-                      <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0.75rem', borderRadius: '8px', background: '#fafafa', border: '1px solid #eee' }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#e8edf8', color: '#185fa5', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(29,78,216,0.2)', color: '#93c5fd', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           {emp ? emp.name.split(' ').map(w => w[0]).join('').slice(0, 2) : '??'}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '13px', fontWeight: 500 }}>{emp?.name || 'Employee'} — <span style={{ fontWeight: 400, color: '#555' }}>{req.type}</span></div>
-                          <div style={{ fontSize: '12px', color: '#9a9a9a', marginTop: '2px' }}>{fmtDate(req.start_date)} – {fmtDate(req.end_date)}{req.reason ? ` · ${req.reason}` : ''}</div>
+                          <div style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{emp?.name || 'Employee'} <span style={{ fontWeight: 400, color: '#64748b' }}>— {req.type}</span></div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{fmtDate(req.start_date)} – {fmtDate(req.end_date)}{req.reason ? ` · ${req.reason}` : ''}</div>
                         </div>
                         <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
-                          <button onClick={() => handleTimeOff(req.id, 'approved')} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #27ae60', background: '#f0faf4', color: '#27ae60', cursor: 'pointer', fontWeight: 500 }}>Approve</button>
-                          <button onClick={() => handleTimeOff(req.id, 'denied')} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #e0e0e0', background: '#fafafa', color: '#c0392b', cursor: 'pointer', fontWeight: 500 }}>Deny</button>
+                          <button onClick={() => handleTimeOff(req.id, 'approved')} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(34,197,94,0.35)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}>Approve</button>
+                          <button onClick={() => handleTimeOff(req.id, 'denied')} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}>Deny</button>
                         </div>
                       </div>
                     )
@@ -847,18 +833,18 @@ export default function TimePage() {
               </div>
             )}
 
-            <div className="card">
-              <div className="section-label" style={{ marginBottom: '0.75rem' }}>All requests</div>
-              {requests.length === 0 ? <div className="empty-state">No time off requests yet.</div> : (
+            <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>All requests</div>
+              {requests.length === 0 ? <div style={{ color: '#475569', fontSize: '13px', padding: '0.5rem 0' }}>No time off requests yet.</div> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                   {requests.map(req => {
                     const emp = employees.find(e => e.id === req.employee_id)
-                    const statusColor = req.status === 'approved' ? '#27ae60' : req.status === 'denied' ? '#c0392b' : '#e67e22'
+                    const statusColor = req.status === 'approved' ? '#4ade80' : req.status === 'denied' ? '#f87171' : '#fbbf24'
                     return (
-                      <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 0.75rem', borderRadius: '8px', background: '#fafafa', border: '1px solid #eee' }}>
+                      <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '13px', fontWeight: 500 }}>{emp?.name || 'Employee'} — <span style={{ fontWeight: 400 }}>{req.type}</span></div>
-                          <div style={{ fontSize: '12px', color: '#9a9a9a', marginTop: '1px' }}>{fmtDate(req.start_date)} – {fmtDate(req.end_date)}</div>
+                          <div style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{emp?.name || 'Employee'} <span style={{ fontWeight: 400, color: '#64748b' }}>— {req.type}</span></div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '1px' }}>{fmtDate(req.start_date)} – {fmtDate(req.end_date)}</div>
                         </div>
                         <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor, textTransform: 'capitalize' }}>{req.status}</span>
                       </div>
@@ -876,14 +862,14 @@ export default function TimePage() {
 
             {/* Flagged anomalies */}
             {flagged.length > 0 && (
-              <div className="card" style={{ border: '1px solid #fcd4d4', background: '#fff9f9' }}>
-                <div className="section-label" style={{ marginBottom: '0.75rem', color: '#c0392b' }}>⚠ Anomalies — still clocked in after 10h</div>
+              <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '12px', padding: '1rem' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#f87171', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Anomalies — still clocked in after 10h</div>
                 {flagged.map(e => {
                   const emp = empMap[e.employee_id]
                   return (
-                    <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #fce8e8', fontSize: '13px' }}>
-                      <span style={{ fontWeight: 500 }}>{emp?.name ?? 'Unknown'}</span>
-                      <span style={{ color: '#c0392b', fontWeight: 700 }}>{elapsed(e.clock_in)} — clocked in at {fmtTime(e.clock_in)}</span>
+                    <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(239,68,68,0.15)', fontSize: '13px' }}>
+                      <span style={{ fontWeight: 500, color: '#e2e8f0' }}>{emp?.name ?? 'Unknown'}</span>
+                      <span style={{ color: '#f87171', fontWeight: 600 }}>{elapsed(e.clock_in)} — in at {fmtTime(e.clock_in)}</span>
                     </div>
                   )
                 })}
@@ -892,20 +878,20 @@ export default function TimePage() {
 
             {/* Clocked in now */}
             {clockedIn.length > 0 && (
-              <div className="card">
-                <div className="section-label" style={{ marginBottom: '0.75rem' }}>
-                  <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#27ae60', marginRight: '6px' }} />
-                  Clocked in now ({clockedIn.length})
+              <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '0.75rem' }}>
+                  <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#4ade80' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#f1f5f9', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Clocked in now ({clockedIn.length})</span>
                 </div>
                 {clockedIn.filter(e => !flagged.find(f => f.id === e.id)).map(e => {
                   const emp = empMap[e.employee_id]
                   return (
-                    <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
+                    <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                       <div>
-                        <div style={{ fontSize: '14px', fontWeight: 600 }}>{emp?.name ?? 'Unknown'}</div>
-                        <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Since {fmtTime(e.clock_in)}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>{emp?.name ?? 'Unknown'}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Since {fmtTime(e.clock_in)}</div>
                       </div>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#27ae60' }}>{elapsed(e.clock_in)}</div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#4ade80' }}>{elapsed(e.clock_in)}</div>
                     </div>
                   )
                 })}
@@ -914,20 +900,20 @@ export default function TimePage() {
 
             {/* Weekly hours per employee */}
             {weeklyHours.size > 0 && (
-              <div className="card">
-                <div className="section-label" style={{ marginBottom: '0.75rem' }}>Weekly hours</div>
+              <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>Weekly hours</div>
                 {[...weeklyHours.entries()].sort((a, b) => b[1] - a[1]).map(([empId, mins]) => {
                   const emp = empMap[empId]
                   const pct = Math.min((mins / (40 * 60)) * 100, 100)
                   const isOver = mins >= 40 * 60
                   return (
                     <div key={empId} style={{ marginBottom: '0.875rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 500 }}>{emp?.name ?? 'Unknown'}</span>
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: isOver ? '#c0392b' : '#185fa5' }}>{fmtMins(mins)}{isOver ? ' · OT' : ''}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{emp?.name ?? 'Unknown'}</span>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: isOver ? '#f87171' : '#93c5fd' }}>{fmtMins(mins)}{isOver ? ' · OT' : ''}</span>
                       </div>
-                      <div style={{ height: 6, background: '#f0f0f0', borderRadius: 3 }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: isOver ? '#c0392b' : '#185fa5', borderRadius: 3, transition: 'width 0.3s' }} />
+                      <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: isOver ? '#ef4444' : '#3b82f6', borderRadius: 3, transition: 'width 0.3s' }} />
                       </div>
                     </div>
                   )
@@ -936,21 +922,21 @@ export default function TimePage() {
             )}
 
             {/* All entries */}
-            <div className="card">
-              <div className="section-label" style={{ marginBottom: '0.75rem' }}>All entries this week</div>
+            <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>All entries this week</div>
               {entries.length === 0 ? (
-                <div className="empty-state">No time entries this week.</div>
+                <div style={{ color: '#475569', fontSize: '13px', padding: '0.5rem 0' }}>No time entries this week.</div>
               ) : [...clockedIn, ...completed].map(e => {
                 const emp = empMap[e.employee_id]
                 return (
-                  <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
+                  <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600 }}>{emp?.name ?? 'Unknown'}</div>
-                      <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
-                        {new Date(e.clock_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {fmtTime(e.clock_in)} – {e.clock_out ? fmtTime(e.clock_out) : <span style={{ color: '#27ae60' }}>now</span>}
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>{emp?.name ?? 'Unknown'}</div>
+                      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                        {new Date(e.clock_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {fmtTime(e.clock_in)} – {e.clock_out ? fmtTime(e.clock_out) : <span style={{ color: '#4ade80' }}>now</span>}
                       </div>
                     </div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: e.clock_out ? '#111' : '#27ae60', minWidth: '40px', textAlign: 'right' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: e.clock_out ? '#94a3b8' : '#4ade80', minWidth: '40px', textAlign: 'right' }}>
                       {e.clock_out && e.total_minutes ? fmtMins(e.total_minutes) : elapsed(e.clock_in)}
                     </div>
                   </div>
