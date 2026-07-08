@@ -12,6 +12,29 @@ type Props = {
 
 type Notification = { id: number; message: string; created_at: string; read: boolean }
 
+type PaletteData = {
+  ptos:      Array<{ id: number; employeeName: string; start_date: string; end_date: string; type: string; reason: string | null }>
+  swaps:     Array<{ id: number; requesterName: string; targetName: string | null; notes: string | null }>
+  callouts:  Array<{ id: number; employee_id: number | null; employeeName: string; start_time: string; end_time: string }>
+  employees: Array<{ id: number; name: string; role: string }>
+}
+
+function fmtShort(iso: string) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+function fmt12(t: string) {
+  const [h, m] = t.split(':'); const hr = parseInt(h)
+  return `${hr % 12 || 12}:${m} ${hr < 12 ? 'AM' : 'PM'}`
+}
+
+function IconSearch() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  )
+}
+
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60000)
@@ -104,8 +127,15 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [trialBanner, setTrialBanner] = useState<{ daysLeft: number; status: string } | null>(null)
-  const menuRef   = useRef<HTMLDivElement>(null)
-  const notifsRef = useRef<HTMLDivElement>(null)
+  const menuRef        = useRef<HTMLDivElement>(null)
+  const notifsRef      = useRef<HTMLDivElement>(null)
+
+  // ── Command palette ────────────────────────────────────────────────────────
+  const [showPalette, setShowPalette]   = useState(false)
+  const [paletteQuery, setPaletteQuery] = useState('')
+  const [paletteData, setPaletteData]   = useState<PaletteData | null>(null)
+  const [paletteHi, setPaletteHi]       = useState(0)
+  const paletteInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
@@ -170,6 +200,52 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
       if (channel) supabase.removeChannel(channel)
     }
   }, [])
+
+  // ── Palette keyboard listener ──────────────────────────────────────────────
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setShowPalette(v => !v) }
+      if (e.key === 'Escape') setShowPalette(false)
+      if (!showPalette) return
+      if (e.key === 'ArrowDown') { e.preventDefault(); setPaletteHi(h => h + 1) }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setPaletteHi(h => Math.max(0, h - 1)) }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [showPalette])
+
+  useEffect(() => {
+    if (!showPalette) { setPaletteQuery(''); setPaletteHi(0); return }
+    setTimeout(() => paletteInputRef.current?.focus(), 40)
+    loadPaletteData()
+  }, [showPalette])
+
+  async function loadPaletteData() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch('/api/palette', { headers: { Authorization: `Bearer ${session.access_token}` } })
+    if (res.ok) setPaletteData(await res.json())
+  }
+
+  async function paletteApprove(type: 'pto' | 'swap', id: number) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const url = type === 'pto' ? `/api/time-off/${id}` : `/api/shifts/swaps/${id}`
+    await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ status: 'approved' }) })
+    setPaletteData(prev => !prev ? prev : type === 'pto'
+      ? { ...prev, ptos: prev.ptos.filter(p => p.id !== id) }
+      : { ...prev, swaps: prev.swaps.filter(s => s.id !== id) })
+  }
+
+  async function paletteDeny(type: 'pto' | 'swap', id: number) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const url = type === 'pto' ? `/api/time-off/${id}` : `/api/shifts/swaps/${id}`
+    await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ status: 'denied' }) })
+    setPaletteData(prev => !prev ? prev : type === 'pto'
+      ? { ...prev, ptos: prev.ptos.filter(p => p.id !== id) }
+      : { ...prev, swaps: prev.swaps.filter(s => s.id !== id) })
+  }
 
   async function markAllRead() {
     const unread = notifications.filter(n => !n.read).map(n => n.id)
@@ -277,6 +353,21 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
       {/* ── Bottom: notifications + user ── */}
       <div className="sidebar-bottom">
 
+        {/* Search / Command palette button */}
+        <button
+          onClick={() => setShowPalette(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '7px 8px', borderRadius: '7px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '12px', fontWeight: 500, marginBottom: '2px', transition: 'background 0.12s' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+        >
+          <IconSearch />
+          Search
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: '3px' }}>
+            <span style={{ fontSize: '10px', color: '#334155', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', padding: '1px 4px', fontFamily: 'monospace' }}>⌘</span>
+            <span style={{ fontSize: '10px', color: '#334155', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', padding: '1px 4px', fontFamily: 'monospace' }}>K</span>
+          </span>
+        </button>
+
         {/* Notification bell row */}
         <div ref={notifsRef} style={{ position: 'relative' }}>
           <button
@@ -346,5 +437,171 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
 
       </div>
     </div>
+
+    {/* ── Command Palette ─────────────────────────────────────────────────── */}
+    {showPalette && (() => {
+      const q = paletteQuery.toLowerCase()
+      const ptos     = (paletteData?.ptos      ?? []).filter(p => !q || p.employeeName.toLowerCase().includes(q))
+      const swaps    = (paletteData?.swaps     ?? []).filter(s => !q || s.requesterName.toLowerCase().includes(q))
+      const callouts = (paletteData?.callouts  ?? []).filter(c => !q || c.employeeName.toLowerCase().includes(q))
+      const emps     = (paletteData?.employees ?? []).filter(e => !q || e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q)).slice(0, 5)
+      const quickActions = [
+        { label: 'Add shift',          sub: 'Schedule an employee for a new shift', href: '/time' },
+        { label: 'Post announcement',  sub: 'Send a message to all employees',      href: '/' },
+        { label: 'Add employee',       sub: 'Onboard a new team member',            href: '/' },
+        { label: 'View timesheets',    sub: 'See who is clocked in right now',      href: '/time' },
+      ].filter(a => !q || a.label.toLowerCase().includes(q) || a.sub.toLowerCase().includes(q))
+
+      const hasAttention = ptos.length > 0 || swaps.length > 0 || callouts.length > 0
+
+      const rowStyle = (hi: boolean): React.CSSProperties => ({
+        display: 'flex', alignItems: 'center', gap: '11px', padding: '9px 14px', margin: '1px 4px',
+        borderRadius: '8px', cursor: 'pointer',
+        background: hi ? 'rgba(29,78,216,0.2)' : 'transparent',
+        transition: 'background 0.08s',
+      })
+      const iconBox = (color: string): React.CSSProperties => ({
+        width: 28, height: 28, borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: color,
+      })
+      const badgeStyle = (color: 'red' | 'amber' | 'green'): React.CSSProperties => {
+        const map = { red: ['rgba(239,68,68,0.15)','#f87171'], amber: ['rgba(245,158,11,0.15)','#fbbf24'], green: ['rgba(34,197,94,0.15)','#4ade80'] }
+        return { fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: map[color][0], color: map[color][1] }
+      }
+
+      let rowIdx = 0
+
+      return (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.72)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '80px' }}
+          onClick={() => setShowPalette(false)}
+        >
+          <div
+            style={{ width: '520px', maxWidth: 'calc(100vw - 32px)', background: '#1a2236', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.7)', maxHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Search input */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <span style={{ color: '#475569', flexShrink: 0 }}><IconSearch /></span>
+              <input
+                ref={paletteInputRef}
+                value={paletteQuery}
+                onChange={e => { setPaletteQuery(e.target.value); setPaletteHi(0) }}
+                placeholder="Search employees, actions…"
+                style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: '14px', color: '#f1f5f9', fontFamily: 'inherit', caretColor: '#3b82f6' }}
+              />
+              <span style={{ fontSize: '11px', color: '#475569', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', padding: '2px 6px', fontFamily: 'monospace', cursor: 'pointer' }} onClick={() => setShowPalette(false)}>esc</span>
+            </div>
+
+            {/* Results */}
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+
+              {/* Needs attention */}
+              {hasAttention && (
+                <>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '.08em', padding: '10px 16px 4px' }}>Needs your attention</div>
+
+                  {ptos.map(p => { const hi = paletteHi % Math.max(1, (ptos.length + swaps.length + callouts.length + quickActions.length + emps.length)) === rowIdx++; return (
+                    <div key={`pto-${p.id}`} style={rowStyle(hi)} onMouseEnter={() => setPaletteHi(rowIdx - 1)}>
+                      <div style={iconBox('rgba(34,197,94,0.15)')}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', color: '#e2e8f0' }}>Approve {p.employeeName}&apos;s {p.type}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>{fmtShort(p.start_date)} – {fmtShort(p.end_date)}{p.reason ? ` · ${p.reason}` : ''}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+                        <button onClick={() => paletteApprove('pto', p.id)} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '6px', background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)', cursor: 'pointer', fontFamily: 'inherit' }}>Approve</button>
+                        <button onClick={() => paletteDeny('pto', p.id)} style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontFamily: 'inherit' }}>Deny</button>
+                      </div>
+                    </div>
+                  )})}
+
+                  {swaps.map(s => { const hi = paletteHi % Math.max(1, (ptos.length + swaps.length + callouts.length + quickActions.length + emps.length)) === rowIdx++; return (
+                    <div key={`swap-${s.id}`} style={rowStyle(hi)} onMouseEnter={() => setPaletteHi(rowIdx - 1)}>
+                      <div style={iconBox('rgba(59,130,246,0.15)')}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', color: '#e2e8f0' }}>Shift swap — {s.requesterName}{s.targetName ? ` → ${s.targetName}` : ''}</div>
+                        {s.notes && <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>&ldquo;{s.notes}&rdquo;</div>}
+                      </div>
+                      <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+                        <button onClick={() => paletteApprove('swap', s.id)} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '6px', background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.25)', cursor: 'pointer', fontFamily: 'inherit' }}>Approve</button>
+                        <button onClick={() => paletteDeny('swap', s.id)} style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontFamily: 'inherit' }}>Deny</button>
+                      </div>
+                    </div>
+                  )})}
+
+                  {callouts.map(c => { const hi = paletteHi % Math.max(1, (ptos.length + swaps.length + callouts.length + quickActions.length + emps.length)) === rowIdx++; return (
+                    <div key={`co-${c.id}`} style={rowStyle(hi)} onMouseEnter={() => setPaletteHi(rowIdx - 1)}>
+                      <div style={iconBox('rgba(239,68,68,0.15)')}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '13px', color: '#e2e8f0' }}>{c.employeeName} called out</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>{fmt12(c.start_time)} – {fmt12(c.end_time)} · coverage gap</div>
+                      </div>
+                      <span style={badgeStyle('red')}>urgent</span>
+                    </div>
+                  )})}
+                </>
+              )}
+
+              {/* Quick actions */}
+              {quickActions.length > 0 && (
+                <>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '.08em', padding: '10px 16px 4px' }}>Quick actions</div>
+                  {quickActions.map(a => { const hi = paletteHi % Math.max(1, (ptos.length + swaps.length + callouts.length + quickActions.length + emps.length)) === rowIdx++; return (
+                    <a key={a.label} href={a.href} style={{ ...rowStyle(hi), textDecoration: 'none' }} onClick={() => setShowPalette(false)} onMouseEnter={() => setPaletteHi(rowIdx - 1)}>
+                      <div style={iconBox('rgba(100,116,139,0.12)')}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '13px', color: '#e2e8f0' }}>{a.label}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>{a.sub}</div>
+                      </div>
+                    </a>
+                  )})}
+                </>
+              )}
+
+              {/* Employees */}
+              {emps.length > 0 && (
+                <>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '.08em', padding: '10px 16px 4px' }}>Jump to employee</div>
+                  {emps.map(e => { const hi = paletteHi % Math.max(1, (ptos.length + swaps.length + callouts.length + quickActions.length + emps.length)) === rowIdx++; return (
+                    <a key={e.id} href="/" style={{ ...rowStyle(hi), textDecoration: 'none' }} onClick={() => setShowPalette(false)} onMouseEnter={() => setPaletteHi(rowIdx - 1)}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(100,116,139,0.15)', color: '#94a3b8', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {e.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '13px', color: '#e2e8f0' }}>{e.name}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>{e.role}</div>
+                      </div>
+                    </a>
+                  )})}
+                </>
+              )}
+
+              {!paletteData && (
+                <div style={{ textAlign: 'center', padding: '1.5rem', fontSize: '13px', color: '#475569' }}>Loading…</div>
+              )}
+              {paletteData && !hasAttention && quickActions.length === 0 && emps.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '1.5rem', fontSize: '13px', color: '#475569' }}>No results for &ldquo;{paletteQuery}&rdquo;</div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '14px' }}>
+              {[['↑↓','navigate'],['↵','select'],['esc','close']].map(([k,v]) => (
+                <span key={k} style={{ fontSize: '11px', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', padding: '1px 5px', fontFamily: 'monospace', fontSize: '10px' }}>{k}</span> {v}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )
+    })()}
   )
 }

@@ -75,6 +75,16 @@ function shiftHours(s: Shift) {
   return ((eh * 60 + em) - (sh * 60 + sm)) / 60
 }
 
+// Role → dark-theme color mapping for schedule grid
+function getRoleColor(role: string): { bg: string; text: string; border: string } {
+  const r = role.toLowerCase()
+  if (r.includes('cashier'))                             return { bg: 'rgba(29,78,216,0.18)',  text: '#93c5fd', border: 'rgba(29,78,216,0.32)' }
+  if (r.includes('floor'))                               return { bg: 'rgba(34,197,94,0.15)',  text: '#4ade80', border: 'rgba(34,197,94,0.28)' }
+  if (r.includes('lead') || r.includes('manager'))       return { bg: 'rgba(245,158,11,0.16)', text: '#fbbf24', border: 'rgba(245,158,11,0.28)' }
+  if (r.includes('stock'))                               return { bg: 'rgba(139,92,246,0.16)', text: '#c4b5fd', border: 'rgba(139,92,246,0.28)' }
+  return                                                        { bg: 'rgba(100,116,139,0.14)', text: '#94a3b8', border: 'rgba(100,116,139,0.22)' }
+}
+
 export default function TimePage() {
   const router = useRouter()
   const [tab, setTab] = useState<'shifts' | 'timeoff' | 'timesheets'>('shifts')
@@ -103,7 +113,7 @@ export default function TimePage() {
 
   // Weekly / monthly view
   const [weekOffset, setWeekOffset] = useState(0)
-  const [shiftView, setShiftView] = useState<'week' | 'month'>('week')
+  const [shiftView, setShiftView] = useState<'grid' | 'week' | 'month'>('grid')
   const [monthOffset, setMonthOffset] = useState(0)
 
   // Generate schedule
@@ -541,12 +551,123 @@ export default function TimePage() {
 
             {/* View toggle */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '0.75rem' }}>
-              {(['week', 'month'] as const).map(v => (
+              {(['grid', 'week', 'month'] as const).map(v => (
                 <button key={v} onClick={() => setShiftView(v)} style={{ padding: '5px 14px', fontSize: '13px', fontWeight: shiftView === v ? 600 : 400, borderRadius: '6px', border: `1px solid ${shiftView === v ? '#185fa5' : '#dde1ea'}`, background: shiftView === v ? '#185fa5' : '#fff', color: shiftView === v ? '#fff' : '#555', cursor: 'pointer' }}>
-                  {v.charAt(0).toUpperCase() + v.slice(1)}
+                  {v === 'grid' ? 'Schedule' : v.charAt(0).toUpperCase() + v.slice(1)}
                 </button>
               ))}
             </div>
+
+            {/* ── GRID VIEW (Schedule) ── */}
+            {shiftView === 'grid' && (
+              <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o - 1)}>←</button>
+                  <div style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9' }}>{weekLabel}</div>
+                  <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o + 1)}>→</button>
+                </div>
+                <div style={{ minWidth: '560px' }}>
+                  {/* Day header row */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '130px repeat(7, 1fr)', gap: '4px', marginBottom: '6px' }}>
+                    <div />
+                    {weekDays.map((dateStr, i) => {
+                      const isToday = dateStr === today
+                      const dayNum = new Date(dateStr + 'T00:00:00').getDate()
+                      return (
+                        <div key={dateStr} style={{ textAlign: 'center', padding: '6px 4px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: isToday ? '#93c5fd' : '#475569' }}>
+                            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i]}
+                          </div>
+                          <div style={{ fontSize: '14px', fontWeight: isToday ? 700 : 400, color: isToday ? '#93c5fd' : '#94a3b8', marginTop: '1px' }}>
+                            {dayNum}
+                          </div>
+                          {isToday && <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#3b82f6', margin: '3px auto 0' }} />}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Employee rows */}
+                  {employees.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: '#475569', fontSize: '13px' }}>No employees yet.</div>
+                  ) : employees.map(emp => {
+                    const rc = getRoleColor(emp.role)
+                    return (
+                      <div key={emp.id} style={{ display: 'grid', gridTemplateColumns: '130px repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
+                        {/* Name cell */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 4px', minWidth: 0 }}>
+                          <div style={{ width: 26, height: 26, borderRadius: '50%', background: rc.bg, color: rc.text, fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1px solid ${rc.border}` }}>
+                            {emp.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '12px', fontWeight: 500, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.name.split(' ')[0]}</div>
+                            <div style={{ fontSize: '10px', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.role}</div>
+                          </div>
+                        </div>
+                        {/* Day cells */}
+                        {weekDays.map(dateStr => {
+                          const dayShift = shifts.find(s => s.employee_id === emp.id && s.shift_date === dateStr && !s.is_open_shift)
+                          const isToday = dateStr === today
+                          const isCallout = dayShift?.status === 'called_out'
+                          const cellColor = isCallout
+                            ? { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.3)' }
+                            : dayShift ? rc : null
+                          return (
+                            <div
+                              key={dateStr}
+                              onClick={() => { if (!dayShift) { openShiftFormForDate(dateStr); setShiftEmpId(emp.id) } }}
+                              style={{
+                                borderRadius: '6px',
+                                minHeight: '54px',
+                                padding: '6px',
+                                cursor: dayShift ? 'default' : 'pointer',
+                                background: cellColor ? cellColor.bg : isToday ? 'rgba(29,78,216,0.06)' : 'rgba(255,255,255,0.02)',
+                                border: cellColor ? `1px solid ${cellColor.border}` : `1px dashed rgba(255,255,255,${isToday ? '0.12' : '0.05'})`,
+                                display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '2px',
+                                transition: 'border-color 0.1s',
+                              }}
+                              onMouseEnter={e => { if (!dayShift) (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(29,78,216,0.5)' }}
+                              onMouseLeave={e => { if (!dayShift) (e.currentTarget as HTMLDivElement).style.borderColor = isToday ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)' }}
+                            >
+                              {dayShift ? (
+                                <div>
+                                  <div style={{ fontSize: '11px', fontWeight: 600, color: cellColor!.text }}>
+                                    {isCallout ? 'Called out' : `${fmt(dayShift.start_time)}–${fmt(dayShift.end_time)}`}
+                                  </div>
+                                  {!isCallout && (
+                                    <div style={{ fontSize: '10px', color: cellColor!.text, opacity: 0.65, marginTop: '2px' }}>
+                                      {shiftHours(dayShift) % 1 === 0 ? shiftHours(dayShift) : shiftHours(dayShift).toFixed(1)}h
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '10px', color: '#334155', textAlign: 'center' }}>+ add</div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+
+                  {/* Legend */}
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    {[
+                      { label: 'Cashier',  bg: 'rgba(29,78,216,0.35)' },
+                      { label: 'Floor',    bg: 'rgba(34,197,94,0.3)' },
+                      { label: 'Lead',     bg: 'rgba(245,158,11,0.3)' },
+                      { label: 'Stock',    bg: 'rgba(139,92,246,0.3)' },
+                      { label: 'Callout',  bg: 'rgba(239,68,68,0.35)' },
+                    ].map(c => (
+                      <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '2px', background: c.bg }} />
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>{c.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── WEEK VIEW ── */}
             {shiftView === 'week' && (
