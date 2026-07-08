@@ -112,10 +112,18 @@ export default function Home() {
   }
 
   async function deleteEmployee(id: number) {
-    const { error } = await supabase.from('employees').delete().eq('id', id)
-    if (!error) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch(`/api/employees/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    if (res.ok) {
       setEmployees(prev => prev.filter(e => e.id !== id))
       if (selectedEmp?.id === id) setSelectedEmp(null)
+    } else {
+      const data = await res.json()
+      alert(data.error || 'Failed to remove employee')
     }
   }
 
