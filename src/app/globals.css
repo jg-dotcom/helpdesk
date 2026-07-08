@@ -258,6 +258,37 @@ input:focus, select:focus, textarea:focus {
   border-color: #185fa5;
 }
 
+/* ── Dark form overrides inside the admin dashboard ── */
+.dash-content input,
+.dash-content select,
+.dash-content textarea {
+  background: rgba(255,255,255,0.05);
+  color: #e2e8f0;
+  border-color: rgba(255,255,255,0.1);
+  color-scheme: dark;
+}
+
+.dash-content input::placeholder,
+.dash-content textarea::placeholder {
+  color: #475569;
+}
+
+.dash-content input:focus,
+.dash-content select:focus,
+.dash-content textarea:focus {
+  border-color: rgba(59,130,246,0.5);
+  background: rgba(255,255,255,0.07);
+}
+
+.dash-content .field label {
+  color: #64748b;
+}
+
+.dash-content select option {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
 textarea {
   resize: vertical;
   min-height: 80px;
