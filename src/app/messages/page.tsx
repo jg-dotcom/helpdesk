@@ -62,12 +62,31 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false)
   const [loadingChannels, setLoadingChannels] = useState(true)
   const [loadingThread, setLoadingThread] = useState(false)
+  const [search, setSearch] = useState('')
+  const [searchResults, setSearchResults] = useState<{ id: number; channel: string; sender_name: string; content: string; created_at: string }[]>([])
+  const [searching, setSearching] = useState(false)
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const scrollToBottom = useCallback((behavior: 'smooth' | 'auto' = 'smooth') => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior }), 50)
   }, [])
+
+  function handleSearch(q: string, tk = token, bid = businessId) {
+    setSearch(q)
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    if (!q.trim() || q.length < 2) { setSearchResults([]); setSearching(false); return }
+    setSearching(true)
+    searchTimeout.current = setTimeout(async () => {
+      const res = await fetch(`/api/messages/search?q=${encodeURIComponent(q)}&businessId=${bid}`, {
+        headers: { Authorization: `Bearer ${tk}` },
+      })
+      const data = await res.json()
+      setSearchResults(data.results ?? [])
+      setSearching(false)
+    }, 300)
+  }
 
   async function loadChannels(tk: string) {
     setLoadingChannels(true)
@@ -200,15 +219,59 @@ export default function MessagesPage() {
           flexDirection: 'column',
           overflow: 'hidden',
         }}>
-          <div style={{ padding: '1.25rem 1.25rem 0.75rem', borderBottom: '0.5px solid #f0f0f0' }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a' }}>Messages</div>
-            {totalUnread > 0 && (
-              <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>{totalUnread} unread</div>
-            )}
+          <div style={{ padding: '1rem 1rem 0.75rem', borderBottom: '0.5px solid #f0f0f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a' }}>Messages</div>
+              {totalUnread > 0 && (
+                <div style={{ fontSize: '11px', color: '#888' }}>{totalUnread} unread</div>
+              )}
+            </div>
+            {/* Search */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f6fa', borderRadius: '8px', padding: '6px 10px', border: '0.5px solid #e8eaed' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                value={search}
+                onChange={e => handleSearch(e.target.value)}
+                placeholder="Search messages…"
+                style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '13px', outline: 'none', color: '#1a1a1a' }}
+              />
+              {search && (
+                <button onClick={() => { setSearch(''); setSearchResults([]) }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 0, display: 'flex', alignItems: 'center' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            {loadingChannels ? (
+            {search.length >= 2 ? (
+              searching ? (
+                <div style={{ padding: '2rem', textAlign: 'center', fontSize: '13px', color: '#bbb' }}>Searching…</div>
+              ) : searchResults.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', fontSize: '13px', color: '#bbb' }}>No results for "{search}"</div>
+              ) : searchResults.map(result => {
+                const ch = channels.find(c => c.id === result.channel)
+                const chName = ch?.name ?? result.channel
+                const idx = result.content.toLowerCase().indexOf(search.toLowerCase())
+                const start = Math.max(0, idx - 30)
+                const snippet = (start > 0 ? '…' : '') + result.content.slice(start, idx + search.length + 40) + (idx + search.length + 40 < result.content.length ? '…' : '')
+                return (
+                  <div key={result.id}
+                    onClick={() => { if (ch) { openChannel(ch); setSearch(''); setSearchResults([]) } }}
+                    style={{ padding: '10px 14px', borderBottom: '0.5px solid #f0f2f7', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = '#fafafa'}
+                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#185fa5' }}>{chName}</div>
+                      <div style={{ fontSize: '11px', color: '#bbb' }}>{timeAgo(result.created_at)}</div>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#555', marginBottom: '2px', fontWeight: 500 }}>{result.sender_name}</div>
+                    <div style={{ fontSize: '12px', color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{snippet}</div>
+                  </div>
+                )
+              })
+            ) : loadingChannels ? (
               <div style={{ padding: '2rem', textAlign: 'center', fontSize: '13px', color: '#bbb' }}>Loading…</div>
             ) : channels.map(ch => (
               <div
