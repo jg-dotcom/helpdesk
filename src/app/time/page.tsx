@@ -39,35 +39,6 @@ function getWeekDays(offset: number) {
   const d = new Date(); d.setDate(d.getDate() - d.getDay() + offset * 7); d.setHours(0, 0, 0, 0)
   return Array.from({ length: 7 }, (_, i) => { const day = new Date(d); day.setDate(d.getDate() + i); return day.toISOString().slice(0, 10) })
 }
-// Stable per-employee color palette
-const EMP_COLORS = [
-  { bg: '#dbeafe', text: '#1e40af' },
-  { bg: '#dcfce7', text: '#166534' },
-  { bg: '#fef3c7', text: '#92400e' },
-  { bg: '#fce7f3', text: '#9d174d' },
-  { bg: '#ede9fe', text: '#6d28d9' },
-  { bg: '#ffedd5', text: '#9a3412' },
-  { bg: '#cffafe', text: '#155e75' },
-  { bg: '#d1fae5', text: '#065f46' },
-  { bg: '#fee2e2', text: '#991b1b' },
-  { bg: '#f3e8ff', text: '#7e22ce' },
-]
-
-function getMonthGrid(offset: number) {
-  const now = new Date()
-  const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
-  const year = d.getFullYear(); const month = d.getMonth()
-  const firstDay = new Date(year, month, 1)
-  const start = new Date(firstDay); start.setDate(1 - firstDay.getDay())
-  return {
-    label: firstDay.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-    month,
-    days: Array.from({ length: 42 }, (_, i) => {
-      const day = new Date(start); day.setDate(start.getDate() + i)
-      return { iso: day.toISOString().slice(0, 10), inMonth: day.getMonth() === month }
-    }),
-  }
-}
 
 function shiftHours(s: Shift) {
   const [sh, sm] = s.start_time.split(':').map(Number)
@@ -111,10 +82,10 @@ export default function TimePage() {
   const [shiftIsOpen, setShiftIsOpen] = useState(false)
   const [swapRequests, setSwapRequests] = useState<ShiftSwap[]>([])
 
-  // Weekly / monthly view
+  // Weekly view
   const [weekOffset, setWeekOffset] = useState(0)
-  const [shiftView, setShiftView] = useState<'grid' | 'week' | 'month'>('grid')
-  const [monthOffset, setMonthOffset] = useState(0)
+  // Active shift pill (for inline action panel)
+  const [activeShiftId, setActiveShiftId] = useState<number | null>(null)
 
   // Generate schedule
   const [generating, setGenerating] = useState(false)
@@ -334,6 +305,8 @@ export default function TimePage() {
 
   const pendingRequests = requests.filter(r => r.status === 'pending')
   const pendingSwaps = swapRequests.filter(s => s.status === 'pending')
+  const openShiftsCount = shifts.filter(s => s.is_open_shift && !s.employee_id && s.shift_date >= today).length
+  const pendingApprovalCount = pendingRequests.length + pendingSwaps.length
 
   if (loading) return (
     <div className="dash-wrap"><Nav active="time" />
@@ -362,20 +335,20 @@ export default function TimePage() {
         {/* Stat row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1.25rem' }}>
           <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
-            <div style={{ fontSize: '22px', fontWeight: 600, color: '#f1f5f9', letterSpacing: '-0.02em' }}>{scheduledHours % 1 === 0 ? scheduledHours : scheduledHours.toFixed(1)}h</div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Scheduled this week</div>
-          </div>
-          <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
-            <div style={{ fontSize: '22px', fontWeight: 600, color: '#f1f5f9', letterSpacing: '-0.02em' }}>{estimatedCost > 0 ? `$${estimatedCost.toFixed(0)}` : '—'}</div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Est. labor cost</div>
-          </div>
-          <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
             <div style={{ fontSize: '22px', fontWeight: 600, color: clockedIn.length > 0 ? '#4ade80' : '#475569', letterSpacing: '-0.02em' }}>{clockedIn.length}</div>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Clocked in now</div>
           </div>
           <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
-            <div style={{ fontSize: '22px', fontWeight: 600, color: onTimeRate === null ? '#475569' : onTimeRate >= 80 ? '#4ade80' : '#fbbf24', letterSpacing: '-0.02em' }}>{onTimeRate !== null ? `${onTimeRate}%` : '—'}</div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>On-time this week</div>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: openShiftsCount > 0 ? '#fbbf24' : '#475569', letterSpacing: '-0.02em' }}>{openShiftsCount}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Open shifts</div>
+          </div>
+          <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px', cursor: pendingApprovalCount > 0 ? 'pointer' : 'default' }} onClick={() => { if (pendingApprovalCount > 0) setTab('timeoff') }}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: pendingApprovalCount > 0 ? '#f87171' : '#475569', letterSpacing: '-0.02em' }}>{pendingApprovalCount}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Pending approvals</div>
+          </div>
+          <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: '#f1f5f9', letterSpacing: '-0.02em' }}>{estimatedCost > 0 ? `$${estimatedCost.toFixed(0)}` : '—'}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Est. labor cost</div>
           </div>
         </div>
 
@@ -506,12 +479,12 @@ export default function TimePage() {
                   const reqShift = shifts.find(s => s.id === swap.requester_shift_id)
                   const tgtShift = swap.target_shift_id != null ? shifts.find(s => s.id === swap.target_shift_id) : null
                   return (
-                    <div key={swap.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0.75rem', borderRadius: '8px', background: '#fffbf5', border: '1px solid #fde8c8', marginBottom: '0.5rem' }}>
+                    <div key={swap.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0.75rem', borderRadius: '8px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)', marginBottom: '0.5rem' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>
                           {requester?.name ?? '?'} wants to swap{target ? ` with ${target.name}` : ''}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
                           {reqShift ? `Their shift: ${fmtDate(reqShift.shift_date)} ${fmt(reqShift.start_time)}–${fmt(reqShift.end_time)}` : ''}
                           {tgtShift ? ` ↔ ${fmtDate(tgtShift.shift_date)} ${fmt(tgtShift.start_time)}–${fmt(tgtShift.end_time)}` : ''}
                           {swap.notes ? ` · "${swap.notes}"` : ''}
@@ -520,12 +493,12 @@ export default function TimePage() {
                       <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
                         <button
                           onClick={() => handleSwapDecision(swap.id, 'approved', swap.requester_shift_id, swap.target_shift_id, swap.requester_employee_id, swap.target_employee_id)}
-                          style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #27ae60', background: '#f0faf4', color: '#27ae60', cursor: 'pointer', fontWeight: 500 }}>
+                          style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(34,197,94,0.35)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}>
                           Approve
                         </button>
                         <button
                           onClick={() => handleSwapDecision(swap.id, 'denied', null, null, null, null)}
-                          style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #e0e0e0', background: '#fafafa', color: '#c0392b', cursor: 'pointer', fontWeight: 500 }}>
+                          style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}>
                           Deny
                         </button>
                       </div>
@@ -535,17 +508,8 @@ export default function TimePage() {
               </div>
             )}
 
-            {/* View toggle */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '0.75rem' }}>
-              {(['grid', 'week', 'month'] as const).map(v => (
-                <button key={v} onClick={() => setShiftView(v)} style={{ padding: '5px 14px', fontSize: '12px', fontWeight: shiftView === v ? 600 : 400, borderRadius: '6px', border: `1px solid ${shiftView === v ? 'rgba(29,78,216,0.6)' : 'rgba(255,255,255,0.08)'}`, background: shiftView === v ? 'rgba(29,78,216,0.25)' : 'rgba(255,255,255,0.03)', color: shiftView === v ? '#93c5fd' : '#64748b', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {v === 'grid' ? 'Schedule' : v.charAt(0).toUpperCase() + v.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            {/* ── GRID VIEW (Schedule) ── */}
-            {shiftView === 'grid' && (
+            {/* ── SCHEDULE GRID ── */}
+            {(
               <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
                   <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o - 1)}>←</button>
@@ -598,19 +562,34 @@ export default function TimePage() {
                           const cellColor = isCallout
                             ? { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.3)' }
                             : dayShift ? rc : null
+                          const isActive = dayShift?.id === activeShiftId
                           return (
                             <div
                               key={dateStr}
-                              onClick={() => { if (!dayShift) { openShiftFormForDate(dateStr); setShiftEmpId(emp.id) } }}
+                              onClick={() => {
+                                if (dayShift) {
+                                  setActiveShiftId(isActive ? null : dayShift.id)
+                                  setShowShiftForm(false)
+                                } else {
+                                  openShiftFormForDate(dateStr)
+                                  setShiftEmpId(emp.id)
+                                  setActiveShiftId(null)
+                                }
+                              }}
                               style={{
                                 borderRadius: '6px',
                                 minHeight: '54px',
                                 padding: '6px',
-                                cursor: dayShift ? 'default' : 'pointer',
-                                background: cellColor ? cellColor.bg : isToday ? 'rgba(29,78,216,0.06)' : 'rgba(255,255,255,0.02)',
-                                border: cellColor ? `1px solid ${cellColor.border}` : `1px dashed rgba(255,255,255,${isToday ? '0.12' : '0.05'})`,
+                                cursor: 'pointer',
+                                background: isActive
+                                  ? (cellColor ? cellColor.bg : 'rgba(29,78,216,0.12)')
+                                  : cellColor ? cellColor.bg : isToday ? 'rgba(29,78,216,0.06)' : 'rgba(255,255,255,0.02)',
+                                border: isActive
+                                  ? `2px solid ${cellColor ? cellColor.text : '#3b82f6'}`
+                                  : cellColor ? `1px solid ${cellColor.border}` : `1px dashed rgba(255,255,255,${isToday ? '0.12' : '0.05'})`,
                                 display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '2px',
-                                transition: 'border-color 0.1s',
+                                transition: 'border-color 0.1s, background 0.1s',
+                                outline: 'none',
                               }}
                               onMouseEnter={e => { if (!dayShift) (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(29,78,216,0.5)' }}
                               onMouseLeave={e => { if (!dayShift) (e.currentTarget as HTMLDivElement).style.borderColor = isToday ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)' }}
@@ -636,6 +615,48 @@ export default function TimePage() {
                     )
                   })}
 
+                  {/* Active shift action panel */}
+                  {activeShiftId != null && (() => {
+                    const s = shifts.find(sh => sh.id === activeShiftId)
+                    const emp = s?.employee_id != null ? empMap[s.employee_id] : null
+                    if (!s) return null
+                    const isCalloutShift = s.status === 'called_out'
+                    const rc2 = emp ? getRoleColor(emp.role) : { bg: 'rgba(100,116,139,0.14)', text: '#94a3b8', border: 'rgba(100,116,139,0.22)' }
+                    return (
+                      <div style={{ margin: '0.75rem 0 0.25rem', padding: '0.75rem 1rem', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${rc2.border}`, display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: rc2.bg, color: rc2.text, fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${rc2.border}`, flexShrink: 0 }}>
+                            {emp ? emp.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2) : 'OS'}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>
+                              {emp?.name ?? 'Open shift'} <span style={{ fontWeight: 400, color: '#64748b' }}>— {new Date(s.shift_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                            </div>
+                            <div style={{ fontSize: '12px', color: isCalloutShift ? '#f87171' : '#64748b', marginTop: '1px' }}>
+                              {isCalloutShift ? 'Called out' : `${fmt(s.start_time)} – ${fmt(s.end_time)} · ${shiftHours(s) % 1 === 0 ? shiftHours(s) : shiftHours(s).toFixed(1)}h`}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                          {!isCalloutShift && emp && (
+                            <button
+                              onClick={() => { setCalloutTarget({ shiftId: s.id, shiftDate: s.shift_date, startTime: s.start_time, endTime: s.end_time, employee: { id: emp.id, name: emp.name } }); setActiveShiftId(null) }}
+                              style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '7px', border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.12)', color: '#fbbf24', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}
+                            >Mark callout</button>
+                          )}
+                          <button
+                            onClick={() => { handleDeleteShift(s.id); setActiveShiftId(null) }}
+                            style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', color: '#f87171', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}
+                          >Delete</button>
+                          <button
+                            onClick={() => setActiveShiftId(null)}
+                            style={{ fontSize: '12px', padding: '5px 10px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#64748b', cursor: 'pointer', fontFamily: 'inherit' }}
+                          >✕</button>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
                   {/* Legend */}
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                     {[
@@ -655,149 +676,6 @@ export default function TimePage() {
               </div>
             )}
 
-            {/* ── WEEK VIEW ── */}
-            {shiftView === 'week' && (
-              <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o - 1)}>←</button>
-                  <div style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9' }}>{weekLabel}</div>
-                  <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o + 1)}>→</button>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
-                  {weekDays.map((dateStr, i) => {
-                    const dayShifts = shifts.filter(s => s.shift_date === dateStr)
-                    const isToday = dateStr === today
-                    const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i]
-                    const dayNum = new Date(dateStr + 'T00:00:00').getDate()
-                    return (
-                      <div key={dateStr} onClick={() => openShiftFormForDate(dateStr)}
-                        style={{ minHeight: '100px', border: `1px solid ${isToday ? '#185fa5' : '#eee'}`, borderRadius: '8px', padding: '8px', background: isToday ? '#f0f6ff' : '#fafafa', cursor: 'pointer', transition: 'border-color 0.15s' }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = '#185fa5')}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = isToday ? '#185fa5' : '#eee')}
-                      >
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: isToday ? '#185fa5' : '#888', marginBottom: '6px' }}>{dayName} {dayNum}</div>
-                        {dayShifts.length === 0 ? (
-                          <div style={{ fontSize: '10px', color: '#ccc' }}>+ Add</div>
-                        ) : dayShifts.map(s => {
-                          const isCalledOut = s.status === 'called_out'
-                          const isOpen = s.is_open_shift && !s.employee_id
-                          const emp = s.employee_id != null ? empMap[s.employee_id] : null
-                          const empIdx = s.employee_id != null ? employees.findIndex(e => e.id === s.employee_id) : -1
-                          const color = isOpen ? { bg: '#dcfce7', text: '#166534' } : isCalledOut ? { bg: '#fff0f0', text: '#c0392b' } : EMP_COLORS[empIdx >= 0 ? empIdx % EMP_COLORS.length : 0]
-                          return (
-                            <div key={s.id} style={{ marginBottom: '4px' }}>
-                              <div style={{ fontSize: '10px', background: color.bg, color: color.text, borderRadius: '4px', padding: '3px 5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '3px', border: isOpen ? '1px dashed #166534' : 'none' }}>
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                                  {isOpen ? 'OPEN' : (emp?.name.split(' ')[0] ?? '?')}{isCalledOut ? ' ✗' : ''}
-                                </span>
-                                <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                                  {!isCalledOut && !isOpen && emp && (
-                                    <button onClick={e => { e.stopPropagation(); setCalloutTarget({ shiftId: s.id, shiftDate: s.shift_date, startTime: s.start_time, endTime: s.end_time, employee: { id: emp.id, name: emp.name } }) }}
-                                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e67e22', fontSize: '10px', lineHeight: 1, padding: '0 2px' }} title="Call out">!</button>
-                                  )}
-                                  <button onClick={e => { e.stopPropagation(); handleDeleteShift(s.id) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0392b', fontSize: '11px', lineHeight: 1, padding: 0 }}>×</button>
-                                </div>
-                              </div>
-                              <div style={{ fontSize: '10px', color: isCalledOut ? '#c0392b' : '#888', marginTop: '1px' }}>
-                                {isCalledOut ? 'Called out' : `${fmt(s.start_time)}–${fmt(s.end_time)}`}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* ── MONTH VIEW ── */}
-            {shiftView === 'month' && (() => {
-              const { label: monthLabel, month: currentMonth, days } = getMonthGrid(monthOffset)
-              const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-              return (
-                <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem' }}>
-                  {/* Month nav */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                    <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setMonthOffset(o => o - 1)}>←</button>
-                    <div style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9' }}>{monthLabel}</div>
-                    <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setMonthOffset(o => o + 1)}>→</button>
-                  </div>
-
-                  {/* Employee color legend */}
-                  {employees.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '0.75rem' }}>
-                      {employees.map((emp, idx) => {
-                        const color = EMP_COLORS[idx % EMP_COLORS.length]
-                        return (
-                          <span key={emp.id} style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: color.bg, color: color.text, fontWeight: 500 }}>
-                            {emp.name.split(' ')[0]}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                  {/* Day headers */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px', marginBottom: '3px' }}>
-                    {DAY_NAMES.map(d => (
-                      <div key={d} style={{ fontSize: '11px', fontWeight: 600, color: '#aaa', textAlign: 'center', padding: '4px 0' }}>{d}</div>
-                    ))}
-                  </div>
-
-                  {/* Calendar grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px' }}>
-                    {days.map(({ iso, inMonth }) => {
-                      const dayShifts = shifts.filter(s => s.shift_date === iso)
-                      const isToday = iso === today
-                      const dayNum = new Date(iso + 'T00:00:00').getDate()
-                      const visible = dayShifts.slice(0, 3)
-                      const overflow = dayShifts.length - 3
-                      return (
-                        <div
-                          key={iso}
-                          onClick={() => openShiftFormForDate(iso)}
-                          style={{
-                            minHeight: '80px',
-                            border: `1px solid ${isToday ? '#185fa5' : '#eee'}`,
-                            borderRadius: '6px',
-                            padding: '5px',
-                            background: isToday ? '#f0f6ff' : inMonth ? '#fff' : '#f8f8f8',
-                            cursor: 'pointer',
-                            opacity: inMonth ? 1 : 0.45,
-                            transition: 'border-color 0.15s',
-                          }}
-                          onMouseEnter={e => (e.currentTarget.style.borderColor = '#185fa5')}
-                          onMouseLeave={e => (e.currentTarget.style.borderColor = isToday ? '#185fa5' : '#eee')}
-                        >
-                          <div style={{ fontSize: '11px', fontWeight: isToday ? 700 : 500, color: isToday ? '#185fa5' : inMonth ? '#333' : '#bbb', marginBottom: '3px' }}>
-                            {dayNum}
-                          </div>
-                          {visible.map(s => {
-                            const isOpen = s.is_open_shift && !s.employee_id
-                            const empIdx = s.employee_id != null ? employees.findIndex(e => e.id === s.employee_id) : -1
-                            const color = isOpen ? { bg: '#dcfce7', text: '#166534' } : s.status === 'called_out' ? { bg: '#fee2e2', text: '#991b1b' } : EMP_COLORS[empIdx >= 0 ? empIdx % EMP_COLORS.length : 0]
-                            const emp = s.employee_id != null ? empMap[s.employee_id] : null
-                            return (
-                              <div
-                                key={s.id}
-                                title={isOpen ? `Open shift · ${fmt(s.start_time)}–${fmt(s.end_time)}` : `${emp?.name ?? 'Unknown'} · ${fmt(s.start_time)}–${fmt(s.end_time)}${s.status === 'called_out' ? ' · Called out' : ''}`}
-                                style={{ fontSize: '10px', background: color.bg, color: color.text, borderRadius: '3px', padding: '2px 4px', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 500, border: isOpen ? '1px dashed #166534' : 'none' }}
-                              >
-                                {isOpen ? 'OPEN' : (emp?.name.split(' ')[0] ?? '?')} {s.status !== 'called_out' ? fmt(s.start_time).replace(' AM','a').replace(' PM','p') : '✗'}
-                              </div>
-                            )
-                          })}
-                          {overflow > 0 && (
-                            <div style={{ fontSize: '10px', color: '#999', fontWeight: 500 }}>+{overflow} more</div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })()}
           </div>
         )}
 
