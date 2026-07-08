@@ -236,7 +236,7 @@ export default function MessagesPage() {
   async function send(parentId?: number) {
     const content = (parentId ? threadInput : input).trim()
     if (!content || sending || !activeChannel) return
-    if (parentId) setThreadInput('') else setInput('')
+    if (parentId) { setThreadInput('') } else { setInput('') }
     setSending(true)
 
     const res = await fetch('/api/messages/send', {
@@ -280,7 +280,7 @@ export default function MessagesPage() {
       } else {
         if (idx >= 0) {
           const updated = { ...reactions[idx], count: reactions[idx].count - 1, reacted: false, users: reactions[idx].users.filter(u => u !== 'You') }
-          if (updated.count <= 0) reactions.splice(idx, 1) else reactions[idx] = updated
+          if (updated.count <= 0) { reactions.splice(idx, 1) } else { reactions[idx] = updated }
         }
       }
       return { ...msg, reactions }
