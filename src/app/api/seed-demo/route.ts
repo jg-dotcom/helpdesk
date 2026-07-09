@@ -129,6 +129,40 @@ export async function POST(req: NextRequest) {
     sent_count: insertedEmps.length,
   })
 
+  // ── 8. Job postings + candidates (for the Hiring pipeline) ──────────────────
+  const { data: insertedJobs } = await supabaseAdmin
+    .from('job_postings')
+    .insert([
+      {
+        user_id: uid, title: 'Sales associate', department: 'Retail', location: 'Storefront',
+        employment_type: 'Part-time', description: 'Greet customers, work the register, restock the floor.',
+        requirements: 'Weekend availability preferred.', pay_min: 15, pay_max: 18, pay_period: 'hourly', status: 'open',
+      },
+      {
+        user_id: uid, title: 'Store manager', department: 'Management', location: 'Storefront',
+        employment_type: 'Full-time', description: 'Own daily operations, scheduling, and team performance.',
+        requirements: '2+ years retail management experience.', pay_min: 50000, pay_max: 62000, pay_period: 'yearly', status: 'open',
+      },
+    ])
+    .select()
+
+  if (insertedJobs && insertedJobs.length === 2) {
+    const [salesJob, managerJob] = insertedJobs
+    const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString()
+    const inDays = (n: number) => new Date(Date.now() + n * 24 * 60 * 60 * 1000).toISOString()
+
+    await supabaseAdmin.from('job_applications').insert([
+      { user_id: uid, job_posting_id: salesJob.id, name: 'Jamie Tran', email: 'jamie.tran@example.com', phone: '(555) 010-2231', status: 'applied', created_at: daysAgo(2), cover_letter: 'I have two years of retail experience and love working with customers.' },
+      { user_id: uid, job_posting_id: managerJob.id, name: 'Riley Kim', email: 'riley.kim@example.com', phone: '(555) 010-2232', status: 'applied', created_at: daysAgo(5), cover_letter: null },
+      { user_id: uid, job_posting_id: salesJob.id, name: 'Morgan Price', email: 'morgan.price@example.com', phone: '(555) 010-2233', status: 'applied', created_at: daysAgo(7), cover_letter: null },
+      { user_id: uid, job_posting_id: managerJob.id, name: 'Sam Lee', email: 'sam.lee@example.com', phone: '(555) 010-2234', status: 'interviewing', created_at: daysAgo(3), cover_letter: 'Excited about the opportunity to lead this team.', interview_at: inDays(2) },
+      { user_id: uid, job_posting_id: salesJob.id, name: 'Ash Diaz', email: 'ash.diaz@example.com', phone: '(555) 010-2235', status: 'interviewing', created_at: daysAgo(4), cover_letter: null },
+      { user_id: uid, job_posting_id: managerJob.id, name: 'Elena Cho', email: 'elena.cho@example.com', phone: '(555) 010-2236', status: 'offer', created_at: daysAgo(9), cover_letter: null },
+      { user_id: uid, job_posting_id: salesJob.id, name: 'Nina Park', email: 'nina.park@example.com', phone: '(555) 010-2237', status: 'hired', created_at: daysAgo(12), cover_letter: null },
+      { user_id: uid, job_posting_id: salesJob.id, name: 'Toby Wu', email: 'toby.wu@example.com', phone: '(555) 010-2238', status: 'rejected', created_at: daysAgo(10), cover_letter: null },
+    ])
+  }
+
   return NextResponse.json({
     ok: true,
     employees: insertedEmps.length,

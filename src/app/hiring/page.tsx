@@ -28,17 +28,13 @@ type Application = {
   interview_at?: string | null
 }
 
-const STAGES: { key: Application['status']; label: string; color: string; bg: string }[] = [
-  { key: 'applied',      label: 'Applied',      color: '#6b6b6b', bg: '#f0f2f5' },
-  { key: 'interviewing', label: 'Interviewing',  color: '#185fa5', bg: '#e6f1fb' },
-  { key: 'offer',        label: 'Offer',         color: '#b45309', bg: '#fef3c7' },
-  { key: 'hired',        label: 'Hired',         color: '#15803d', bg: '#dcfce7' },
-  { key: 'rejected',     label: 'Rejected',      color: '#991b1b', bg: '#fee2e2' },
+const STAGES: { key: Application['status']; label: string; color: string; bg: string; border: string }[] = [
+  { key: 'applied',      label: 'Applied',      color: '#94a3b8', bg: 'rgba(100,116,139,0.14)', border: 'rgba(100,116,139,0.24)' },
+  { key: 'interviewing', label: 'Interviewing',  color: '#93c5fd', bg: 'rgba(29,78,216,0.15)',   border: 'rgba(29,78,216,0.32)' },
+  { key: 'offer',        label: 'Offer',         color: '#fbbf24', bg: 'rgba(245,158,11,0.16)',  border: 'rgba(245,158,11,0.3)' },
+  { key: 'hired',        label: 'Hired',         color: '#4ade80', bg: 'rgba(34,197,94,0.15)',   border: 'rgba(34,197,94,0.3)' },
+  { key: 'rejected',     label: 'Rejected',      color: '#f87171', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.26)' },
 ]
-
-function stageFor(s: Application['status']) {
-  return STAGES.find(st => st.key === s) ?? STAGES[0]
-}
 
 function timeAgo(iso: string) {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
@@ -78,6 +74,8 @@ export default function JobsPage() {
   const [selected, setSelected] = useState<Application | null>(null)
   const [candidateSearch, setCandidateSearch] = useState('')
   const [jobFilter, setJobFilter] = useState<number | 'all'>('all')
+  const [draggingAppId, setDraggingAppId] = useState<string | null>(null)
+  const [dragOverStage, setDragOverStage] = useState<Application['status'] | null>(null)
 
   useEffect(() => { load() }, [])
 
@@ -199,34 +197,73 @@ export default function JobsPage() {
     (q === '' || a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q))
   )
 
+  // Header metrics — a quick pulse on the pipeline without opening anything
+  const openJobsCount = jobs.filter(j => j.status === 'open').length
+  const activeCandidatesCount = apps.filter(a => a.status !== 'hired' && a.status !== 'rejected').length
+  const weekFromNow = Date.now() + 7 * 24 * 60 * 60 * 1000
+  const interviewsThisWeekCount = apps.filter(a => {
+    if (!a.interview_at) return false
+    const t = new Date(a.interview_at).getTime()
+    return t >= Date.now() && t <= weekFromNow
+  }).length
+  const offersPendingCount = apps.filter(a => a.status === 'offer').length
+
+  function handleDropOnStage(stage: Application['status']) {
+    if (draggingAppId) moveStage(draggingAppId, stage)
+    setDraggingAppId(null)
+    setDragOverStage(null)
+  }
+
+  const cardStyle: React.CSSProperties = { background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
+  const dangerBtn: React.CSSProperties = { fontSize: '12px', padding: '5px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', color: '#f87171', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
+  const ghostBtn: React.CSSProperties = { fontSize: '12px', padding: '5px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit' }
+  const primaryBtn: React.CSSProperties = { fontSize: '13px', padding: '7px 14px', borderRadius: '8px', border: 'none', background: '#1d4ed8', color: '#fff', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
+  const sectionLabel: React.CSSProperties = { fontSize: '10px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }
+
   return (
     <div className="dash-wrap">
       <Nav active="hiring" />
       <div className="dash-content">
 
         {/* Page header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <div>
-            <div style={{ fontSize: '20px', fontWeight: 700 }}>Jobs & Applicants</div>
-            <div style={{ fontSize: '13px', color: '#6b6b6b', marginTop: '4px' }}>
-              {userId && (
-                <>Careers page: <a href={`/careers/${userId}`} target="_blank" rel="noopener noreferrer" style={{ color: '#185fa5' }}>{typeof window !== 'undefined' ? window.location.origin : ''}/careers/{userId}</a>
-                  <button onClick={() => copy(`${window.location.origin}/careers/${userId}`, 'page')} style={{ marginLeft: '8px', fontSize: '11px', padding: '2px 8px', border: '0.5px solid rgba(0,0,0,0.22)', borderRadius: '4px', background: 'transparent', cursor: 'pointer', color: '#6b6b6b', fontFamily: 'inherit' }}>
-                    {copied === 'page' ? '✓ Copied' : 'Copy link'}
-                  </button>
-                </>
-              )}
-            </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Hiring</div>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {userId && (
+              <button onClick={() => copy(`${window.location.origin}/careers/${userId}`, 'page')} style={ghostBtn} title="Copy your public careers page link">
+                {copied === 'page' ? '✓ Copied' : 'Careers page link'}
+              </button>
+            )}
+            <button style={primaryBtn} onClick={showForm && !editingId ? () => setShowForm(false) : openNew}>
+              {showForm && !editingId ? 'Cancel' : '+ New job'}
+            </button>
           </div>
-          <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }} onClick={showForm && !editingId ? () => setShowForm(false) : openNew}>
-            {showForm && !editingId ? 'Cancel' : '+ New job'}
-          </button>
+        </div>
+
+        {/* Metrics */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1.25rem' }}>
+          <div style={cardStyle}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: '#f1f5f9' }}>{openJobsCount}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Open jobs</div>
+          </div>
+          <div style={cardStyle}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: '#93c5fd' }}>{activeCandidatesCount}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Active candidates</div>
+          </div>
+          <div style={cardStyle}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: '#fbbf24' }}>{interviewsThisWeekCount}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Interviews this week</div>
+          </div>
+          <div style={cardStyle}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: '#4ade80' }}>{offersPendingCount}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Offers pending</div>
+          </div>
         </div>
 
         {/* Create/Edit form */}
         {showForm && (
-          <div className="card" style={{ marginBottom: '1.5rem' }}>
-            <div style={{ fontWeight: 600, marginBottom: '1rem' }}>{editingId ? 'Edit job' : 'New job posting'}</div>
+          <div style={{ ...cardStyle, marginBottom: '1.25rem' }}>
+            <div style={{ fontWeight: 600, color: '#f1f5f9', marginBottom: '1rem' }}>{editingId ? 'Edit job' : 'New job posting'}</div>
             <div className="row2" style={{ marginBottom: '0.75rem' }}>
               <div className="field"><label>Job title *</label><input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Cashier" /></div>
               <div className="field"><label>Department</label><input value={form.department} onChange={e => setForm(p => ({ ...p, department: e.target.value }))} placeholder="e.g. Retail" /></div>
@@ -267,89 +304,84 @@ export default function JobsPage() {
               </div>
             </div>
             {errors.length > 0 && (
-              <div className="auth-error" style={{ marginBottom: '0.75rem' }}>
+              <div style={{ marginBottom: '0.75rem', fontSize: '12px', color: '#f87171', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px', padding: '0.6rem 0.75rem' }}>
                 {errors.map((e, i) => <div key={i}>{e}</div>)}
               </div>
             )}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button className="btn auth-btn-primary" style={{ width: 'auto' }} onClick={handleSave} disabled={saving}>
+              <button style={primaryBtn} onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving...' : editingId ? 'Save changes' : 'Post job'}
               </button>
-              <button className="btn" onClick={() => setShowForm(false)}>Cancel</button>
+              <button style={ghostBtn} onClick={() => setShowForm(false)}>Cancel</button>
             </div>
           </div>
         )}
 
         {/* Share panel */}
         {shareJob && (
-          <div className="card" style={{ marginBottom: '1.5rem', borderColor: '#c2d4f0' }}>
+          <div style={{ ...cardStyle, marginBottom: '1.25rem', border: '1px solid rgba(29,78,216,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <div style={{ fontWeight: 600 }}>Share — {shareJob.title}</div>
-              <button onClick={() => setShareJobId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#9a9a9a' }}>×</button>
+              <div style={{ fontWeight: 600, color: '#f1f5f9' }}>Share — {shareJob.title}</div>
+              <button onClick={() => setShareJobId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#64748b' }}>×</button>
             </div>
             <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontSize: '12px', color: '#6b6b6b', marginBottom: '4px', fontWeight: 500 }}>Direct link</div>
+              <div style={sectionLabel}>Direct link</div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input readOnly value={careersUrl(shareJob)} style={{ flex: 1, fontSize: '12px' }} onFocus={e => e.target.select()} />
-                <button className="btn" style={{ fontSize: '12px', padding: '5px 12px', whiteSpace: 'nowrap' }} onClick={() => copy(careersUrl(shareJob), 'link')}>
+                <button style={{ ...ghostBtn, whiteSpace: 'nowrap' }} onClick={() => copy(careersUrl(shareJob), 'link')}>
                   {copied === 'link' ? '✓ Copied' : 'Copy'}
                 </button>
               </div>
             </div>
             <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontSize: '12px', color: '#6b6b6b', marginBottom: '4px', fontWeight: 500 }}>LinkedIn post</div>
+              <div style={sectionLabel}>LinkedIn post</div>
               <textarea readOnly value={formatLinkedInPost(shareJob, careersUrl(shareJob))} style={{ width: '100%', fontSize: '12px', minHeight: '100px', resize: 'vertical' }} onFocus={e => e.target.select()} />
-              <button className="btn" style={{ fontSize: '12px', padding: '5px 12px', marginTop: '4px' }} onClick={() => copy(formatLinkedInPost(shareJob, careersUrl(shareJob)), 'linkedin')}>
+              <button style={{ ...ghostBtn, marginTop: '4px' }} onClick={() => copy(formatLinkedInPost(shareJob, careersUrl(shareJob)), 'linkedin')}>
                 {copied === 'linkedin' ? '✓ Copied' : 'Copy for LinkedIn'}
               </button>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#6b6b6b', marginBottom: '4px', fontWeight: 500 }}>Indeed post</div>
+              <div style={sectionLabel}>Indeed post</div>
               <textarea readOnly value={formatIndeedPost(shareJob, careersUrl(shareJob))} style={{ width: '100%', fontSize: '12px', minHeight: '100px', resize: 'vertical' }} onFocus={e => e.target.select()} />
-              <button className="btn" style={{ fontSize: '12px', padding: '5px 12px', marginTop: '4px' }} onClick={() => copy(formatIndeedPost(shareJob, careersUrl(shareJob)), 'indeed')}>
+              <button style={{ ...ghostBtn, marginTop: '4px' }} onClick={() => copy(formatIndeedPost(shareJob, careersUrl(shareJob)), 'indeed')}>
                 {copied === 'indeed' ? '✓ Copied' : 'Copy for Indeed'}
               </button>
             </div>
           </div>
         )}
 
-        {/* Job list with inline applicants */}
+        {/* Job postings — compact horizontal scroll */}
         {loading ? (
-          <div className="card"><div className="loading-state">Loading...</div></div>
+          <div style={cardStyle}><div style={{ textAlign: 'center', padding: '2rem', color: '#475569', fontSize: '13px' }}>Loading...</div></div>
         ) : jobs.length === 0 ? (
-          <div className="card"><div className="empty-state">No job postings yet — create your first one above.</div></div>
+          <div style={cardStyle}><div style={{ textAlign: 'center', padding: '2rem', color: '#475569', fontSize: '13px' }}>No job postings yet — create your first one above.</div></div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '1.25rem', paddingBottom: '2px' }}>
             {jobs.map(job => {
               const jobApps = apps.filter(a => a.job_posting_id === job.id)
               return (
-                <div key={job.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                  {/* Job header row */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1rem 1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <div style={{ flex: 1, minWidth: '200px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                        <div style={{ fontWeight: 600, fontSize: '14px' }}>{job.title}</div>
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor(job.status) }}>● {statusLabel(job.status)}</span>
-                        {jobApps.length > 0 && (
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#185fa5', background: '#e6f1fb', borderRadius: '999px', padding: '1px 7px' }}>
-                            {jobApps.length} applicant{jobApps.length !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#9a9a9a' }}>
-                        {[job.employment_type, job.location, formatPayRange(job.pay_min, job.pay_max, job.pay_period)].filter(Boolean).join(' · ')}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0, flexWrap: 'wrap' }}>
-                      <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => setShareJobId(shareJobId === job.id ? null : job.id)}>
-                        {shareJobId === job.id ? 'Hide' : 'Share'}
-                      </button>
-                      <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => openEdit(job)}>Edit</button>
-                      <button className="btn" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => toggleStatus(job)}>
-                        {job.status === 'open' ? 'Close' : 'Reopen'}
-                      </button>
-                      <button className="btn" style={{ fontSize: '12px', padding: '4px 10px', color: '#c0392b' }} onClick={() => deleteJob(job.id)}>Delete</button>
-                    </div>
+                <div key={job.id} style={{ flexShrink: 0, minWidth: '220px', maxWidth: '260px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.title}</span>
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: statusColor(job.status), flexShrink: 0 }}>● {statusLabel(job.status)}</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {[job.employment_type, job.location, formatPayRange(job.pay_min, job.pay_max, job.pay_period)].filter(Boolean).join(' · ')}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#93c5fd', background: 'rgba(29,78,216,0.15)', borderRadius: '999px', padding: '1px 8px' }}>
+                      {jobApps.length} applicant{jobApps.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    <button style={{ ...ghostBtn, padding: '3px 8px', fontSize: '11px' }} onClick={() => setShareJobId(shareJobId === job.id ? null : job.id)}>
+                      {shareJobId === job.id ? 'Hide' : 'Share'}
+                    </button>
+                    <button style={{ ...ghostBtn, padding: '3px 8px', fontSize: '11px' }} onClick={() => openEdit(job)}>Edit</button>
+                    <button style={{ ...ghostBtn, padding: '3px 8px', fontSize: '11px' }} onClick={() => toggleStatus(job)}>
+                      {job.status === 'open' ? 'Close' : 'Reopen'}
+                    </button>
+                    <button style={{ ...dangerBtn, padding: '3px 8px', fontSize: '11px' }} onClick={() => deleteJob(job.id)}>Delete</button>
                   </div>
                 </div>
               )
@@ -359,7 +391,7 @@ export default function JobsPage() {
 
         {/* Candidate pipeline */}
         {jobs.length > 0 && (
-          <div style={{ marginTop: '1.5rem' }}>
+          <div>
             <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
               <input
                 value={candidateSearch}
@@ -378,33 +410,50 @@ export default function JobsPage() {
             </div>
 
             {pipelineApps.length === 0 ? (
-              <div className="card"><div className="empty-state">
+              <div style={cardStyle}><div style={{ textAlign: 'center', padding: '2rem', color: '#475569', fontSize: '13px' }}>
                 {apps.length === 0 ? 'No applicants yet.' : 'No candidates match your search.'}
               </div></div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '10px', overflowX: 'auto' }}>
                 {STAGES.map(stage => {
                   const stageApps = pipelineApps.filter(a => a.status === stage.key)
+                  const isDropTarget = dragOverStage === stage.key
                   return (
-                    <div key={stage.key}>
+                    <div
+                      key={stage.key}
+                      onDragOver={e => { e.preventDefault(); if (draggingAppId) setDragOverStage(stage.key) }}
+                      onDragLeave={() => setDragOverStage(prev => (prev === stage.key ? null : prev))}
+                      onDrop={e => { e.preventDefault(); handleDropOnStage(stage.key) }}
+                      style={{
+                        borderRadius: '10px', padding: '6px',
+                        background: isDropTarget ? 'rgba(59,130,246,0.08)' : 'transparent',
+                        border: isDropTarget ? '1px dashed rgba(59,130,246,0.5)' : '1px dashed transparent',
+                        transition: 'background 0.1s, border-color 0.1s',
+                      }}
+                    >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', padding: '0 2px' }}>
                         <span style={{ fontSize: '12px', fontWeight: 600, color: stage.color }}>{stage.label}</span>
                         <span style={{ fontSize: '11px', fontWeight: 600, color: stage.color, background: stage.bg, borderRadius: '999px', padding: '1px 7px' }}>
                           {stageApps.length}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minHeight: '40px' }}>
                         {stageApps.map(app => {
                           const isSelected = selected?.id === app.id
+                          const isDragging = draggingAppId === app.id
                           const jobTitle = jobs.find(j => j.id === app.job_posting_id)?.title
                           return (
                             <div
                               key={app.id}
+                              draggable
+                              onDragStart={() => setDraggingAppId(app.id)}
+                              onDragEnd={() => { setDraggingAppId(null); setDragOverStage(null) }}
                               onClick={() => setSelected(isSelected ? null : app)}
                               style={{
-                                padding: '10px', borderRadius: '8px', cursor: 'pointer',
-                                background: isSelected ? stage.bg : '#fff',
-                                border: `0.5px solid ${isSelected ? stage.color : 'rgba(0,0,0,0.10)'}`,
+                                padding: '10px', borderRadius: '8px', cursor: 'grab',
+                                background: isSelected ? stage.bg : 'rgba(255,255,255,0.03)',
+                                border: `1px solid ${isSelected ? stage.color : 'rgba(255,255,255,0.08)'}`,
+                                opacity: isDragging ? 0.35 : 1,
                                 transition: 'all 0.1s',
                               }}
                             >
@@ -412,21 +461,21 @@ export default function JobsPage() {
                                 <div style={{ width: 24, height: 24, borderRadius: '50%', background: stage.bg, color: stage.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0 }}>
                                   {app.name.slice(0, 2).toUpperCase()}
                                 </div>
-                                <div style={{ fontSize: '12px', fontWeight: 500, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                                <div style={{ fontSize: '12px', fontWeight: 500, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
                                   {app.name}
                                 </div>
                               </div>
                               {jobTitle && (
-                                <div style={{ fontSize: '11px', color: '#9a9a9a', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {jobTitle}
                                 </div>
                               )}
                               {app.interview_at && (
-                                <div style={{ fontSize: '10px', fontWeight: 600, color: '#185fa5', marginBottom: '4px', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontSize: '10px', fontWeight: 600, color: '#93c5fd', marginBottom: '4px', whiteSpace: 'nowrap' }}>
                                   {fmtInterview(app.interview_at)}
                                 </div>
                               )}
-                              <div style={{ fontSize: '10px', color: '#b0b0b0' }}>{timeAgo(app.created_at)}</div>
+                              <div style={{ fontSize: '10px', color: '#475569' }}>{timeAgo(app.created_at)}</div>
                             </div>
                           )
                         })}
@@ -439,69 +488,77 @@ export default function JobsPage() {
           </div>
         )}
 
-        {/* Applicant detail panel */}
+        {/* Applicant detail drawer */}
         {selected && (
-          <div className="detail-panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <div style={{ fontWeight: 700, fontSize: '16px' }}>{selected.name}</div>
-              <button onClick={() => setSelected(null)} className="btn-ghost" style={{ fontSize: '18px', padding: '0 4px' }}>×</button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '13px', color: '#6b6b6b', display: 'flex', alignItems: 'center', gap: '6px' }}><MailIcon size={13} />{selected.email}</div>
-              {selected.phone && <div style={{ fontSize: '13px', color: '#6b6b6b', display: 'flex', alignItems: 'center', gap: '6px' }}><PhoneIcon size={13} />{selected.phone}</div>}
-              <div style={{ fontSize: '13px', color: '#6b6b6b', display: 'flex', alignItems: 'center', gap: '6px' }}><TagIcon size={13} />{jobs.find(j => j.id === selected.job_posting_id)?.title ?? 'Unknown role'}</div>
-            </div>
-
-            {selected.cover_letter && (
-              <div style={{ marginBottom: '1.25rem' }}>
-                <div className="section-label">Cover letter</div>
-                <div style={{ fontSize: '13px', color: '#1a1a1a', lineHeight: 1.7, whiteSpace: 'pre-wrap', background: '#f7f7f5', borderRadius: '8px', padding: '0.75rem', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                  {selected.cover_letter}
-                </div>
+          <>
+            <div onClick={() => setSelected(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 40, backdropFilter: 'blur(2px)' }} />
+            <div style={{
+              position: 'fixed', top: 0, right: 0, height: '100vh', width: '360px', maxWidth: '100vw',
+              background: '#1e293b', borderLeft: '1px solid rgba(255,255,255,0.08)',
+              zIndex: 50, overflowY: 'auto', padding: '1.25rem',
+              boxShadow: '-12px 0 40px rgba(0,0,0,0.5)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ fontWeight: 700, fontSize: '16px', color: '#f1f5f9' }}>{selected.name}</div>
+                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '18px', padding: '0 4px' }}>×</button>
               </div>
-            )}
 
-            <div className="section-label">Interview</div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <input
-                key={selected.id}
-                type="datetime-local"
-                defaultValue={selected.interview_at ? toDatetimeLocalValue(selected.interview_at) : ''}
-                onChange={e => scheduleInterview(selected.id, e.target.value)}
-                style={{ flex: 1, fontSize: '13px' }}
-              />
-              {selected.interview_at && (
-                <button className="btn" style={{ fontSize: '12px', padding: '5px 10px', whiteSpace: 'nowrap' }} onClick={() => scheduleInterview(selected.id, '')}>
-                  Clear
-                </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.25rem' }}>
+                <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}><MailIcon size={13} />{selected.email}</div>
+                {selected.phone && <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}><PhoneIcon size={13} />{selected.phone}</div>}
+                <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}><TagIcon size={13} />{jobs.find(j => j.id === selected.job_posting_id)?.title ?? 'Unknown role'}</div>
+              </div>
+
+              {selected.cover_letter && (
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={sectionLabel}>Cover letter</div>
+                  <div style={{ fontSize: '13px', color: '#cbd5e1', lineHeight: 1.7, whiteSpace: 'pre-wrap', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '0.75rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {selected.cover_letter}
+                  </div>
+                </div>
               )}
-            </div>
 
-            <div className="section-label">Move to stage</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem' }}>
-              {STAGES.map(stage => (
-                <button key={stage.key} onClick={() => moveStage(selected.id, stage.key)}
-                  style={{
-                    padding: '5px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
-                    cursor: 'pointer', border: 'none', fontFamily: 'inherit',
-                    background: selected.status === stage.key ? stage.color : stage.bg,
-                    color: selected.status === stage.key ? '#fff' : stage.color,
-                  }}>
-                  {stage.label}
+              <div style={sectionLabel}>Interview</div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <input
+                  key={selected.id}
+                  type="datetime-local"
+                  defaultValue={selected.interview_at ? toDatetimeLocalValue(selected.interview_at) : ''}
+                  onChange={e => scheduleInterview(selected.id, e.target.value)}
+                  style={{ flex: 1, fontSize: '13px' }}
+                />
+                {selected.interview_at && (
+                  <button style={{ ...ghostBtn, whiteSpace: 'nowrap' }} onClick={() => scheduleInterview(selected.id, '')}>
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              <div style={sectionLabel}>Move to stage</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem' }}>
+                {STAGES.map(stage => (
+                  <button key={stage.key} onClick={() => moveStage(selected.id, stage.key)}
+                    style={{
+                      padding: '5px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                      cursor: 'pointer', border: 'none', fontFamily: 'inherit',
+                      background: selected.status === stage.key ? stage.color : stage.bg,
+                      color: selected.status === stage.key ? '#0f172a' : stage.color,
+                    }}>
+                    {stage.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <a href={`mailto:${selected.email}`} style={{ ...primaryBtn, flex: 1, textAlign: 'center', textDecoration: 'none', display: 'inline-block' }}>
+                  Email applicant
+                </a>
+                <button onClick={() => deleteApp(selected.id)} style={dangerBtn}>
+                  Delete
                 </button>
-              ))}
+              </div>
             </div>
-
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <a href={`mailto:${selected.email}`} className="btn auth-btn-primary" style={{ flex: 1, textAlign: 'center' }}>
-                Email applicant
-              </a>
-              <button onClick={() => deleteApp(selected.id)} className="btn" style={{ color: '#c0392b' }}>
-                Delete
-              </button>
-            </div>
-          </div>
+          </>
         )}
 
       </div>
