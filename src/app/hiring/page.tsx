@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import Nav from '../components/Nav'
+import { useToast } from '../components/Toast'
 import { MailIcon, PhoneIcon, TagIcon } from '../components/Icons'
 import {
   formatPayRange, validateJobPosting, statusLabel, statusColor,
@@ -24,6 +25,7 @@ type Application = {
   cover_letter: string | null
   status: 'applied' | 'interviewing' | 'offer' | 'hired' | 'rejected'
   created_at: string
+  interview_at?: string | null
 }
 
 const STAGES: { key: Application['status']; label: string; color: string; bg: string }[] = [
@@ -45,8 +47,22 @@ function timeAgo(iso: string) {
   return `${days}d ago`
 }
 
+function fmtInterview(iso: string) {
+  const d = new Date(iso)
+  return `${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+}
+
+// <input type="datetime-local"> needs local-time-formatted "YYYY-MM-DDTHH:MM", not the ISO
+// string's UTC representation, or the picker would silently shift the displayed time.
+function toDatetimeLocalValue(iso: string) {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export default function JobsPage() {
   const router = useRouter()
+  const { showToast } = useToast()
   const [jobs, setJobs] = useState<JobPosting[]>([])
   const [apps, setApps] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
@@ -138,6 +154,23 @@ export default function JobsPage() {
     })
     setApps(prev => prev.map(a => a.id === appId ? { ...a, status } : a))
     setSelected(prev => prev?.id === appId ? { ...prev, status } : prev)
+  }
+
+  async function scheduleInterview(appId: string, localDateTime: string) {
+    const iso = localDateTime ? new Date(localDateTime).toISOString() : null
+    const app = apps.find(a => a.id === appId)
+    const jobTitle = app ? jobs.find(j => j.id === app.job_posting_id)?.title : undefined
+    const res = await fetch(`/api/applications/${appId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ interview_at: iso, jobTitle, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+    })
+    if (!res.ok) { showToast('Could not save interview time.', 'error'); return }
+    const body = await res.json().catch(() => ({}))
+    setApps(prev => prev.map(a => a.id === appId ? { ...a, interview_at: iso } : a))
+    setSelected(prev => prev?.id === appId ? { ...prev, interview_at: iso } : prev)
+    if (iso) showToast(body.calendarSynced ? 'Interview scheduled and added to your calendar.' : 'Interview time saved.', 'success')
+    else showToast('Interview time cleared.', 'success')
   }
 
   async function deleteApp(appId: string) {
@@ -388,6 +421,11 @@ export default function JobsPage() {
                                   {jobTitle}
                                 </div>
                               )}
+                              {app.interview_at && (
+                                <div style={{ fontSize: '10px', fontWeight: 600, color: '#185fa5', marginBottom: '4px', whiteSpace: 'nowrap' }}>
+                                  {fmtInterview(app.interview_at)}
+                                </div>
+                              )}
                               <div style={{ fontSize: '10px', color: '#b0b0b0' }}>{timeAgo(app.created_at)}</div>
                             </div>
                           )
@@ -423,6 +461,22 @@ export default function JobsPage() {
                 </div>
               </div>
             )}
+
+            <div className="section-label">Interview</div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <input
+                key={selected.id}
+                type="datetime-local"
+                defaultValue={selected.interview_at ? toDatetimeLocalValue(selected.interview_at) : ''}
+                onChange={e => scheduleInterview(selected.id, e.target.value)}
+                style={{ flex: 1, fontSize: '13px' }}
+              />
+              {selected.interview_at && (
+                <button className="btn" style={{ fontSize: '12px', padding: '5px 10px', whiteSpace: 'nowrap' }} onClick={() => scheduleInterview(selected.id, '')}>
+                  Clear
+                </button>
+              )}
+            </div>
 
             <div className="section-label">Move to stage</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem' }}>
