@@ -1122,18 +1122,18 @@ export default function TimePage() {
         {/* Time blocks */}
         <div>
           <div style={{ fontSize: '10px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Shift time</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 16px minmax(0, 1fr)', alignItems: 'center', gap: '6px' }}>
-            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px', cursor: 'pointer', minWidth: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px', cursor: 'pointer' }}>
               <div style={{ fontSize: '10px', color: '#475569', marginBottom: '3px' }}>Start</div>
               <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)}
-                style={{ width: '100%', minWidth: 0, maxWidth: '100%', fontSize: '14px', fontWeight: 600, background: 'none', border: 'none', color: '#f1f5f9', padding: 0, colorScheme: 'dark', outline: 'none' }}
+                style={{ width: '100%', minWidth: 0, maxWidth: '100%', fontSize: '16px', fontWeight: 600, background: 'none', border: 'none', color: '#f1f5f9', padding: 0, colorScheme: 'dark', outline: 'none' }}
               />
             </div>
-            <div style={{ textAlign: 'center', color: '#334155', fontSize: '14px' }}>→</div>
-            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px', cursor: 'pointer', minWidth: 0 }}>
+            <div style={{ textAlign: 'center', color: '#334155', fontSize: '13px' }}>↓</div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px', cursor: 'pointer' }}>
               <div style={{ fontSize: '10px', color: '#475569', marginBottom: '3px' }}>End</div>
               <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)}
-                style={{ width: '100%', minWidth: 0, maxWidth: '100%', fontSize: '14px', fontWeight: 600, background: 'none', border: 'none', color: '#f1f5f9', padding: 0, colorScheme: 'dark', outline: 'none' }}
+                style={{ width: '100%', minWidth: 0, maxWidth: '100%', fontSize: '16px', fontWeight: 600, background: 'none', border: 'none', color: '#f1f5f9', padding: 0, colorScheme: 'dark', outline: 'none' }}
               />
             </div>
           </div>
