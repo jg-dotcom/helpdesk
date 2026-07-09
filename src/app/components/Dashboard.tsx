@@ -113,6 +113,12 @@ export default function Dashboard({
   const [activityFeed, setActivityFeed] = useState<ActivityItem[]>([])
   const [recentAnnouncement, setRecentAnnouncement] = useState<{ title: string; sent_count: number; created_at: string } | null>(null)
 
+  // Cross-module "needs attention" data (Hiring + Payroll)
+  const [newApplicants, setNewApplicants] = useState<{ id: number; name: string; created_at: string }[]>([])
+  const [upcomingInterviews, setUpcomingInterviews] = useState<{ id: number; name: string; interview_at: string }[]>([])
+  const [missingPayRateEmps, setMissingPayRateEmps] = useState<{ id: number; name: string }[]>([])
+  const [draftRunCount, setDraftRunCount] = useState(0)
+
   // UI state
   const [showAddForm, setShowAddForm] = useState(false)
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
@@ -163,8 +169,29 @@ export default function Dashboard({
     if (token) {
       loadOperationalData()
       loadDepartments()
+      loadAttentionData()
     }
   }, [token, employees])
+
+  async function loadAttentionData() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const uid = session.user.id
+    const now = new Date()
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
+
+    const [{ data: apps }, { data: interviews }, { data: emps }, { count: draftCount }] = await Promise.all([
+      supabase.from('job_applications').select('id, name, created_at').eq('user_id', uid).eq('status', 'applied').gte('created_at', weekAgo),
+      supabase.from('job_applications').select('id, name, interview_at').eq('user_id', uid).not('interview_at', 'is', null).gte('interview_at', now.toISOString()).lte('interview_at', in48h),
+      supabase.from('employees').select('id, name').eq('user_id', uid).eq('status', 'active').is('pay_rate', null),
+      supabase.from('payroll_runs').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'draft'),
+    ])
+    setNewApplicants(apps ?? [])
+    setUpcomingInterviews(interviews ?? [])
+    setMissingPayRateEmps(emps ?? [])
+    setDraftRunCount(draftCount ?? 0)
+  }
 
   async function loadOperationalData() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -332,7 +359,8 @@ export default function Dashboard({
   // Derived values
   const clockedInIds = new Set(clockedInEntries.map(c => c.employee_id))
   const todayCallouts = todayShifts.filter(s => s.status === 'called_out')
-  const pendingCount = timeOffRequests.length + pendingSwaps.length + todayCallouts.length
+  const hiringPayrollCount = newApplicants.length + upcomingInterviews.length + missingPayRateEmps.length + draftRunCount
+  const pendingCount = timeOffRequests.length + pendingSwaps.length + todayCallouts.length + hiringPayrollCount
   const activeEmployees = employees.filter(e => !e.status || e.status === 'active')
 
   // Dark theme style helpers
@@ -346,6 +374,7 @@ export default function Dashboard({
     btnApprove: { fontSize: '12px', padding: '5px 14px', borderRadius: '7px', background: '#1d4ed8', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 500, flexShrink: 0 },
     btnDeny: { fontSize: '12px', padding: '5px 12px', borderRadius: '7px', background: 'rgba(255,255,255,0.07)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', flexShrink: 0 },
     btnCallout: { fontSize: '12px', padding: '5px 14px', borderRadius: '7px', background: '#dc2626', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 500, flexShrink: 0 },
+    btnReview: { fontSize: '12px', padding: '5px 14px', borderRadius: '7px', background: 'rgba(255,255,255,0.07)', color: '#93c5fd', border: '1px solid rgba(147,197,253,0.25)', cursor: 'pointer', fontWeight: 500, flexShrink: 0, textDecoration: 'none' as const, display: 'inline-block' as const },
   }
 
   return (
@@ -471,6 +500,68 @@ export default function Dashboard({
                   </div>
                 )
               })}
+
+              {/* Upcoming interviews (Hiring) */}
+              {upcomingInterviews.map(app => (
+                <div key={`int_${app.id}`} style={s.row}>
+                  <div style={s.avatar('rgba(192,132,252,0.15)', '#d8b4fe')}>{initials(app.name)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f5f9' }}>{app.name}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      Interview {new Date(app.interview_at).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+                    </div>
+                  </div>
+                  <span style={s.pill('rgba(192,132,252,0.15)', '#d8b4fe')}>Interview</span>
+                  <a href="/hiring" style={s.btnReview}>Review</a>
+                </div>
+              ))}
+
+              {/* New applicants (Hiring) */}
+              {newApplicants.length > 0 && (
+                <div style={s.row}>
+                  <div style={s.avatar('rgba(192,132,252,0.15)', '#d8b4fe')}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f5f9' }}>{newApplicants.length} new applicant{newApplicants.length !== 1 ? 's' : ''}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>Applied in the last 7 days, not yet reviewed</div>
+                  </div>
+                  <span style={s.pill('rgba(192,132,252,0.15)', '#d8b4fe')}>Hiring</span>
+                  <a href="/hiring" style={s.btnReview}>Review</a>
+                </div>
+              )}
+
+              {/* Missing pay rates (Payroll) */}
+              {missingPayRateEmps.length > 0 && (
+                <div style={s.row}>
+                  <div style={s.avatar('rgba(251,191,36,0.15)', '#fbbf24')}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f5f9' }}>{missingPayRateEmps.length} employee{missingPayRateEmps.length !== 1 ? 's' : ''} missing a pay rate</div>
+                    <div style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {missingPayRateEmps.map(e => e.name).join(', ')}
+                    </div>
+                  </div>
+                  <span style={s.pill('rgba(251,191,36,0.15)', '#fbbf24')}>Payroll</span>
+                  <a href="/payroll" style={s.btnReview}>Review</a>
+                </div>
+              )}
+
+              {/* Draft payroll runs (Payroll) */}
+              {draftRunCount > 0 && (
+                <div style={s.row}>
+                  <div style={s.avatar('rgba(251,191,36,0.15)', '#fbbf24')}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f5f9' }}>{draftRunCount} draft payroll run{draftRunCount !== 1 ? 's' : ''}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>Awaiting finalization</div>
+                  </div>
+                  <span style={s.pill('rgba(251,191,36,0.15)', '#fbbf24')}>Payroll</span>
+                  <a href="/payroll" style={s.btnReview}>Review</a>
+                </div>
+              )}
             </div>
           </div>
         )}

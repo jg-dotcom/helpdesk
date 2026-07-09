@@ -23,6 +23,7 @@ type Application = {
   email: string
   phone: string | null
   cover_letter: string | null
+  source?: string | null
   status: 'applied' | 'interviewing' | 'offer' | 'hired' | 'rejected'
   created_at: string
   interview_at?: string | null
@@ -208,6 +209,15 @@ export default function JobsPage() {
   }).length
   const offersPendingCount = apps.filter(a => a.status === 'offer').length
 
+  // Source breakdown — where candidates are coming from
+  const sourceCounts = apps.reduce<Record<string, number>>((acc, a) => {
+    const key = a.source?.trim() || 'Unknown'
+    acc[key] = (acc[key] ?? 0) + 1
+    return acc
+  }, {})
+  const sourceEntries = Object.entries(sourceCounts).sort((a, b) => b[1] - a[1])
+  const topSource = sourceEntries[0]
+
   function handleDropOnStage(stage: Application['status']) {
     if (draggingAppId) moveStage(draggingAppId, stage)
     setDraggingAppId(null)
@@ -241,7 +251,7 @@ export default function JobsPage() {
         </div>
 
         {/* Metrics */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '1.25rem' }}>
           <div style={cardStyle}>
             <div style={{ fontSize: '22px', fontWeight: 600, color: '#f1f5f9' }}>{openJobsCount}</div>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Open jobs</div>
@@ -257,6 +267,10 @@ export default function JobsPage() {
           <div style={cardStyle}>
             <div style={{ fontSize: '22px', fontWeight: 600, color: '#4ade80' }}>{offersPendingCount}</div>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Offers pending</div>
+          </div>
+          <div style={cardStyle} title={sourceEntries.map(([name, count]) => `${name}: ${count}`).join(' · ')}>
+            <div style={{ fontSize: '22px', fontWeight: 600, color: '#c084fc' }}>{topSource ? topSource[0] : '—'}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Top source{topSource ? ` · ${topSource[1]}` : ''}</div>
           </div>
         </div>
 
@@ -507,6 +521,7 @@ export default function JobsPage() {
                 <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}><MailIcon size={13} />{selected.email}</div>
                 {selected.phone && <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}><PhoneIcon size={13} />{selected.phone}</div>}
                 <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}><TagIcon size={13} />{jobs.find(j => j.id === selected.job_posting_id)?.title ?? 'Unknown role'}</div>
+                {selected.source && <div style={{ fontSize: '12px', color: '#64748b' }}>Source: <span style={{ color: '#c084fc' }}>{selected.source}</span></div>}
               </div>
 
               {selected.cover_letter && (

@@ -5,7 +5,7 @@ import { getBearerUser } from '../../lib/apiAuth'
 // Public: submit an application
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { job_posting_id, owner_id, name, email, phone, cover_letter } = body
+  const { job_posting_id, owner_id, name, email, phone, cover_letter, source } = body
 
   if (!job_posting_id || !owner_id || !name || !email) {
     return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     email,
     phone: phone || null,
     cover_letter: cover_letter || null,
+    source: source || null,
     status: 'applied',
   })
 

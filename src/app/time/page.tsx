@@ -19,6 +19,7 @@ type ShiftSwap = { id: number; requester_employee_id: number; requester_shift_id
 type TimeOffRequest = { id: number; employee_id: number; start_date: string; end_date: string; type: string; reason: string | null; status: string; created_at: string }
 type TimeEntry = { id: number; employee_id: number; clock_in: string; clock_out: string | null; total_minutes: number | null }
 type Availability = { employee_id: number; day_of_week: number; start_time: string; end_time: string }
+type ShiftNote = { id: number; shift_date: string; author_name: string; note: string; created_at: string }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -107,6 +108,12 @@ export default function TimePage() {
   type CalloutTarget = { shiftId: number; shiftDate: string; startTime: string; endTime: string; employee: { id: number; name: string } }
   const [calloutTarget, setCalloutTarget] = useState<CalloutTarget | null>(null)
 
+  // ── Manager logbook ────────────────────────────────────────────────────────
+  const [logEntries, setLogEntries] = useState<ShiftNote[]>([])
+  const [newLogText, setNewLogText] = useState('')
+  const [savingLog, setSavingLog] = useState(false)
+  const [authorName, setAuthorName] = useState('Manager')
+
   async function handleDropShift(empId: number, date: string) {
     if (!draggingShiftId) return
     const shift = shifts.find(s => s.id === draggingShiftId)
@@ -180,7 +187,36 @@ export default function TimePage() {
       .order('created_at', { ascending: false })
     setSwapRequests(swaps ?? [])
 
+    const fullName = (session.user.user_metadata?.full_name ?? '').trim()
+    setAuthorName(fullName || session.user.email || 'Manager')
+
+    const since = new Date(); since.setDate(since.getDate() - 60)
+    const { data: notes } = await supabase
+      .from('shift_notes')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .gte('shift_date', since.toISOString().slice(0, 10))
+      .order('created_at', { ascending: false })
+    setLogEntries(notes ?? [])
+
     setLoading(false)
+  }
+
+  async function addLogEntry(date: string) {
+    if (!newLogText.trim() || !userId) return
+    setSavingLog(true)
+    const { data, error } = await supabase
+      .from('shift_notes')
+      .insert({ user_id: userId, shift_date: date, author_name: authorName, note: newLogText.trim() })
+      .select()
+      .single()
+    if (!error && data) {
+      setLogEntries(prev => [data, ...prev])
+      setNewLogText('')
+    } else {
+      showToast('Could not save note.', 'error')
+    }
+    setSavingLog(false)
   }
 
   // ── Shift actions ─────────────────────────────────────────────────────────
@@ -891,6 +927,44 @@ export default function TimePage() {
                             onClick={() => setActiveShiftId(null)}
                             style={{ fontSize: '12px', padding: '5px 10px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#64748b', cursor: 'pointer', fontFamily: 'inherit' }}
                           >✕</button>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Manager logbook — notes scoped to the selected shift's day */}
+                  {activeShiftId != null && (() => {
+                    const s = shifts.find(sh => sh.id === activeShiftId)
+                    if (!s) return null
+                    const dayNotes = logEntries.filter(n => n.shift_date === s.shift_date)
+                    return (
+                      <div style={{ margin: '0.5rem 0 0.25rem', padding: '0.75rem 1rem', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
+                          Logbook — {new Date(s.shift_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </div>
+                        {dayNotes.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.6rem', maxHeight: '160px', overflowY: 'auto' }}>
+                            {dayNotes.map(n => (
+                              <div key={n.id} style={{ fontSize: '12.5px', color: '#e2e8f0', padding: '0.4rem 0.6rem', borderRadius: '7px', background: 'rgba(255,255,255,0.03)' }}>
+                                <div>{n.note}</div>
+                                <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px' }}>{n.author_name} · {fmtTime(n.created_at)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <input
+                            value={newLogText}
+                            onChange={e => setNewLogText(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') addLogEntry(s.shift_date) }}
+                            placeholder="Add a note about this day…"
+                            style={{ flex: 1, fontSize: '12.5px', padding: '6px 10px', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', fontFamily: 'inherit' }}
+                          />
+                          <button
+                            onClick={() => addLogEntry(s.shift_date)}
+                            disabled={savingLog || !newLogText.trim()}
+                            style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '7px', border: '1px solid rgba(29,78,216,0.4)', background: newLogText.trim() ? '#1d4ed8' : 'rgba(255,255,255,0.05)', color: newLogText.trim() ? '#fff' : '#475569', cursor: newLogText.trim() ? 'pointer' : 'default', fontWeight: 500, fontFamily: 'inherit' }}
+                          >Add</button>
                         </div>
                       </div>
                     )

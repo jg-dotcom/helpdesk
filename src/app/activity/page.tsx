@@ -10,6 +10,8 @@ type ActivityEvent = {
   title: string
   detail?: string
   created_at: string
+  actorId?: number | null
+  actorName?: string
 }
 
 const cardStyle: React.CSSProperties = { background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px' }
@@ -81,6 +83,8 @@ export default function ActivityPage() {
   const [loading, setLoading] = useState(true)
   const [events, setEvents] = useState<ActivityEvent[]>([])
   const [filter, setFilter] = useState<ActivityEvent['type'] | 'all'>('all')
+  const [actorFilter, setActorFilter] = useState<number | 'all'>('all')
+  const [employeeRoster, setEmployeeRoster] = useState<{ id: number; name: string }[]>([])
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -94,24 +98,26 @@ export default function ActivityPage() {
         supabase.from('payroll_entries').select('id, employee_id, gross_pay, created_at').eq('user_id', uid).gte('created_at', sinceIso),
         supabase.from('job_applications').select('id, name, status, created_at').eq('user_id', uid).gte('created_at', sinceIso),
         supabase.from('announcements').select('id, title, message, created_at').eq('user_id', uid).gte('created_at', sinceIso),
-        supabase.from('shift_swaps').select('id, status, created_at').eq('user_id', uid).gte('created_at', sinceIso),
+        supabase.from('shift_swaps').select('id, status, created_at, requester_employee_id, target_employee_id').eq('user_id', uid).gte('created_at', sinceIso),
       ])
 
-      const empMap = new Map((emps ?? []).map(e => [e.id, e.name]))
+      // Also pull all-time employees (not just last 60 days) so the actor filter has a full roster
+      const { data: allEmps } = await supabase.from('employees').select('id, name').eq('user_id', uid)
+      const empMap = new Map((allEmps ?? []).map(e => [e.id, e.name]))
 
       const evts: ActivityEvent[] = []
 
       for (const e of emps ?? []) {
-        evts.push({ id: `hire-${e.id}`, type: 'hire', title: `${e.name} joined the team`, detail: e.role, created_at: e.created_at })
+        evts.push({ id: `hire-${e.id}`, type: 'hire', title: `${e.name} joined the team`, detail: e.role, created_at: e.created_at, actorId: e.id, actorName: e.name })
       }
 
       for (const p of payroll ?? []) {
         const name = empMap.get(p.employee_id) ?? 'An employee'
-        evts.push({ id: `pay-${p.id}`, type: 'payroll', title: `Payroll logged for ${name}`, detail: fmtMoney(p.gross_pay), created_at: p.created_at })
+        evts.push({ id: `pay-${p.id}`, type: 'payroll', title: `Payroll logged for ${name}`, detail: fmtMoney(p.gross_pay), created_at: p.created_at, actorId: p.employee_id, actorName: name })
       }
 
       for (const a of apps ?? []) {
-        evts.push({ id: `app-${a.id}`, type: 'application', title: `${a.name} ${STAGE_LABEL[a.status] ?? `is now ${a.status}`}`, created_at: a.created_at })
+        evts.push({ id: `app-${a.id}`, type: 'application', title: `${a.name} ${STAGE_LABEL[a.status] ?? `is now ${a.status}`}`, created_at: a.created_at, actorName: a.name })
       }
 
       for (const an of announcements ?? []) {
@@ -119,16 +125,39 @@ export default function ActivityPage() {
       }
 
       for (const s of swaps ?? []) {
-        evts.push({ id: `swap-${s.id}`, type: 'swap', title: `Shift swap request ${s.status}`, created_at: s.created_at })
+        const requesterName = empMap.get(s.requester_employee_id)
+        const targetName = s.target_employee_id ? empMap.get(s.target_employee_id) : null
+        const detail = requesterName ? `${requesterName}${targetName ? ` → ${targetName}` : ''}` : undefined
+        evts.push({ id: `swap-${s.id}`, type: 'swap', title: `Shift swap request ${s.status}`, detail, created_at: s.created_at, actorId: s.requester_employee_id, actorName: requesterName })
       }
 
       evts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       setEvents(evts)
+      setEmployeeRoster((allEmps ?? []).slice().sort((a, b) => a.name.localeCompare(b.name)))
       setLoading(false)
     })
   }, [])
 
-  const filtered = useMemo(() => filter === 'all' ? events : events.filter(e => e.type === filter), [events, filter])
+  function exportCSV() {
+    const rows = [
+      ['Date', 'Type', 'Actor', 'Title', 'Detail'],
+      ...filtered.map(e => [e.created_at, e.type, e.actorName ?? '', e.title, e.detail ?? '']),
+    ]
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'activity-export.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const filtered = useMemo(() => {
+    let list = filter === 'all' ? events : events.filter(e => e.type === filter)
+    if (actorFilter !== 'all') list = list.filter(e => e.actorId === actorFilter)
+    return list
+  }, [events, filter, actorFilter])
   const grouped = useMemo(() => groupByDate(filtered), [filtered])
 
   const counts = useMemo(() => {
@@ -137,18 +166,33 @@ export default function ActivityPage() {
     return c
   }, [events])
 
+  const actorsWithActivity = useMemo(() => {
+    const ids = new Set(events.filter(e => e.actorId != null).map(e => e.actorId as number))
+    return employeeRoster.filter(e => ids.has(e.id))
+  }, [events, employeeRoster])
+
   return (
     <div className="dash-wrap">
       <Nav active="activity" />
       <div className="dash-content" style={{ background: '#0f172a', minHeight: '100vh', padding: '2rem' }}>
 
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: '#f1f5f9' }}>Activity</div>
-          <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>What&apos;s happened across your team in the last 60 days</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#f1f5f9' }}>Activity</div>
+            <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>What&apos;s happened across your team in the last 60 days</div>
+          </div>
+          <button
+            onClick={exportCSV}
+            disabled={filtered.length === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: filtered.length === 0 ? 'default' : 'pointer', background: 'rgba(255,255,255,0.05)', color: filtered.length === 0 ? '#475569' : '#94a3b8', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
         </div>
 
-        {/* Filter tabs */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+        {/* Filter tabs + actor filter */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
           {FILTERS.map(f => {
             const isActive = filter === f.key
             const count = counts[f.key] ?? 0
@@ -168,6 +212,17 @@ export default function ActivityPage() {
               </button>
             )
           })}
+
+          {actorsWithActivity.length > 0 && (
+            <select
+              value={actorFilter}
+              onChange={e => setActorFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              style={{ marginLeft: 'auto', fontSize: '12.5px', fontWeight: 500, padding: '7px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
+            >
+              <option value="all">All employees</option>
+              {actorsWithActivity.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          )}
         </div>
 
         <div style={{ ...cardStyle, padding: loading || grouped.length === 0 ? '3rem 1.5rem' : '1.5rem', maxWidth: '760px' }}>

@@ -12,6 +12,7 @@ export default function ApplyForm({ jobId, jobTitle, ownerId }: Props) {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [coverLetter, setCoverLetter] = useState('')
+  const [source, setSource] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
 
@@ -22,7 +23,7 @@ export default function ApplyForm({ jobId, jobTitle, ownerId }: Props) {
       const res = await fetch('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_posting_id: jobId, owner_id: ownerId, name: name.trim(), email: email.trim(), phone: phone.trim(), cover_letter: coverLetter.trim() }),
+        body: JSON.stringify({ job_posting_id: jobId, owner_id: ownerId, name: name.trim(), email: email.trim(), phone: phone.trim(), cover_letter: coverLetter.trim(), source: source || null }),
       })
       if (!res.ok) { const d = await res.json(); showToast(d.error || 'Failed to submit.', 'error'); setLoading(false); return }
       setDone(true)
@@ -73,6 +74,17 @@ export default function ApplyForm({ jobId, jobTitle, ownerId }: Props) {
               <textarea value={coverLetter} onChange={e => setCoverLetter(e.target.value)}
                 placeholder="Tell us a bit about yourself..." rows={4}
                 style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }} />
+            </div>
+            <div>
+              <label style={lbl}>How did you hear about us?</label>
+              <select value={source} onChange={e => setSource(e.target.value)} style={{ ...inp, fontFamily: 'inherit' }}>
+                <option value="">Prefer not to say</option>
+                <option value="Referral">Employee referral</option>
+                <option value="Job board">Job board (Indeed, LinkedIn, etc.)</option>
+                <option value="Walk-in">Walk-in / in-store</option>
+                <option value="Social media">Social media</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button onClick={handleSubmit} disabled={loading} style={{
