@@ -48,6 +48,13 @@ function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
+type TimelineEvent = { id: string; label: string; sub?: string; date: string; color: string }
+
+function complianceChip(label: string, status: string) {
+  const isComplete = status === 'complete' || status === 'active'
+  return { label, isComplete }
+}
+
 function tenure(start: string) {
   if (!start) return null
   const months = Math.max(0, Math.round((Date.now() - new Date(start).getTime()) / 2629800000))
@@ -194,6 +201,10 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [noteSaved, setNoteSaved] = useState(false)
   const [noteGenerating, setNoteGenerating] = useState(false)
 
+  // Per-employee activity timeline (payroll, notes, time off, callouts merged)
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([])
+  const [timelineLoading, setTimelineLoading] = useState(false)
+
   async function saveNote() {
     if (!noteText.trim()) return
     setNoteSaving(true)
@@ -247,6 +258,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     loadPayroll()
     loadNotes()
     loadDepartments()
+    loadTimeline()
     const today = new Date()
     const dayOfWeek = today.getDay()
     const start = new Date(today); start.setDate(today.getDate() - dayOfWeek)
@@ -375,6 +387,41 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
       const primary = members.find((m: { is_primary: boolean }) => m.is_primary)
       setPrimaryDept(primary?.department_id ?? null)
     }
+  }
+
+  // Per-employee timeline — merges payroll, notes, time off, and callouts scoped
+  // to this one person, the way BambooHR/Rippling surface a per-employee history
+  // instead of making you dig through separate module pages.
+  async function loadTimeline() {
+    setTimelineLoading(true)
+    const { data: sessionData } = await supabase.auth.getSession()
+    const uid = sessionData.session?.user.id
+    if (!uid) { setTimelineLoading(false); return }
+
+    const [{ data: pay }, { data: notesData }, { data: pto }, { data: callouts }] = await Promise.all([
+      supabase.from('payroll_entries').select('id, gross_pay, period_start, period_end, paid_at').eq('employee_id', employee.id).order('paid_at', { ascending: false }).limit(5),
+      supabase.from('documents').select('id, content, created_at').eq('employee_name', employee.name).eq('type', 'checkin').order('created_at', { ascending: false }).limit(5),
+      supabase.from('time_off_requests').select('id, type, status, start_date, end_date, created_at').eq('employee_id', employee.id).order('created_at', { ascending: false }).limit(5),
+      supabase.from('shifts').select('id, shift_date, status').eq('employee_id', employee.id).eq('status', 'called_out').order('shift_date', { ascending: false }).limit(5),
+    ])
+
+    const events: TimelineEvent[] = []
+    for (const p of pay ?? []) {
+      events.push({ id: `pay_${p.id}`, label: `Paid ${formatMoney(p.gross_pay)}`, sub: `${formatDate(p.period_start)} – ${formatDate(p.period_end)}`, date: p.paid_at ?? p.period_end, color: accent })
+    }
+    for (const n of notesData ?? []) {
+      events.push({ id: `note_${n.id}`, label: 'Check-in note added', sub: n.content.length > 60 ? n.content.slice(0, 60) + '…' : n.content, date: n.created_at, color: '#d8b4fe' })
+    }
+    for (const r of pto ?? []) {
+      events.push({ id: `pto_${r.id}`, label: `${r.type} request ${r.status}`, sub: `${formatDate(r.start_date)} – ${formatDate(r.end_date)}`, date: r.created_at, color: r.status === 'approved' ? '#4ade80' : r.status === 'denied' ? '#f87171' : '#fbbf24' })
+    }
+    for (const c of callouts ?? []) {
+      events.push({ id: `callout_${c.id}`, label: 'Called out', sub: formatDate(c.shift_date), date: c.shift_date, color: '#f87171' })
+    }
+
+    events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    setTimeline(events.slice(0, 6))
+    setTimelineLoading(false)
   }
 
   async function saveDepartments() {
@@ -539,6 +586,33 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               )}
             </div>
 
+            {/* Compliance status — surfaces i9/w4/direct deposit + onboarding progress
+                that was previously tracked but never actually shown anywhere */}
+            <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+              {[
+                complianceChip('I-9', employee.i9_status),
+                complianceChip('W-4', employee.w4_status),
+                complianceChip('Direct deposit', employee.direct_deposit_status),
+              ].map(c => (
+                <span key={c.label} style={{
+                  fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px',
+                  background: c.isComplete ? 'rgba(34,197,94,0.13)' : 'rgba(245,158,11,0.13)',
+                  color: c.isComplete ? '#4ade80' : '#fbbf24',
+                }}>
+                  {c.isComplete ? '✓' : '•'} {c.label}
+                </span>
+              ))}
+              {welcomePackSent && (
+                <span style={{
+                  fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px',
+                  background: documentsSigned ? 'rgba(34,197,94,0.13)' : 'rgba(59,130,246,0.13)',
+                  color: documentsSigned ? '#4ade80' : accent,
+                }}>
+                  {documentsSigned ? '✓ Onboarding signed' : '• Onboarding sent'}
+                </span>
+              )}
+            </div>
+
             <div style={{ display: 'flex', gap: '12px', marginTop: '10px', alignItems: 'center' }}>
               <a href={`/employees/${employee.id}`} style={{ fontSize: '12px', color: accent, textDecoration: 'none' }}>View full profile →</a>
               <button
@@ -609,6 +683,32 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
       {/* Info tab */}
       {tab === 'info' && (
         <div>
+          {(timelineLoading || timeline.length > 0) && (
+            <>
+              <div style={{ ...sectionLabelStyle, marginTop: 0 }}>Recent activity</div>
+              {timelineLoading ? (
+                <div style={{ fontSize: '13px', color: mutedDark, marginBottom: '1rem' }}>Loading...</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '1.25rem' }}>
+                  {timeline.map((ev, i) => (
+                    <div key={ev.id} style={{ display: 'flex', gap: '10px', paddingBottom: i === timeline.length - 1 ? 0 : '10px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: ev.color, marginTop: '4px' }} />
+                        {i < timeline.length - 1 && <div style={{ width: 1, flex: 1, background: border, marginTop: '4px' }} />}
+                      </div>
+                      <div style={{ paddingBottom: '2px' }}>
+                        <div style={{ fontSize: '12.5px', color: text, fontWeight: 500 }}>{ev.label}</div>
+                        <div style={{ fontSize: '11px', color: mutedDark, marginTop: '1px' }}>
+                          {ev.sub ? `${ev.sub} · ` : ''}{new Date(ev.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
           <div style={sectionLabelStyle}>Profile</div>
           <div style={row2Style}>
             <Field label="Name"><input style={inputStyle} value={form.name} onChange={e => set('name', e.target.value)} /></Field>
@@ -709,6 +809,35 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
       {/* Onboarding tab */}
       {tab === 'onboarding' && (
         <div>
+          {/* Onboarding checklist — parity with the Offboarding tab's checklist,
+              reflecting real signed-document state instead of a plain sentence */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <div style={{ ...sectionLabelStyle, margin: 0 }}>Onboarding checklist</div>
+            <span style={{
+              fontSize: '11px', fontWeight: 600, padding: '2px 9px', borderRadius: '99px',
+              background: documentsSigned ? 'rgba(34,197,94,0.15)' : welcomePackSent ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+              color: documentsSigned ? '#4ade80' : welcomePackSent ? '#fbbf24' : '#f87171',
+            }}>
+              {documentsSigned ? '2/2 done' : welcomePackSent ? '1/2 done' : '0/2 done'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '1.25rem' }}>
+            {[
+              { label: 'Setup link sent to employee', done: welcomePackSent },
+              { label: 'Onboarding documents signed', done: documentsSigned },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}` }}>
+                <div style={{
+                  width: 18, height: 18, borderRadius: '5px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px',
+                  background: item.done ? 'rgba(34,197,94,0.2)' : 'transparent', border: `1.5px solid ${item.done ? '#4ade80' : border}`, color: '#4ade80',
+                }}>
+                  {item.done ? '✓' : ''}
+                </div>
+                <div style={{ fontSize: '13px', color: item.done ? '#4ade80' : text }}>{item.label}</div>
+              </div>
+            ))}
+          </div>
+
           <p style={{ fontSize: '13px', color: muted, marginBottom: '1rem' }}>
             Send {employee.name} a setup link — they&apos;ll create their account and be prompted to complete onboarding from the portal.
           </p>
