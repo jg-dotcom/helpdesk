@@ -88,6 +88,9 @@ export default function TimePage() {
   const [activeShiftId, setActiveShiftId] = useState<number | null>(null)
   // Auto-generate panel
   const [showGenPanel, setShowGenPanel] = useState(false)
+  // Drag-and-drop
+  const [draggingShiftId, setDraggingShiftId] = useState<number | null>(null)
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null)
 
   // Generate schedule
   const [generating, setGenerating] = useState(false)
@@ -102,6 +105,21 @@ export default function TimePage() {
   // Callout modal
   type CalloutTarget = { shiftId: number; shiftDate: string; startTime: string; endTime: string; employee: { id: number; name: string } }
   const [calloutTarget, setCalloutTarget] = useState<CalloutTarget | null>(null)
+
+  async function handleDropShift(empId: number, date: string) {
+    if (!draggingShiftId) return
+    const shift = shifts.find(s => s.id === draggingShiftId)
+    if (!shift) { setDraggingShiftId(null); setDragOverCell(null); return }
+    // Already on the same cell — no-op
+    if (shift.employee_id === empId && shift.shift_date === date) { setDraggingShiftId(null); setDragOverCell(null); return }
+    // Target cell already occupied — no-op
+    const occupied = shifts.find(s => s.employee_id === empId && s.shift_date === date && !s.is_open_shift && s.id !== draggingShiftId)
+    if (occupied) { setDraggingShiftId(null); setDragOverCell(null); return }
+    // Optimistic update
+    setShifts(prev => prev.map(s => s.id === draggingShiftId ? { ...s, employee_id: empId, shift_date: date } : s))
+    setDraggingShiftId(null); setDragOverCell(null); setActiveShiftId(null)
+    await supabase.from('shifts').update({ employee_id: empId, shift_date: date }).eq('id', draggingShiftId)
+  }
 
   function closeDrawer() {
     setShowShiftForm(false)
@@ -548,10 +566,14 @@ export default function TimePage() {
                             ? { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.3)' }
                             : dayShift ? rc : null
                           const isActive = dayShift?.id === activeShiftId
+                          const isDragging = dayShift?.id === draggingShiftId
+                          const cellKey = `${emp.id}-${dateStr}`
+                          const isDragOver = dragOverCell === cellKey && !dayShift
                           return (
                             <div
                               key={dateStr}
                               onClick={() => {
+                                if (draggingShiftId) return
                                 if (dayShift) {
                                   setActiveShiftId(isActive ? null : dayShift.id)
                                   setShowShiftForm(false)
@@ -561,26 +583,39 @@ export default function TimePage() {
                                   setActiveShiftId(null)
                                 }
                               }}
+                              onDragOver={e => { e.preventDefault(); if (draggingShiftId) setDragOverCell(cellKey) }}
+                              onDragLeave={() => setDragOverCell(null)}
+                              onDrop={e => { e.preventDefault(); handleDropShift(emp.id, dateStr) }}
                               style={{
                                 borderRadius: '6px',
                                 minHeight: '54px',
                                 padding: '6px',
-                                cursor: 'pointer',
-                                background: isActive
-                                  ? (cellColor ? cellColor.bg : 'rgba(29,78,216,0.12)')
-                                  : cellColor ? cellColor.bg : isToday ? 'rgba(29,78,216,0.06)' : 'rgba(255,255,255,0.02)',
-                                border: isActive
-                                  ? `2px solid ${cellColor ? cellColor.text : '#3b82f6'}`
-                                  : cellColor ? `1px solid ${cellColor.border}` : `1px dashed rgba(255,255,255,${isToday ? '0.12' : '0.05'})`,
+                                cursor: draggingShiftId ? 'copy' : 'pointer',
+                                background: isDragOver
+                                  ? 'rgba(29,78,216,0.18)'
+                                  : isActive
+                                    ? (cellColor ? cellColor.bg : 'rgba(29,78,216,0.12)')
+                                    : cellColor ? cellColor.bg : isToday ? 'rgba(29,78,216,0.06)' : 'rgba(255,255,255,0.02)',
+                                border: isDragOver
+                                  ? '2px dashed rgba(59,130,246,0.7)'
+                                  : isActive
+                                    ? `2px solid ${cellColor ? cellColor.text : '#3b82f6'}`
+                                    : cellColor ? `1px solid ${cellColor.border}` : `1px dashed rgba(255,255,255,${isToday ? '0.12' : '0.05'})`,
                                 display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '2px',
                                 transition: 'border-color 0.1s, background 0.1s',
                                 outline: 'none',
+                                opacity: isDragging ? 0.35 : 1,
                               }}
-                              onMouseEnter={e => { if (!dayShift) (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(29,78,216,0.5)' }}
-                              onMouseLeave={e => { if (!dayShift) (e.currentTarget as HTMLDivElement).style.borderColor = isToday ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)' }}
+                              onMouseEnter={e => { if (!dayShift && !draggingShiftId) (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(29,78,216,0.5)' }}
+                              onMouseLeave={e => { if (!dayShift && !draggingShiftId) (e.currentTarget as HTMLDivElement).style.borderColor = isToday ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)' }}
                             >
                               {dayShift ? (
-                                <div>
+                                <div
+                                  draggable
+                                  onDragStart={e => { e.stopPropagation(); setDraggingShiftId(dayShift.id); setActiveShiftId(null) }}
+                                  onDragEnd={() => { setDraggingShiftId(null); setDragOverCell(null) }}
+                                  style={{ cursor: 'grab', userSelect: 'none' }}
+                                >
                                   <div style={{ fontSize: '11px', fontWeight: 600, color: cellColor!.text }}>
                                     {isCallout ? 'Called out' : `${fmt(dayShift.start_time)}–${fmt(dayShift.end_time)}`}
                                   </div>
@@ -591,7 +626,9 @@ export default function TimePage() {
                                   )}
                                 </div>
                               ) : (
-                                <div style={{ fontSize: '10px', color: '#334155', textAlign: 'center' }}>+ add</div>
+                                <div style={{ fontSize: '10px', color: isDragOver ? '#93c5fd' : '#334155', textAlign: 'center' }}>
+                                  {isDragOver ? 'Drop here' : '+ add'}
+                                </div>
                               )}
                             </div>
                           )
