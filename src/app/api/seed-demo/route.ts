@@ -100,7 +100,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── 6. Recent announcement ───────────────────────────────────────────────────
+  // ── 6. Employee availability ─────────────────────────────────────────────────
+  // day_of_week: 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
+  const availabilityData = [
+    // Jamie — Full-time Cashier: Mon–Fri 8am–5pm
+    ...([1,2,3,4,5].map(d => ({ employee_id: jamie.id, day_of_week: d, start_time: '08:00', end_time: '17:00' }))),
+    // Alex — Part-time Cashier: Mon/Wed/Fri 9am–3pm + Sat 10am–4pm
+    ...([1,3,5].map(d => ({ employee_id: alex.id, day_of_week: d, start_time: '09:00', end_time: '15:00' }))),
+    { employee_id: alex.id, day_of_week: 6, start_time: '10:00', end_time: '16:00' },
+    // Marcus — Full-time Floor: Mon–Thu 2pm–10pm
+    ...([1,2,3,4].map(d => ({ employee_id: marcus.id, day_of_week: d, start_time: '14:00', end_time: '22:00' }))),
+    // Sarah — Full-time Floor: Tue–Sat 9am–5pm
+    ...([2,3,4,5,6].map(d => ({ employee_id: sarah.id, day_of_week: d, start_time: '09:00', end_time: '17:00' }))),
+    // Dana — Manager: Mon–Fri 7am–4pm
+    ...([1,2,3,4,5].map(d => ({ employee_id: dana.id, day_of_week: d, start_time: '07:00', end_time: '16:00' }))),
+    // Chris — Part-time Stock: Fri–Sun 12pm–8pm
+    ...([5,6,0].map(d => ({ employee_id: chris.id, day_of_week: d, start_time: '12:00', end_time: '20:00' }))),
+    // Mia — Full-time Cashier: Mon–Fri 10am–6pm
+    ...([1,2,3,4,5].map(d => ({ employee_id: mia.id, day_of_week: d, start_time: '10:00', end_time: '18:00' }))),
+    // Tyler — Part-time Stock: Wed/Thu/Sat/Sun 8am–2pm
+    ...([3,4,6,0].map(d => ({ employee_id: tyler.id, day_of_week: d, start_time: '08:00', end_time: '14:00' }))),
+  ]
+  await supabaseAdmin.from('employee_availability').insert(availabilityData)
+
+  // ── 7. Recent announcement ───────────────────────────────────────────────────
   await supabaseAdmin.from('announcements').insert({
     user_id: uid,
     title: 'July schedule is posted',
