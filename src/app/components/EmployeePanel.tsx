@@ -622,7 +622,8 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               )
             })()}
 
-            <div style={{ marginTop: '10px' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px' }}>
+              <a href={`/employees/${employee.id}`} style={{ fontSize: '12px', color: accent, textDecoration: 'none' }}>View full profile →</a>
               <button
                 onClick={() => { setShowNoteBox(v => !v); setNoteSaved(false) }}
                 style={{ fontSize: '11px', color: showNoteBox ? accent : mutedDark, background: showNoteBox ? 'rgba(29,78,216,0.15)' : 'transparent', border: `1px solid ${showNoteBox ? 'rgba(29,78,216,0.3)' : border}`, borderRadius: '6px', padding: '3px 9px', cursor: 'pointer', fontWeight: 500 }}

@@ -129,6 +129,8 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
   const [trialBanner, setTrialBanner] = useState<{ daysLeft: number; status: string } | null>(null)
   const menuRef        = useRef<HTMLDivElement>(null)
   const notifsRef      = useRef<HTMLDivElement>(null)
+  const notifDropdownRef = useRef<HTMLDivElement>(null)
+  const [notifPos, setNotifPos] = useState<{ left: number; bottom: number } | null>(null)
 
   // ── Command palette ────────────────────────────────────────────────────────
   const [showPalette, setShowPalette]   = useState(false)
@@ -192,7 +194,10 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
 
     function handleClick(e: MouseEvent) {
       if (menuRef.current   && !menuRef.current.contains(e.target as Node))   setShowMenu(false)
-      if (notifsRef.current && !notifsRef.current.contains(e.target as Node)) setShowNotifs(false)
+      if (
+        notifsRef.current && !notifsRef.current.contains(e.target as Node) &&
+        (!notifDropdownRef.current || !notifDropdownRef.current.contains(e.target as Node))
+      ) setShowNotifs(false)
     }
     document.addEventListener('mousedown', handleClick)
     return () => {
@@ -374,7 +379,14 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
         {/* Notification bell row */}
         <div ref={notifsRef} style={{ position: 'relative' }}>
           <button
-            onClick={() => { setShowNotifs(v => !v); if (!showNotifs) markAllRead() }}
+            onClick={() => {
+              if (!showNotifs && notifsRef.current) {
+                const rect = notifsRef.current.getBoundingClientRect()
+                setNotifPos({ left: rect.left, bottom: window.innerHeight - rect.top + 8 })
+                markAllRead()
+              }
+              setShowNotifs(v => !v)
+            }}
             style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '7px 8px', borderRadius: '7px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '12px', fontWeight: 500, position: 'relative', marginBottom: '2px', transition: 'background 0.12s' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
@@ -387,20 +399,6 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
             </div>
             Notifications
           </button>
-
-          {showNotifs && (
-            <div className="notif-dropdown">
-              <div className="notif-header">Notifications</div>
-              {notifications.length === 0 ? (
-                <div className="notif-empty">No notifications yet.</div>
-              ) : notifications.map(n => (
-                <div key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
-                  <div className="notif-msg">{n.message}</div>
-                  <div className="notif-time">{timeAgo(n.created_at)}</div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* User row */}
@@ -440,6 +438,27 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
 
       </div>
     </div>
+
+    {/* ── Notifications dropdown ──────────────────────────────────────────────
+        Rendered as a sibling of .dash-nav (not nested inside it) and positioned
+        with `fixed` + coordinates computed from the bell button. The sidebar
+        (.dash-nav) has overflow-y: auto, which per the CSS overflow spec forces
+        overflow-x to also become a clipping/scroll container — so a dropdown
+        wider than the 240px sidebar and nested inside it gets its right edge
+        cut off. Escaping the sidebar's DOM subtree avoids that entirely. */}
+    {showNotifs && notifPos && (
+      <div ref={notifDropdownRef} className="notif-dropdown" style={{ position: 'fixed', left: notifPos.left, bottom: notifPos.bottom }}>
+        <div className="notif-header">Notifications</div>
+        {notifications.length === 0 ? (
+          <div className="notif-empty">No notifications yet.</div>
+        ) : notifications.map(n => (
+          <div key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
+            <div className="notif-msg">{n.message}</div>
+            <div className="notif-time">{timeAgo(n.created_at)}</div>
+          </div>
+        ))}
+      </div>
+    )}
 
     {/* ── Command Palette ─────────────────────────────────────────────────── */}
     {showPalette && (() => {
