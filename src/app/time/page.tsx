@@ -86,6 +86,8 @@ export default function TimePage() {
   const [weekOffset, setWeekOffset] = useState(0)
   // Active shift pill (for inline action panel)
   const [activeShiftId, setActiveShiftId] = useState<number | null>(null)
+  // Auto-generate panel
+  const [showGenPanel, setShowGenPanel] = useState(false)
 
   // Generate schedule
   const [generating, setGenerating] = useState(false)
@@ -342,14 +344,35 @@ export default function TimePage() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div style={{ fontSize: '20px', fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Time</div>
-          <button
-            onClick={() => { setShowShiftForm(true); setTab('shifts') }}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '8px', background: '#1d4ed8', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add shift
-          </button>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <button
+              onClick={() => setShowGenPanel(v => !v)}
+              title="Auto-generate from availability"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', borderRadius: '8px', background: showGenPanel ? 'rgba(29,78,216,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${showGenPanel ? 'rgba(29,78,216,0.35)' : 'rgba(255,255,255,0.08)'}`, color: showGenPanel ? '#93c5fd' : '#64748b', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              Auto-generate
+            </button>
+            <button
+              onClick={() => { setShowShiftForm(true); setTab('shifts') }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '8px', background: '#1d4ed8', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add shift
+            </button>
+          </div>
         </div>
+
+        {/* Auto-generate panel — collapsible */}
+        {showGenPanel && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem', padding: '10px 14px', background: 'rgba(29,78,216,0.06)', border: '1px solid rgba(29,78,216,0.15)', borderRadius: '8px' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <span style={{ fontSize: '12px', color: '#93c5fd', fontWeight: 500 }}>Auto-generate from availability</span>
+            <input type="date" value={genWeekStart} onChange={e => setGenWeekStart(e.target.value)} style={{ fontSize: '12px', padding: '4px 8px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', colorScheme: 'dark' }} />
+            <button style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', background: 'rgba(29,78,216,0.25)', border: '1px solid rgba(29,78,216,0.4)', color: '#93c5fd', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }} onClick={generateSchedule} disabled={generating}>{generating ? 'Generating…' : 'Generate week'}</button>
+            {genMsg && <span style={{ fontSize: '12px', color: genMsg.startsWith('Error') || genMsg.startsWith('No') ? '#f87171' : '#4ade80' }}>{genMsg}</span>}
+          </div>
+        )}
 
         {/* Stat row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '1.25rem' }}>
@@ -384,13 +407,6 @@ export default function TimePage() {
         {tab === 'shifts' && (
           <div>
 
-            {/* Generate */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}>
-              <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>Auto-generate from availability</span>
-              <input type="date" value={genWeekStart} onChange={e => setGenWeekStart(e.target.value)} style={{ fontSize: '12px', padding: '4px 8px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', background: '#0f172a', color: '#94a3b8' }} />
-              <button style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit' }} onClick={generateSchedule} disabled={generating}>{generating ? 'Generating…' : 'Generate week'}</button>
-              {genMsg && <span style={{ fontSize: '12px', color: genMsg.startsWith('Error') || genMsg.startsWith('No employee') || genMsg.startsWith('No new') ? '#f87171' : '#4ade80' }}>{genMsg}</span>}
-            </div>
 
             {/* Open shift pool */}
             {(() => {
