@@ -271,7 +271,7 @@ export default function TimePage() {
   // ── Generate schedule ─────────────────────────────────────────────────────
 
   async function generateSchedule() {
-    if (!availability.length) { setGenMsg('No employee availability set yet.'); return }
+    if (!availability.length) { setGenMsg('No employee availability set yet.'); setTimeout(() => setGenMsg(''), 4000); return }
     setGenerating(true); setGenMsg('')
     // Always use the currently viewed week — no date picker needed
     const weekDates = getWeekDays(weekOffset)
@@ -407,6 +407,20 @@ export default function TimePage() {
 
   return (
     <>
+    {genMsg && (
+      <div
+        style={{
+          position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '10px',
+          background: genMsg.startsWith('Error') || genMsg.startsWith('No') ? 'rgba(127,29,29,0.95)' : 'rgba(20,83,45,0.95)',
+          border: `1px solid ${genMsg.startsWith('Error') || genMsg.startsWith('No') ? 'rgba(248,113,113,0.4)' : 'rgba(74,222,128,0.4)'}`,
+          color: genMsg.startsWith('Error') || genMsg.startsWith('No') ? '#f87171' : '#4ade80',
+          fontSize: '13px', fontWeight: 500, boxShadow: '0 8px 24px rgba(0,0,0,0.35)', animation: 'toastIn 0.2s ease-out',
+        }}
+      >
+        {genMsg}
+      </div>
+    )}
     <div className="dash-wrap">
       <Nav active="time" />
       <div className="dash-content">
@@ -424,7 +438,6 @@ export default function TimePage() {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: generating ? 'spin 1s linear infinite' : 'none' }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
               {generating ? 'Generating…' : 'Auto-generate'}
             </button>
-            {genMsg && <span style={{ fontSize: '11px', color: genMsg.startsWith('Error') || genMsg.startsWith('No') ? '#f87171' : '#4ade80', maxWidth: '160px', lineHeight: '1.3' }}>{genMsg}</span>}
             {publishMsg && <span style={{ fontSize: '11px', color: publishMsg.startsWith('Error') ? '#f87171' : '#4ade80', maxWidth: '160px', lineHeight: '1.3' }}>{publishMsg}</span>}
             <button
               onClick={publishSchedule}
