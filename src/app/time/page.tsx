@@ -358,6 +358,31 @@ export default function TimePage() {
     scheduledHoursByEmployee.set(s.employee_id, (scheduledHoursByEmployee.get(s.employee_id) ?? 0) + shiftHours(s))
   }
 
+  // Daily subtotals — total scheduled hours per day across all employees
+  const dailyTotals = weekDays.map(d =>
+    weekShifts.filter(s => s.shift_date === d).reduce((sum, s) => sum + shiftHours(s), 0)
+  )
+
+  // Days missing lead/manager coverage — flagged so gaps in supervision are visible at a glance
+  const noLeadDays = new Set(
+    weekDays.filter((d, i) => {
+      const dayKey = DAY_KEYS[i]
+      if (bizHours?.[dayKey]?.closed) return false
+      const dayShifts = weekShifts.filter(s => s.shift_date === d && s.employee_id != null)
+      if (!dayShifts.length) return false
+      return !dayShifts.some(s => {
+        const emp = empMap[s.employee_id!]
+        return emp && /lead|manager/i.test(emp.role)
+      })
+    })
+  )
+
+  // Availability lookup — no rows for an employee at all means the feature isn't in use, so skip graying
+  const hasAnyAvailability = availability.length > 0
+  function isAvailable(empId: number, dayIdx: number) {
+    return availability.some(a => a.employee_id === empId && a.day_of_week === dayIdx)
+  }
+
   // Timesheet data
   const clockedIn = entries.filter(e => !e.clock_out)
   const completed = entries.filter(e => e.clock_out)
@@ -644,6 +669,11 @@ export default function TimePage() {
                             {dayNum}
                           </div>
                           {isToday && <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#3b82f6', margin: '3px auto 0' }} />}
+                          {noLeadDays.has(dateStr) && (
+                            <div title="No lead or manager scheduled this day" style={{ fontSize: '9px', fontWeight: 600, color: '#fbbf24', marginTop: '3px', whiteSpace: 'nowrap' }}>
+                              ⚠ No lead
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -675,7 +705,7 @@ export default function TimePage() {
                           </div>
                         </div>
                         {/* Day cells */}
-                        {weekDays.map(dateStr => {
+                        {weekDays.map((dateStr, dayIdx) => {
                           const dayShift = shifts.find(s => s.employee_id === emp.id && s.shift_date === dateStr && !s.is_open_shift)
                           const isToday = dateStr === today
                           const isCallout = dayShift?.status === 'called_out'
@@ -686,6 +716,9 @@ export default function TimePage() {
                           const isDragging = dayShift?.id === draggingShiftId
                           const cellKey = `${emp.id}-${dateStr}`
                           const isDragOver = dragOverCell === cellKey && !dayShift
+                          // Grayed out when the employee has submitted availability but didn't mark this day — still
+                          // clickable so a manager can schedule anyway, just visually flagged.
+                          const isUnavailable = !dayShift && hasAnyAvailability && !isAvailable(emp.id, dayIdx)
                           return (
                             <div
                               key={dateStr}
@@ -712,7 +745,9 @@ export default function TimePage() {
                                   ? 'rgba(29,78,216,0.18)'
                                   : isActive
                                     ? (cellColor ? cellColor.bg : 'rgba(29,78,216,0.12)')
-                                    : cellColor ? cellColor.bg : isToday ? 'rgba(29,78,216,0.06)' : 'rgba(255,255,255,0.02)',
+                                    : cellColor ? cellColor.bg
+                                      : isUnavailable ? 'repeating-linear-gradient(45deg, rgba(255,255,255,0.015), rgba(255,255,255,0.015) 5px, rgba(255,255,255,0.035) 5px, rgba(255,255,255,0.035) 10px)'
+                                      : isToday ? 'rgba(29,78,216,0.06)' : 'rgba(255,255,255,0.02)',
                                 border: isDragOver
                                   ? '2px dashed rgba(59,130,246,0.7)'
                                   : isActive
@@ -744,7 +779,7 @@ export default function TimePage() {
                                 </div>
                               ) : (
                                 <div style={{ fontSize: '10px', color: isDragOver ? '#93c5fd' : '#334155', textAlign: 'center' }}>
-                                  {isDragOver ? 'Drop here' : '+ add'}
+                                  {isDragOver ? 'Drop here' : isUnavailable ? 'Unavailable' : '+ add'}
                                 </div>
                               )}
                             </div>
@@ -766,6 +801,27 @@ export default function TimePage() {
                       </div>
                     )
                   })}
+
+                  {/* Daily subtotals */}
+                  {sortedEmployees.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '130px repeat(7, 1fr) 52px', gap: '4px', marginTop: '4px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', padding: '2px 4px', fontSize: '10px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Total
+                      </div>
+                      {dailyTotals.map((hrs, i) => (
+                        <div key={weekDays[i]} style={{ textAlign: 'center', padding: '2px 4px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>
+                            {hrs > 0 ? `${hrs % 1 === 0 ? hrs : hrs.toFixed(1)}h` : '—'}
+                          </div>
+                        </div>
+                      ))}
+                      <div style={{ textAlign: 'center', padding: '2px 4px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#93c5fd' }}>
+                          {scheduledHours % 1 === 0 ? scheduledHours : scheduledHours.toFixed(1)}h
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Active shift action panel */}
                   {activeShiftId != null && (() => {
