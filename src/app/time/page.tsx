@@ -93,6 +93,13 @@ export default function TimePage() {
   // Generate schedule
   const [generating, setGenerating] = useState(false)
   const [genMsg, setGenMsg] = useState('')
+  // Publish schedule
+  const [publishing, setPublishing] = useState(false)
+  const [publishMsg, setPublishMsg] = useState('')
+  // Employee sort/grouping
+  const [empSort, setEmpSort] = useState<'default' | 'alpha' | 'dept'>('default')
+  const [departments, setDepartments] = useState<{ id: number; name: string; color: string }[]>([])
+  const [deptMembers, setDeptMembers] = useState<Record<number, number[]>>({})
   // Business hours
   const [bizHours, setBizHours] = useState<BusinessHours | null>(null)
 
@@ -139,12 +146,21 @@ export default function TimePage() {
     fetch('/api/settings/business', { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then(r => r.json()).then(d => { if (d.profile?.business_hours) setBizHours(d.profile.business_hours) })
 
-    const [{ data: emps }, { data: sh }, { data: reqs }, { data: ents }] = await Promise.all([
+    const [{ data: emps }, { data: sh }, { data: reqs }, { data: ents }, { data: depts }, { data: memberships }] = await Promise.all([
       supabase.from('employees').select('id, name, role, pay_type, pay_rate').eq('user_id', session.user.id).eq('status', 'active'),
       supabase.from('shifts').select('*').eq('user_id', session.user.id).order('shift_date'),
       supabase.from('time_off_requests').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
       supabase.from('time_entries').select('*').eq('user_id', session.user.id).gte('clock_in', weekStartISO()).order('clock_in', { ascending: false }),
+      supabase.from('departments').select('id, name, color').eq('user_id', session.user.id).order('name'),
+      supabase.from('department_members').select('employee_id, department_id'),
     ])
+    setDepartments(depts ?? [])
+    const memberMap: Record<number, number[]> = {}
+    for (const m of (memberships ?? [])) {
+      if (!memberMap[m.employee_id]) memberMap[m.employee_id] = []
+      memberMap[m.employee_id].push(m.department_id)
+    }
+    setDeptMembers(memberMap)
 
     const empList = emps ?? []
     setEmployees(empList)
@@ -327,6 +343,34 @@ export default function TimePage() {
   const pendingRequests = requests.filter(r => r.status === 'pending')
   const pendingSwaps = swapRequests.filter(s => s.status === 'pending')
 
+  // Sorted/grouped employees
+  const sortedEmployees = (() => {
+    if (empSort === 'alpha') return [...employees].sort((a, b) => a.name.localeCompare(b.name))
+    if (empSort === 'dept') {
+      const getDeptName = (emp: Employee) => {
+        const ids = deptMembers[emp.id] ?? []
+        const dept = departments.find(d => ids.includes(d.id))
+        return dept?.name ?? '￿' // sorts unassigned to end
+      }
+      return [...employees].sort((a, b) => getDeptName(a).localeCompare(getDeptName(b)) || a.name.localeCompare(b.name))
+    }
+    return employees
+  })()
+
+  // Dept label to show between groups when sorting by dept
+  function deptLabelFor(emp: Employee, idx: number): string | null {
+    if (empSort !== 'dept') return null
+    const ids = deptMembers[emp.id] ?? []
+    const dept = departments.find(d => ids.includes(d.id))
+    const label = dept?.name ?? 'No Department'
+    if (idx === 0) return label
+    const prev = sortedEmployees[idx - 1]
+    const prevIds = deptMembers[prev.id] ?? []
+    const prevDept = departments.find(d => prevIds.includes(d.id))
+    const prevLabel = prevDept?.name ?? 'No Department'
+    return label !== prevLabel ? label : null
+  }
+
   // Drawer helpers
   const drawerSelectedEmp = shiftEmpId !== '' ? empMap[shiftEmpId as number] ?? null : null
   const drawerHours = (() => {
@@ -338,6 +382,22 @@ export default function TimePage() {
   })()
   const openShiftsCount = shifts.filter(s => s.is_open_shift && !s.employee_id && s.shift_date >= today).length
   const pendingApprovalCount = pendingRequests.length + pendingSwaps.length
+
+  async function publishSchedule() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    setPublishing(true); setPublishMsg('')
+    const res = await fetch('/api/schedule/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ weekStart: weekDays[0] }),
+    })
+    const data = await res.json()
+    if (res.ok) setPublishMsg(`Notified ${data.notified} employee${data.notified !== 1 ? 's' : ''}`)
+    else setPublishMsg('Error publishing')
+    setPublishing(false)
+    setTimeout(() => setPublishMsg(''), 4000)
+  }
 
   if (loading) return (
     <div className="dash-wrap"><Nav active="time" />
@@ -365,6 +425,16 @@ export default function TimePage() {
               {generating ? 'Generating…' : 'Auto-generate'}
             </button>
             {genMsg && <span style={{ fontSize: '11px', color: genMsg.startsWith('Error') || genMsg.startsWith('No') ? '#f87171' : '#4ade80', maxWidth: '160px', lineHeight: '1.3' }}>{genMsg}</span>}
+            {publishMsg && <span style={{ fontSize: '11px', color: publishMsg.startsWith('Error') ? '#f87171' : '#4ade80', maxWidth: '160px', lineHeight: '1.3' }}>{publishMsg}</span>}
+            <button
+              onClick={publishSchedule}
+              disabled={publishing}
+              title="Notify employees their schedule is ready"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', borderRadius: '8px', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: publishing ? '#64748b' : '#4ade80', fontSize: '12px', fontWeight: 500, cursor: publishing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+              {publishing ? 'Publishing…' : 'Publish'}
+            </button>
             <button
               onClick={() => { setShowShiftForm(true); setTab('shifts') }}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '8px', background: '#1d4ed8', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
@@ -497,10 +567,21 @@ export default function TimePage() {
             {/* ── SCHEDULE GRID ── */}
             {(
               <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o - 1)}>←</button>
-                  <div style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9' }}>{weekLabel}</div>
-                  <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o + 1)}>→</button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o - 1)}>←</button>
+                    <div style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9', minWidth: '180px', textAlign: 'center' }}>{weekLabel}</div>
+                    <button style={{ padding: '4px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setWeekOffset(o => o + 1)}>→</button>
+                  </div>
+                  <select
+                    value={empSort}
+                    onChange={e => setEmpSort(e.target.value as typeof empSort)}
+                    style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '7px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    <option value="default">Default order</option>
+                    <option value="alpha">A – Z</option>
+                    {departments.length > 0 && <option value="dept">By department</option>}
+                  </select>
                 </div>
                 <div style={{ minWidth: '560px' }}>
                   {/* Day header row */}
@@ -524,12 +605,19 @@ export default function TimePage() {
                   </div>
 
                   {/* Employee rows */}
-                  {employees.length === 0 ? (
+                  {sortedEmployees.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '2rem', color: '#475569', fontSize: '13px' }}>No employees yet.</div>
-                  ) : employees.map(emp => {
+                  ) : sortedEmployees.map((emp, empIdx) => {
+                    const deptLabel = deptLabelFor(emp, empIdx)
                     const rc = getRoleColor(emp.role)
                     return (
-                      <div key={emp.id} style={{ display: 'grid', gridTemplateColumns: '130px repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
+                      <div key={emp.id}>
+                      {deptLabel && (
+                        <div style={{ gridColumn: '1 / -1', fontSize: '10px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '10px 4px 4px', borderTop: empIdx > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none', marginTop: empIdx > 0 ? '4px' : 0 }}>
+                          {deptLabel}
+                        </div>
+                      )}
+                      <div style={{ display: 'grid', gridTemplateColumns: '130px repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
                         {/* Name cell */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 4px', minWidth: 0 }}>
                           <div style={{ width: 26, height: 26, borderRadius: '50%', background: rc.bg, color: rc.text, fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1px solid ${rc.border}` }}>
@@ -616,6 +704,7 @@ export default function TimePage() {
                             </div>
                           )
                         })}
+                      </div>
                       </div>
                     )
                   })}
