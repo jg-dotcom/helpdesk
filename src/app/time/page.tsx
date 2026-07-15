@@ -13,7 +13,7 @@ type DayKey = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'
 type BusinessHours = Record<DayKey, { open: string; close: string; closed: boolean }>
 const DAY_KEYS: DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 
-type Employee = { id: number; name: string; role: string; pay_type: string; pay_rate: number | null }
+type Employee = { id: number; name: string; role: string; pay_type: string; pay_rate: number | null; pto_days_per_year: number | null }
 type Shift = { id: number; employee_id: number | null; shift_date: string; start_time: string; end_time: string; notes: string | null; status?: string; is_open_shift?: boolean }
 type ShiftSwap = { id: number; requester_employee_id: number; requester_shift_id: number; target_employee_id: number | null; target_shift_id: number | null; status: string; notes: string | null; created_at: string }
 type TimeOffRequest = { id: number; employee_id: number; start_date: string; end_date: string; type: string; reason: string | null; status: string; created_at: string }
@@ -33,6 +33,24 @@ function fmtMins(mins: number) {
 }
 function fmtTime(iso: string) { return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) }
 function fmtDate(iso: string) { return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
+// "Not yet seen" escalation nudge — a request can be technically delivered but still
+// go unnoticed in a busy inbox. Purely computed from created_at vs now, no new infra.
+function daysPending(createdAt: string) { return Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000) }
+// PTO balance for approval-time visibility — same "approved days this year vs. pto_days_per_year"
+// math already used by /api/employee/pto-balance, just computed client-side from data already
+// loaded (requests, employees), so approving a request doesn't need a fresh fetch. Advisory only.
+function ptoBalanceUsedDays(allRequests: TimeOffRequest[], employeeId: number, excludeRequestId?: number) {
+  const year = new Date().getFullYear()
+  let used = 0
+  for (const r of allRequests) {
+    if (r.employee_id !== employeeId || r.status !== 'approved' || r.id === excludeRequestId) continue
+    if (new Date(r.start_date).getFullYear() !== year) continue
+    const start = new Date(r.start_date)
+    const end = new Date(r.end_date || r.start_date)
+    used += Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+  }
+  return used
+}
 function elapsed(clockIn: string) { return fmtMins(Math.floor((Date.now() - new Date(clockIn).getTime()) / 60000)) }
 function weekStartISO() {
   const d = new Date(); d.setDate(d.getDate() - d.getDay()); d.setHours(0, 0, 0, 0); return d.toISOString()
@@ -153,7 +171,7 @@ export default function TimePage() {
       .then(r => r.json()).then(d => { if (d.profile?.business_hours) setBizHours(d.profile.business_hours) })
 
     const [{ data: emps }, { data: sh }, { data: reqs }, { data: ents }, { data: depts }, { data: memberships }] = await Promise.all([
-      supabase.from('employees').select('id, name, role, pay_type, pay_rate').eq('user_id', session.user.id).eq('status', 'active'),
+      supabase.from('employees').select('id, name, role, pay_type, pay_rate, pto_days_per_year').eq('user_id', session.user.id).eq('status', 'active'),
       supabase.from('shifts').select('*').eq('user_id', session.user.id).order('shift_date'),
       supabase.from('time_off_requests').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
       supabase.from('time_entries').select('*').eq('user_id', session.user.id).gte('clock_in', weekStartISO()).order('clock_in', { ascending: false }),
@@ -682,6 +700,13 @@ export default function TimePage() {
                           {tgtShift ? ` ↔ ${fmtDate(tgtShift.shift_date)} ${fmt(tgtShift.start_time)}–${fmt(tgtShift.end_time)}` : ''}
                           {swap.notes ? ` · "${swap.notes}"` : ''}
                         </div>
+                        {daysPending(swap.created_at) >= 1 && (
+                          <div style={{ fontSize: '11px', color: '#fbbf24', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>⚠</span>
+                            {daysPending(swap.created_at)} day{daysPending(swap.created_at) !== 1 ? 's' : ''}, not yet reviewed
+                            <span style={{ fontSize: '9px', fontWeight: 700, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', borderRadius: '8px', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>New</span>
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
                         <button
@@ -852,12 +877,15 @@ export default function TimePage() {
                             </div>
                           )
                         })}
-                        {/* Weekly hours total */}
+                        {/* Weekly hours total — bold red when scheduled (not yet worked) hours
+                            cross 40h, plus an explicit warning icon so it reads as a flag rather
+                            than just a color change. Passive only: doesn't block Publish. */}
                         {(() => {
                           const hrs = scheduledHoursByEmployee.get(emp.id) ?? 0
                           const isOT = hrs > 40
                           return (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
+                              {isOT && <span title={`${hrs % 1 === 0 ? hrs : hrs.toFixed(1)}h scheduled this week — over 40h`} style={{ color: '#f87171', fontSize: '10px' }}>⚠</span>}
                               <div style={{ fontSize: '11px', fontWeight: isOT ? 700 : 500, color: isOT ? '#f87171' : '#64748b' }}>
                                 {hrs % 1 === 0 ? hrs : hrs.toFixed(1)}h
                               </div>
@@ -1004,6 +1032,10 @@ export default function TimePage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {pendingRequests.map(req => {
                     const emp = employees.find(e => e.id === req.employee_id)
+                    const requestDays = Math.round((new Date(req.end_date).getTime() - new Date(req.start_date).getTime()) / 86400000) + 1
+                    const totalPto = emp?.pto_days_per_year ?? null
+                    const usedSoFar = emp ? ptoBalanceUsedDays(requests, emp.id, req.id) : 0
+                    const wouldRemain = totalPto !== null ? totalPto - usedSoFar - requestDays : null
                     return (
                       <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(29,78,216,0.2)', color: '#93c5fd', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1012,6 +1044,21 @@ export default function TimePage() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{emp?.name || 'Employee'} <span style={{ fontWeight: 400, color: '#64748b' }}>— {req.type}</span></div>
                           <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{fmtDate(req.start_date)} – {fmtDate(req.end_date)}{req.reason ? ` · ${req.reason}` : ''}</div>
+                          {totalPto !== null && (
+                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>
+                              Balance: {usedSoFar} of {totalPto} days used this year
+                              {wouldRemain !== null && wouldRemain <= 0 && (
+                                <span style={{ color: '#fbbf24', marginLeft: '6px' }}>⚠ Approving would leave {Math.max(0, wouldRemain)} days remaining</span>
+                              )}
+                            </div>
+                          )}
+                          {daysPending(req.created_at) >= 1 && (
+                            <div style={{ fontSize: '11px', color: '#fbbf24', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>⚠</span>
+                              {daysPending(req.created_at)} day{daysPending(req.created_at) !== 1 ? 's' : ''}, not yet reviewed
+                              <span style={{ fontSize: '9px', fontWeight: 700, background: 'rgba(251,191,36,0.15)', color: '#fbbf24', borderRadius: '8px', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>New</span>
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
                           <button onClick={() => handleTimeOff(req.id, 'approved')} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(34,197,94,0.35)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}>Approve</button>

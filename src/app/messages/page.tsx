@@ -29,6 +29,7 @@ type Channel = {
   employeeId: number | null
   lastMessage: { sender_name: string; content: string; created_at: string } | null
   unreadCount: number
+  mentioned: boolean
 }
 
 // ── SVG reaction icons ──────────────────────────────────────────────────────
@@ -38,6 +39,11 @@ const REACTIONS = [
   { key: 'heart', label: 'Heart', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> },
   { key: 'plus_one', label: '+1', icon: <span style={{ fontSize: '11px', fontWeight: 700, lineHeight: 1 }}>+1</span> },
 ]
+
+// "More" emoji picker — message_reactions.reaction is already free text with no enum
+// constraint (see messaging_features.sql), so any of these can be stored as-is, no
+// schema change. The 4 quick-react icons above stay unchanged as the fast path.
+const MORE_EMOJIS = ['😀', '😂', '😍', '😮', '😢', '😡', '🎉', '🔥', '👏', '🙏', '💯', '🤔']
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
@@ -102,6 +108,7 @@ export default function MessagesPage() {
   // Hover actions
   const [hoveredMsgId, setHoveredMsgId] = useState<number | null>(null)
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<number | null>(null)
+  const [moreEmojiOpen, setMoreEmojiOpen] = useState(false)
 
   // Edit
   const [editingMsgId, setEditingMsgId] = useState<number | null>(null)
@@ -192,7 +199,7 @@ export default function MessagesPage() {
     scrollToBottom('auto')
     if (ch.unreadCount > 0) {
       fetch('/api/messages/mark-read', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` }, body: JSON.stringify({ channel: ch.id, businessId: bid }) })
-      setChannels(prev => prev.map(c => c.id === ch.id ? { ...c, unreadCount: 0 } : c))
+      setChannels(prev => prev.map(c => c.id === ch.id ? { ...c, unreadCount: 0, mentioned: false } : c))
     }
   }
 
@@ -390,7 +397,7 @@ export default function MessagesPage() {
       <div
         style={{ position: 'relative', display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: '6px' }}
         onMouseEnter={() => setHoveredMsgId(msg.id)}
-        onMouseLeave={() => { setHoveredMsgId(null); setReactionPickerMsgId(null) }}
+        onMouseLeave={() => { setHoveredMsgId(null); setReactionPickerMsgId(null); setMoreEmojiOpen(false) }}
       >
         {!isMe && (
           <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(29,78,216,0.18)', color: '#93c5fd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0, marginRight: '8px', alignSelf: 'flex-end' }}>
@@ -402,7 +409,7 @@ export default function MessagesPage() {
           {isHovered && !isEditing && !msg.is_deleted && (
             <div style={{ position: 'absolute', top: -34, right: isMe ? 0 : 'auto', left: isMe ? 'auto' : 38, display: 'flex', gap: '4px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '4px 6px', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', zIndex: 10 }}>
               {/* Reaction trigger */}
-              <button title="React" onClick={() => setReactionPickerMsgId(showReactionPicker ? null : msg.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '2px 4px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}>
+              <button title="React" onClick={() => { setReactionPickerMsgId(showReactionPicker ? null : msg.id); setMoreEmojiOpen(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '2px 4px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
               </button>
               {/* Reply */}
@@ -432,14 +439,30 @@ export default function MessagesPage() {
             </div>
           )}
 
-          {/* Reaction picker */}
+          {/* Reaction picker — 4 quick-react icons unchanged (fast path), plus a "+" that
+              opens a free-form emoji grid. message_reactions.reaction is already free text
+              (see messaging_features.sql), so any emoji here stores with no backend change. */}
           {showReactionPicker && (
-            <div style={{ position: 'absolute', top: -72, right: isMe ? 0 : 'auto', left: isMe ? 'auto' : 38, display: 'flex', gap: '6px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '6px 10px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', zIndex: 20 }}>
-              {REACTIONS.map(r => (
-                <button key={r.key} title={r.label} onClick={() => toggleReaction(msg.id, r.key, inThread)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {r.icon}
+            <div style={{ position: 'absolute', top: -72, right: isMe ? 0 : 'auto', left: isMe ? 'auto' : 38, display: 'flex', flexDirection: 'column', gap: '6px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '6px 10px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', zIndex: 20 }}>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {REACTIONS.map(r => (
+                  <button key={r.key} title={r.label} onClick={() => toggleReaction(msg.id, r.key, inThread)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {r.icon}
+                  </button>
+                ))}
+                <button title="More reactions" onClick={() => setMoreEmojiOpen(v => !v)} style={{ background: moreEmojiOpen ? 'rgba(59,130,246,0.15)' : 'none', border: 'none', cursor: 'pointer', color: moreEmojiOpen ? '#93c5fd' : '#94a3b8', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, lineHeight: 1 }}>
+                  +
                 </button>
-              ))}
+              </div>
+              {moreEmojiOpen && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '2px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '6px', maxWidth: '168px' }}>
+                  {MORE_EMOJIS.map(e => (
+                    <button key={e} onClick={() => { toggleReaction(msg.id, e, inThread); setMoreEmojiOpen(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '4px', borderRadius: '6px', lineHeight: 1 }}>
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -492,7 +515,7 @@ export default function MessagesPage() {
               {msg.reactions.map(r => (
                 <button key={r.reaction} onClick={() => toggleReaction(msg.id, r.reaction, inThread)} title={r.users.join(', ')}
                   style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '99px', border: `1px solid ${r.reacted ? '#3b82f6' : 'rgba(255,255,255,0.1)'}`, background: r.reacted ? 'rgba(29,78,216,0.15)' : 'rgba(255,255,255,0.04)', cursor: 'pointer', fontSize: '12px', color: r.reacted ? '#93c5fd' : '#94a3b8' }}>
-                  {REACTIONS.find(rx => rx.key === r.reaction)?.icon}
+                  {REACTIONS.find(rx => rx.key === r.reaction)?.icon ?? <span style={{ fontSize: '13px', lineHeight: 1 }}>{r.reaction}</span>}
                   <span>{r.count}</span>
                 </button>
               ))}
@@ -579,7 +602,11 @@ export default function MessagesPage() {
                   {ch.lastMessage ? <div style={{ fontSize: '12px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ch.lastMessage.sender_name}: {ch.lastMessage.content}</div>
                   : <div style={{ fontSize: '12px', color: '#475569', fontStyle: 'italic' }}>No messages yet</div>}
                 </div>
-                {ch.unreadCount > 0 && <div style={{ minWidth: 18, height: 18, borderRadius: '99px', background: '#1d4ed8', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px', flexShrink: 0 }}>{ch.unreadCount}</div>}
+                {ch.mentioned ? (
+                  <div title="You were mentioned" style={{ height: 18, borderRadius: '99px', background: '#b45309', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 7px', flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.03em' }}>@ mentioned</div>
+                ) : ch.unreadCount > 0 && (
+                  <div style={{ minWidth: 18, height: 18, borderRadius: '99px', background: '#1d4ed8', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px', flexShrink: 0 }}>{ch.unreadCount}</div>
+                )}
               </div>
             ))}
           </div>

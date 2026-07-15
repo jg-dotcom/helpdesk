@@ -3,6 +3,10 @@ jest.mock('../../lib/googleCalendar', () => ({
   refreshAccessToken: jest.fn(),
   createCalendarEvent: jest.fn(),
 }))
+const sendMock = jest.fn().mockResolvedValue({ data: { id: 'e1' }, error: null })
+jest.mock('resend', () => ({
+  Resend: jest.fn().mockImplementation(() => ({ emails: { send: sendMock } })),
+}))
 
 import { supabaseAdmin } from '../../app/lib/supabaseAdmin'
 import { refreshAccessToken, createCalendarEvent } from '../../lib/googleCalendar'
@@ -18,6 +22,8 @@ function mockOwner(user: { id: string } | null) {
 }
 
 describe('PATCH /api/applications/[id]', () => {
+  beforeEach(() => sendMock.mockClear())
+
   it('returns 401 without a token', async () => {
     const res = await PATCH(mockRequest({ body: { status: 'hired' } }) as never, params('1'))
     expect(res.status).toBe(401)
@@ -121,6 +127,44 @@ describe('PATCH /api/applications/[id]', () => {
     expect(res.status).toBe(200)
     expect(body.success).toBe(true)
     expect(body.calendarSynced).toBe(false)
+  })
+
+  it('does not send an email on a plain decline (no notify flag)', async () => {
+    mockOwner({ id: 'owner-1' })
+    queueFromResponses(supabaseAdmin, [{ data: null, error: null }])
+    const res = await PATCH(mockRequest({ token: 'good', body: { status: 'rejected' } }) as never, params('1'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.notified).toBe(false)
+    expect(sendMock).not.toHaveBeenCalled()
+  })
+
+  it('sends a decline email when status=rejected and notify=true', async () => {
+    mockOwner({ id: 'owner-1' })
+    queueFromResponses(supabaseAdmin, [
+      { data: { name: 'Jamie Tran', email: 'jamie@example.com' }, error: null }, // candidate lookup
+      { data: null, error: null }, // application update
+    ])
+    const res = await PATCH(mockRequest({ token: 'good', body: { status: 'rejected', notify: true, jobTitle: 'Line Cook' } }) as never, params('1'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.notified).toBe(true)
+    expect(sendMock).toHaveBeenCalledTimes(1)
+    expect(sendMock.mock.calls[0][0]).toMatchObject({ to: 'jamie@example.com', subject: expect.stringContaining('Line Cook') })
+  })
+
+  it('still reports success if the decline email fails to send', async () => {
+    mockOwner({ id: 'owner-1' })
+    sendMock.mockRejectedValueOnce(new Error('resend down'))
+    queueFromResponses(supabaseAdmin, [
+      { data: { name: 'Jamie Tran', email: 'jamie@example.com' }, error: null },
+      { data: null, error: null },
+    ])
+    const res = await PATCH(mockRequest({ token: 'good', body: { status: 'rejected', notify: true } }) as never, params('1'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.success).toBe(true)
+    expect(body.notified).toBe(false)
   })
 })
 

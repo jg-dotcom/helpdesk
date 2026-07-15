@@ -105,5 +105,26 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ hoursAnomalies, overlaps })
+  // Stale open entries — clocked in but never clocked out, still sitting open past a
+  // reasonable shift length. Distinct failure mode from `overlaps` above (JAY-5 covers
+  // two entries that overlap; this covers one entry that never closed at all). Not
+  // period-scoped — this is about current real-time state, not the run being built.
+  const OPEN_ENTRY_THRESHOLD_HOURS = 10
+  const { data: openRows } = await supabaseAdmin
+    .from('time_entries')
+    .select('employee_id, clock_in')
+    .eq('user_id', user.id)
+    .is('clock_out', null)
+
+  const nowMs = Date.now()
+  const openTimeEntries: { employeeId: number; employeeName: string; clockIn: string; hoursOpen: number }[] = []
+  for (const entry of openRows ?? []) {
+    const hoursOpen = (nowMs - new Date(entry.clock_in).getTime()) / 3600000
+    if (hoursOpen < OPEN_ENTRY_THRESHOLD_HOURS) continue
+    const emp = employees.find(e => e.id === entry.employee_id)
+    if (!emp) continue
+    openTimeEntries.push({ employeeId: emp.id, employeeName: emp.name, clockIn: entry.clock_in, hoursOpen: Math.round(hoursOpen * 10) / 10 })
+  }
+
+  return NextResponse.json({ hoursAnomalies, overlaps, openTimeEntries })
 }

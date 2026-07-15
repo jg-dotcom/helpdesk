@@ -14,11 +14,15 @@ export async function POST(req: NextRequest) {
 
   const { shiftId, shiftDate, startTime, endTime, calledOutEmployeeId, eligibleEmployeeIds } = await req.json()
 
-  // Mark shift as called_out
+  // Mark shift as called_out AND open it in the same claim pool the app's own
+  // "claim shift" flow already reads from (is_open_shift + no employee_id) — see
+  // POST /api/employee/claim-shift. Previously this only set `status`, so the shift
+  // was never actually claimable through the app; resolution happened off-platform
+  // via email replies. Now the email and the in-app claim flow are the same system.
   if (shiftId) {
     await supabaseAdmin
       .from('shifts')
-      .update({ status: 'called_out' })
+      .update({ status: 'called_out', is_open_shift: true, employee_id: null })
       .eq('id', shiftId)
       .eq('user_id', userId)
   }
@@ -44,6 +48,9 @@ export async function POST(req: NextRequest) {
 
   const shiftLabel = `${formatDate(shiftDate)} from ${formatTime(startTime)} to ${formatTime(endTime)}`
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.headers.get('origin') || 'http://localhost:3000'
+  const claimUrl = `${appUrl}/portal`
+
   if (emailList.length > 0) {
     await Promise.allSettled(
       emailList.map(emp =>
@@ -55,8 +62,8 @@ export async function POST(req: NextRequest) {
             <p>Hi ${emp.name.split(' ')[0]},</p>
             <p>We have an open shift that needs coverage:</p>
             <p><strong>${shiftLabel}</strong>${calledOut ? ` (${calledOut.name} is unavailable)` : ''}</p>
-            <p>If you're available to cover this shift, please reply to this email or contact your manager directly.</p>
-            <p>First to confirm gets the shift.</p>
+            <p><a href="${claimUrl}" style="display:inline-block;padding:10px 18px;background:#1d4ed8;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;">Claim this shift</a></p>
+            <p>First to claim it in the app gets it — no need to reply or track down a manager.</p>
           `,
         })
       )

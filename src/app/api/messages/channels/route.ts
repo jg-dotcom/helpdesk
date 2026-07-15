@@ -17,11 +17,13 @@ export async function GET(req: NextRequest) {
   let isOwner: boolean
   let myEmployeeId: number | null = null
   let ownerName: string
+  let myName: string | null = null
 
   if (biz) {
     businessId = user.id
     isOwner = true
     ownerName = user.user_metadata?.full_name ?? biz.business_name ?? 'Owner'
+    myName = ownerName
   } else {
     const { data: emp } = await supabaseAdmin
       .from('employees')
@@ -33,6 +35,7 @@ export async function GET(req: NextRequest) {
     isOwner = false
     myEmployeeId = emp.id
     ownerName = 'Your employer'
+    myName = emp.name
   }
 
   // For owner: get all active employees to build DM channels
@@ -101,6 +104,28 @@ export async function GET(req: NextRequest) {
     })
   )
 
+  // Real @mention detection — resolve against the current user's actual name (not just
+  // any "@word" pattern), scoped to their own unread messages per channel. No schema
+  // change: this is a content search over chat_messages, distinct from the generic
+  // unread badge (matches JAY-25's mockup).
+  const mentionFlags = await Promise.all(
+    channelIds.map(async (ch, i) => {
+      if (!myName) return false
+      const lastRead = receiptResults[i].data?.last_read_at
+      const escaped = myName.replace(/[%_]/g, c => `\\${c}`)
+      let q = supabaseAdmin
+        .from('chat_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('business_id', businessId)
+        .eq('channel', ch)
+        .neq('sender_id', user.id)
+        .ilike('content', `%@${escaped}%`)
+      if (lastRead) q = q.gt('created_at', lastRead)
+      const { count } = await q
+      return (count ?? 0) > 0
+    })
+  )
+
   const channels = channelIds.map((ch, i) => {
     let name: string
     let type: 'group' | 'dm'
@@ -122,6 +147,7 @@ export async function GET(req: NextRequest) {
       employeeId: empId,
       lastMessage: lastMsgResults[i].data ?? null,
       unreadCount: unreadCounts[i],
+      mentioned: mentionFlags[i],
     }
   })
 

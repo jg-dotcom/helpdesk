@@ -140,6 +140,7 @@ export default function PayrollPage() {
   // Pre-payroll confidence check — read-only flags before you run, not after
   const [hoursAnomalies, setHoursAnomalies] = useState<{ employeeId: number; employeeName: string; hoursThisPeriod: number; avgHours: number }[]>([])
   const [clockOverlaps, setClockOverlaps] = useState<{ employeeId: number; employeeName: string; count: number }[]>([])
+  const [openTimeEntries, setOpenTimeEntries] = useState<{ employeeId: number; employeeName: string; clockIn: string; hoursOpen: number }[]>([])
 
   useEffect(() => { load() }, [])
 
@@ -177,6 +178,7 @@ export default function PayrollPage() {
         const c = await confidenceRes.json()
         setHoursAnomalies(c.hoursAnomalies ?? [])
         setClockOverlaps(c.overlaps ?? [])
+        setOpenTimeEntries(c.openTimeEntries ?? [])
       }
     } catch {
       // advisory only — a failed check should never block the rest of the page
@@ -421,7 +423,7 @@ export default function PayrollPage() {
   })
   const draftRuns = runs.filter(r => r.status === 'draft')
   const hasAttentionItems = missingPayRate.length > 0 || notYetPaidThisPeriod.length > 0 || draftRuns.length > 0
-    || hoursAnomalies.length > 0 || clockOverlaps.length > 0
+    || hoursAnomalies.length > 0 || clockOverlaps.length > 0 || openTimeEntries.length > 0
 
   const cardStyle: React.CSSProperties = { background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
   const ghostBtn: React.CSSProperties = { fontSize: '12px', padding: '5px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit' }
@@ -487,7 +489,7 @@ export default function PayrollPage() {
                   <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('runs')}>Review</button>
                 </div>
               )}
-              {(hoursAnomalies.length > 0 || clockOverlaps.length > 0) && (
+              {(hoursAnomalies.length > 0 || clockOverlaps.length > 0 || openTimeEntries.length > 0) && (
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px', marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Before you run</div>
                   {hoursAnomalies.map(a => (
@@ -501,6 +503,13 @@ export default function PayrollPage() {
                     <div key={`overlap-${o.employeeId}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
                       <span style={{ color: '#fbbf24' }}>●</span>
                       Overlapping clock-in/out for {o.employeeName} ({o.count} instance{o.count !== 1 ? 's' : ''})
+                      <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('overview')}>Review time entries</button>
+                    </div>
+                  ))}
+                  {openTimeEntries.map(o => (
+                    <div key={`open-${o.employeeId}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
+                      <span style={{ color: '#fbbf24' }}>●</span>
+                      {o.employeeName} — still clocked in since {new Date(o.clockIn).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })} ({o.hoursOpen}+ hrs, likely forgot to clock out)
                       <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('overview')}>Review time entries</button>
                     </div>
                   ))}

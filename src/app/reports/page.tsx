@@ -81,10 +81,10 @@ export default function ReportsPage() {
     setExporting(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { setExporting(false); return }
-    const res = await fetch('/api/settings/export', { headers: { Authorization: `Bearer ${session.access_token}` } })
+    const res = await fetch('/api/reports/export', { headers: { Authorization: `Bearer ${session.access_token}` } })
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url; a.download = 'helpdesk-export.json'; a.click()
+    const a = document.createElement('a'); a.href = url; a.download = 'helpdesk-hours-report.csv'; a.click()
     URL.revokeObjectURL(url)
     setExporting(false)
   }

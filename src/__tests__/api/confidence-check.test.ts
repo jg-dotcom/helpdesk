@@ -91,4 +91,34 @@ describe('GET /api/payroll/confidence-check', () => {
     expect(body.overlaps[0].employeeName).toBe('Casey R.')
     expect(body.overlaps[0].count).toBe(1)
   })
+
+  it('flags a time entry that has been open for 10+ hours with no clock-out', async () => {
+    mockOwner({ id: 'owner-1' })
+    const twelveHoursAgo = new Date(Date.now() - 12 * 3600000).toISOString()
+    queueFromResponses(supabaseAdmin, [
+      { data: [{ id: 3, name: 'Jordan T.' }], error: null }, // employees
+      { data: [], error: null }, // time entries this period (none closed)
+      { data: [], error: null }, // past payroll_run_items
+      { data: [{ employee_id: 3, clock_in: twelveHoursAgo }], error: null }, // open entries
+    ])
+    const res = await GET(mockRequest({ token: 'good', searchParams: { periodStart: '2026-07-01', periodEnd: '2026-07-14' } }) as never)
+    const body = await res.json()
+    expect(body.openTimeEntries).toHaveLength(1)
+    expect(body.openTimeEntries[0].employeeName).toBe('Jordan T.')
+    expect(body.openTimeEntries[0].hoursOpen).toBeGreaterThanOrEqual(10)
+  })
+
+  it('does not flag an entry open for less than the threshold', async () => {
+    mockOwner({ id: 'owner-1' })
+    const twoHoursAgo = new Date(Date.now() - 2 * 3600000).toISOString()
+    queueFromResponses(supabaseAdmin, [
+      { data: [{ id: 3, name: 'Jordan T.' }], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [{ employee_id: 3, clock_in: twoHoursAgo }], error: null },
+    ])
+    const res = await GET(mockRequest({ token: 'good', searchParams: { periodStart: '2026-07-01', periodEnd: '2026-07-14' } }) as never)
+    const body = await res.json()
+    expect(body.openTimeEntries).toEqual([])
+  })
 })

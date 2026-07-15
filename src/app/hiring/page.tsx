@@ -26,6 +26,7 @@ type Application = {
   source?: string | null
   status: 'applied' | 'interviewing' | 'offer' | 'hired' | 'rejected'
   created_at: string
+  updated_at?: string
   interview_at?: string | null
 }
 
@@ -42,6 +43,18 @@ function timeAgo(iso: string) {
   if (days === 0) return 'Today'
   if (days === 1) return 'Yesterday'
   return `${days}d ago`
+}
+
+// Staleness — a candidate that's sat untouched in a non-terminal stage for a while.
+// Computed from updated_at (set on every status change by the PATCH route already),
+// no schema change. Passive badge only, per JAY-15's own "ship the age badge first"
+// validation gut-check.
+const STALE_THRESHOLD_DAYS = 10
+function daysSinceUpdate(app: Application) {
+  return Math.floor((Date.now() - new Date(app.updated_at ?? app.created_at).getTime()) / 86400000)
+}
+function isStale(app: Application) {
+  return app.status !== 'hired' && app.status !== 'rejected' && daysSinceUpdate(app) >= STALE_THRESHOLD_DAYS
 }
 
 function fmtInterview(iso: string) {
@@ -145,14 +158,16 @@ export default function JobsPage() {
     if (shareJobId === id) setShareJobId(null)
   }
 
-  async function moveStage(appId: string, status: Application['status']) {
+  async function moveStage(appId: string, status: Application['status'], notify = false) {
+    const jobTitle = notify ? jobs.find(j => j.id === apps.find(a => a.id === appId)?.job_posting_id)?.title : undefined
     await fetch(`/api/applications/${appId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, notify, jobTitle }),
     })
     setApps(prev => prev.map(a => a.id === appId ? { ...a, status } : a))
     setSelected(prev => prev?.id === appId ? { ...prev, status } : prev)
+    if (notify) showToast('Candidate moved to Rejected and notified by email.', 'success')
   }
 
   async function scheduleInterview(appId: string, localDateTime: string) {
@@ -489,6 +504,11 @@ export default function JobsPage() {
                                   {fmtInterview(app.interview_at)}
                                 </div>
                               )}
+                              {isStale(app) && (
+                                <div style={{ fontSize: '10px', fontWeight: 600, color: '#fbbf24', marginBottom: '4px', whiteSpace: 'nowrap' }}>
+                                  ⚠ Stale — {daysSinceUpdate(app)} days
+                                </div>
+                              )}
                               <div style={{ fontSize: '10px', color: '#475569' }}>{timeAgo(app.created_at)}</div>
                             </div>
                           )
@@ -562,6 +582,13 @@ export default function JobsPage() {
                     {stage.label}
                   </button>
                 ))}
+                {selected.status !== 'rejected' && selected.status !== 'hired' && (
+                  <button onClick={() => moveStage(selected.id, 'rejected', true)}
+                    title="Move to Rejected and send the candidate a short, kind email letting them know"
+                    style={{ padding: '5px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid rgba(239,68,68,0.3)', fontFamily: 'inherit', background: 'transparent', color: '#f87171' }}>
+                    Decline & notify
+                  </button>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: '0.75rem' }}>
