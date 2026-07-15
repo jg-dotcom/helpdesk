@@ -13,11 +13,47 @@ export async function POST(req: NextRequest) {
 
   const { data: biz } = await supabaseAdmin
     .from('business_profiles')
-    .select('stripe_customer_id, business_name')
+    .select('stripe_customer_id, stripe_subscription_id, subscription_status, business_name')
     .eq('user_id', user.id)
     .single()
 
   if (!biz) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // JAY-45 — this route used to always create a brand-new Checkout session,
+  // even for a business already on an active/trialing paid subscription.
+  // Stripe Checkout has no idea an existing subscription exists, so a plan
+  // switch could leave the customer with two live subscriptions, both
+  // billing. If there's already a live subscription, update it in place
+  // (with proration) instead of starting a second one.
+  const hasLiveSubscription = !!biz.stripe_subscription_id
+    && biz.subscription_status !== 'canceled'
+    && biz.subscription_status !== null
+
+  if (hasLiveSubscription) {
+    const existingSub = await stripe.subscriptions.retrieve(biz.stripe_subscription_id!)
+    const existingItem = existingSub.items.data[0]
+    if (!existingItem) return NextResponse.json({ error: 'Could not read the existing subscription.' }, { status: 500 })
+
+    const updatedSub = await stripe.subscriptions.update(biz.stripe_subscription_id!, {
+      items: [{ id: existingItem.id, price: planConfig.priceId }],
+      proration_behavior: 'create_prorations',
+    })
+
+    // Best-effort immediate reflect — the webhook (customer.subscription.updated)
+    // will also fire and update this again; doing it here too means the UI
+    // doesn't have to wait on the webhook round-trip to show the new plan.
+    const updatedPeriodEnd = updatedSub.items.data[0]?.current_period_end
+    await supabaseAdmin
+      .from('business_profiles')
+      .update({
+        plan,
+        subscription_status: updatedSub.status,
+        ...(updatedPeriodEnd ? { current_period_end: new Date(updatedPeriodEnd * 1000).toISOString() } : {}),
+      })
+      .eq('user_id', user.id)
+
+    return NextResponse.json({ switched: true, plan })
+  }
 
   // Create or reuse Stripe customer
   let customerId = biz.stripe_customer_id

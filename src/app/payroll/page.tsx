@@ -51,6 +51,7 @@ type PayrollRunItem = {
   gross_pay: number
   deductions: { federal: number; state: number; other: number }
   net_pay: number
+  notes: string | null
 }
 
 function formatDate(iso: string) {
@@ -141,6 +142,7 @@ export default function PayrollPage() {
   const [hoursAnomalies, setHoursAnomalies] = useState<{ employeeId: number; employeeName: string; hoursThisPeriod: number; avgHours: number }[]>([])
   const [clockOverlaps, setClockOverlaps] = useState<{ employeeId: number; employeeName: string; count: number }[]>([])
   const [openTimeEntries, setOpenTimeEntries] = useState<{ employeeId: number; employeeName: string; clockIn: string; hoursOpen: number }[]>([])
+  const [paidTimeOff, setPaidTimeOff] = useState<{ requestCount: number; totalHours: number }>({ requestCount: 0, totalHours: 0 })
 
   useEffect(() => { load() }, [])
 
@@ -179,6 +181,7 @@ export default function PayrollPage() {
         setHoursAnomalies(c.hoursAnomalies ?? [])
         setClockOverlaps(c.overlaps ?? [])
         setOpenTimeEntries(c.openTimeEntries ?? [])
+        setPaidTimeOff(c.paidTimeOff ?? { requestCount: 0, totalHours: 0 })
       }
     } catch {
       // advisory only — a failed check should never block the rest of the page
@@ -423,7 +426,7 @@ export default function PayrollPage() {
   })
   const draftRuns = runs.filter(r => r.status === 'draft')
   const hasAttentionItems = missingPayRate.length > 0 || notYetPaidThisPeriod.length > 0 || draftRuns.length > 0
-    || hoursAnomalies.length > 0 || clockOverlaps.length > 0 || openTimeEntries.length > 0
+    || hoursAnomalies.length > 0 || clockOverlaps.length > 0 || openTimeEntries.length > 0 || paidTimeOff.requestCount > 0
 
   const cardStyle: React.CSSProperties = { background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
   const ghostBtn: React.CSSProperties = { fontSize: '12px', padding: '5px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit' }
@@ -489,7 +492,7 @@ export default function PayrollPage() {
                   <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('runs')}>Review</button>
                 </div>
               )}
-              {(hoursAnomalies.length > 0 || clockOverlaps.length > 0 || openTimeEntries.length > 0) && (
+              {(hoursAnomalies.length > 0 || clockOverlaps.length > 0 || openTimeEntries.length > 0 || paidTimeOff.requestCount > 0) && (
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px', marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Before you run</div>
                   {hoursAnomalies.map(a => (
@@ -513,6 +516,12 @@ export default function PayrollPage() {
                       <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('overview')}>Review time entries</button>
                     </div>
                   ))}
+                  {paidTimeOff.requestCount > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
+                      <span style={{ color: '#4ade80' }}>●</span>
+                      {paidTimeOff.requestCount} approved paid time-off request{paidTimeOff.requestCount !== 1 ? 's' : ''} will add {paidTimeOff.totalHours.toFixed(1)} hrs to this period's pay (PTO/Sick/Personal — Unpaid excluded)
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -904,6 +913,7 @@ export default function PayrollPage() {
                                             <div style={{ fontWeight: 500, color: '#e2e8f0' }}>{item.employee_name}</div>
                                             <div style={{ fontSize: '11px', color: '#64748b' }}>
                                               {item.pay_type === 'salary' ? 'Salary' : `${item.hours_worked ?? 0} hrs`}
+                                              {item.notes && <span style={{ color: '#4ade80', marginLeft: '6px' }}>{item.notes}</span>}
                                             </div>
                                           </td>
                                           <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 500, color: '#e2e8f0' }}>{formatMoney(item.gross_pay)}</td>

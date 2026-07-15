@@ -173,6 +173,11 @@ function SettingsContent() {
   const [billingLoading, setBillingLoading] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
+  // JAY-45 — plan-switch proration preview + confirm modal
+  const [switchTarget, setSwitchTarget] = useState<{ key: string; name: string } | null>(null)
+  const [switchPreview, setSwitchPreview] = useState<{ isNewSubscription: boolean; dueTodayCents?: number; nextChargeCents?: number; nextChargeDate?: string | null } | null>(null)
+  const [switchPreviewLoading, setSwitchPreviewLoading] = useState(false)
+  const [switchConfirming, setSwitchConfirming] = useState(false)
 
   // Danger
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -229,10 +234,63 @@ function SettingsContent() {
       .catch(() => {})
 
     // Load billing status
+    refreshBilling(session.access_token)
+  }
+
+  async function refreshBilling(token: string) {
     setBillingLoading(true)
-    fetch('/api/billing/status', { headers: { Authorization: `Bearer ${session.access_token}` } })
-      .then(r => r.json()).then(d => { if (!d.error) setBilling(d) }).catch(() => {})
-      .finally(() => setBillingLoading(false))
+    try {
+      const res = await fetch('/api/billing/status', { headers: { Authorization: `Bearer ${token}` } })
+      const d = await res.json()
+      if (!d.error) setBilling(d)
+    } catch { /* advisory only */ }
+    setBillingLoading(false)
+  }
+
+  async function openSwitchModal(planKey: string, planName: string) {
+    setSwitchTarget({ key: planKey, name: planName })
+    setSwitchPreview(null)
+    setSwitchPreviewLoading(true)
+    try {
+      const res = await fetch('/api/billing/preview-switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ plan: planKey }),
+      })
+      const data = await res.json()
+      if (res.ok) setSwitchPreview(data)
+      else showToast(data.error || 'Could not load switch preview.', 'error')
+    } catch {
+      showToast('Could not load switch preview.', 'error')
+    }
+    setSwitchPreviewLoading(false)
+  }
+
+  async function confirmSwitch() {
+    if (!switchTarget) return
+    setSwitchConfirming(true)
+    try {
+      const res = await fetch('/api/billing/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ plan: switchTarget.key }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(data.error || 'Could not switch plans.', 'error')
+      } else if (data.url) {
+        window.location.href = data.url
+        return
+      } else if (data.switched) {
+        showToast(`Switched to ${switchTarget.name}.`, 'success')
+        setSwitchTarget(null)
+        setSwitchPreview(null)
+        await refreshBilling(accessToken)
+      }
+    } catch {
+      showToast('Could not switch plans.', 'error')
+    }
+    setSwitchConfirming(false)
   }
 
   async function saveAccount() {
@@ -689,6 +747,13 @@ function SettingsContent() {
                                 style={{ width: '100%', fontSize: '13px', padding: '9px', background: isPopular ? '#185fa5' : '#1a1a1a', opacity: isCurrent ? 0.5 : 1 }}
                                 disabled={isCurrent || checkoutLoading === p.key}
                                 onClick={async () => {
+                                  // JAY-45 — an existing live subscription gets a proration preview +
+                                  // confirm modal first (switching in place, no double-billing risk).
+                                  // No subscription yet (trial/none) just starts checkout as before.
+                                  if (billing.hasSubscription) {
+                                    openSwitchModal(p.key, p.name)
+                                    return
+                                  }
                                   setCheckoutLoading(p.key)
                                   const res = await fetch('/api/billing/create-checkout', {
                                     method: 'POST',
@@ -708,6 +773,59 @@ function SettingsContent() {
                       </div>
                       <div style={{ fontSize: '12px', color: '#aaa', marginTop: '12px', textAlign: 'center' }}>
                         14-day free trial included · Cancel anytime · No setup fees
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Plan-switch confirm modal (JAY-45) */}
+                  {switchTarget && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                      <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', width: '380px', maxWidth: '90vw' }}>
+                        <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '0.5rem' }}>Switch to {switchTarget.name}?</div>
+                        {switchPreviewLoading ? (
+                          <div style={{ fontSize: '13px', color: '#888', padding: '1rem 0' }}>Loading preview...</div>
+                        ) : switchPreview?.isNewSubscription ? (
+                          <div style={{ fontSize: '13px', color: '#444', lineHeight: 1.6, marginBottom: '1rem' }}>
+                            This will start a new subscription with a 14-day free trial.
+                          </div>
+                        ) : switchPreview ? (
+                          <div style={{ fontSize: '13px', color: '#444', lineHeight: 1.6, marginBottom: '1rem' }}>
+                            <p style={{ margin: '0 0 8px' }}>Your existing subscription updates in place — you won&apos;t be charged twice.</p>
+                            <div style={{ background: '#f5f6fa', borderRadius: '8px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: '#888' }}>Due today (prorated)</span>
+                                <span style={{ fontWeight: 600 }}>${((switchPreview.dueTodayCents ?? 0) / 100).toFixed(2)}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: '#888' }}>Next full charge</span>
+                                <span style={{ fontWeight: 600 }}>
+                                  ${((switchPreview.nextChargeCents ?? 0) / 100).toFixed(2)}
+                                  {switchPreview.nextChargeDate && ` on ${new Date(switchPreview.nextChargeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '13px', color: '#c0392b', marginBottom: '1rem' }}>Could not load a preview. Try again.</div>
+                        )}
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            className="btn"
+                            style={{ flex: 1, fontSize: '13px', padding: '9px' }}
+                            onClick={() => { setSwitchTarget(null); setSwitchPreview(null) }}
+                            disabled={switchConfirming}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            className="btn auth-btn-primary"
+                            style={{ flex: 1, fontSize: '13px', padding: '9px' }}
+                            onClick={confirmSwitch}
+                            disabled={switchConfirming || switchPreviewLoading || !switchPreview}
+                          >
+                            {switchConfirming ? 'Switching...' : 'Confirm switch'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}

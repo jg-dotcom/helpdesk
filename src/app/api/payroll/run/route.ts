@@ -55,17 +55,76 @@ export async function POST(req: NextRequest) {
     hoursMap[entry.employee_id] += (entry.total_minutes ?? 0) / 60
   }
 
+  // JAY-44 — approved PTO/Sick/Personal time off never added paid hours; payroll
+  // only ever summed clocked time_entries, so an approved paid day off and an
+  // approved Unpaid day off both paid exactly $0. Unpaid is deliberately
+  // excluded — everything else (PTO, Sick, Personal) pays out. No accrual bank,
+  // no schema change: paid hours for a day off come from that day's scheduled
+  // shift if one exists, otherwise a flat 8h default.
+  const PAID_TIME_OFF_TYPES = ['PTO', 'Sick', 'Personal']
+  const DEFAULT_PTO_HOURS_PER_DAY = 8
+
+  const { data: paidTimeOff } = await supabaseAdmin
+    .from('time_off_requests')
+    .select('employee_id, start_date, end_date, type')
+    .eq('user_id', user.id)
+    .eq('status', 'approved')
+    .in('type', PAID_TIME_OFF_TYPES)
+    .lte('start_date', periodEnd)
+    .gte('end_date', periodStart)
+
+  const { data: periodShifts } = await supabaseAdmin
+    .from('shifts')
+    .select('employee_id, shift_date, start_time, end_time')
+    .eq('user_id', user.id)
+    .gte('shift_date', periodStart)
+    .lte('shift_date', periodEnd)
+
+  function shiftHours(startTime: string, endTime: string) {
+    const [sh, sm] = startTime.split(':').map(Number)
+    const [eh, em] = endTime.split(':').map(Number)
+    return ((eh * 60 + em) - (sh * 60 + sm)) / 60
+  }
+
+  const shiftHoursByEmpDate = new Map<string, number>()
+  for (const s of periodShifts ?? []) {
+    if (s.employee_id == null) continue
+    shiftHoursByEmpDate.set(`${s.employee_id}_${s.shift_date}`, shiftHours(s.start_time, s.end_time))
+  }
+
+  // Build per-employee PTO hours by walking each day of each approved request
+  // that falls inside this pay period (a request can span outside the period).
+  const ptoHoursMap: Record<number, number> = {}
+  const ptoRequestCountByEmp: Record<number, number> = {}
+  for (const req of paidTimeOff ?? []) {
+    const rangeStart = req.start_date > periodStart ? req.start_date : periodStart
+    const rangeEnd = req.end_date < periodEnd ? req.end_date : periodEnd
+    let cursor = new Date(rangeStart + 'T00:00:00')
+    const end = new Date(rangeEnd + 'T00:00:00')
+    let requestHours = 0
+    while (cursor <= end) {
+      const dateStr = cursor.toISOString().slice(0, 10)
+      const scheduled = shiftHoursByEmpDate.get(`${req.employee_id}_${dateStr}`)
+      requestHours += scheduled ?? DEFAULT_PTO_HOURS_PER_DAY
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    ptoHoursMap[req.employee_id] = (ptoHoursMap[req.employee_id] ?? 0) + requestHours
+    ptoRequestCountByEmp[req.employee_id] = (ptoRequestCountByEmp[req.employee_id] ?? 0) + 1
+  }
+
   // Calculate pay items
   const items = employees.map(emp => {
     const rate = emp.pay_rate ?? 0
     let hoursWorked: number | null = null
     let grossPay: number
+    const ptoHours = Math.round((ptoHoursMap[emp.id] ?? 0) * 100) / 100
 
     if (emp.pay_type === 'salary') {
-      // Bi-weekly pay = annual / 26
+      // Bi-weekly pay = annual / 26 — fixed regardless of time off, so PTO
+      // hours aren't added for salaried employees (nothing to add them to).
       grossPay = rate / 26
     } else {
-      hoursWorked = Math.round((hoursMap[emp.id] ?? 0) * 100) / 100
+      hoursWorked = Math.round(((hoursMap[emp.id] ?? 0) + ptoHours) * 100) / 100
       grossPay = hoursWorked * rate
     }
 
@@ -79,6 +138,7 @@ export async function POST(req: NextRequest) {
       gross_pay: Math.round(grossPay * 100) / 100,
       deductions: { federal: 0, state: 0, other: 0 },
       net_pay: Math.round(grossPay * 100) / 100,
+      notes: emp.pay_type !== 'salary' && ptoHours > 0 ? `+${ptoHours.toFixed(1)} hrs PTO` : null,
     }
   })
 

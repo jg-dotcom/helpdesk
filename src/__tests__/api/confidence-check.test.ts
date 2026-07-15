@@ -121,4 +121,20 @@ describe('GET /api/payroll/confidence-check', () => {
     const body = await res.json()
     expect(body.openTimeEntries).toEqual([])
   })
+
+  // JAY-44: preview of the payroll-run fix — surfaces approved paid time off before the run exists.
+  it('previews how many hours approved paid time off will add to the period', async () => {
+    mockOwner({ id: 'owner-1' })
+    queueFromResponses(supabaseAdmin, [
+      { data: [{ id: 1, name: 'Jordan T.' }], error: null }, // employees
+      { data: [], error: null }, // time entries this period
+      { data: [], error: null }, // past payroll_run_items
+      { data: [], error: null }, // open entries
+      { data: [{ employee_id: 1, start_date: '2026-07-05', end_date: '2026-07-06', type: 'PTO' }], error: null }, // paid time off (already filtered to PTO/Sick/Personal by the query)
+      { data: [], error: null }, // shifts — no scheduled shifts, falls back to the 8h/day default
+    ])
+    const res = await GET(mockRequest({ token: 'good', searchParams: { periodStart: '2026-07-01', periodEnd: '2026-07-14' } }) as never)
+    const body = await res.json()
+    expect(body.paidTimeOff).toEqual({ requestCount: 1, totalHours: 16 })
+  })
 })

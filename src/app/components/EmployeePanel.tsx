@@ -24,6 +24,47 @@ const DEFAULT_OFFBOARDING_ITEMS = [
   'Exit interview completed',
 ]
 
+// JAY-47 — parses a saved offboarding `documents.content` blob (written by
+// buildOffboardingContent below) back into structured state. No schema
+// change: the checklist has always round-tripped through this table as
+// plain text ("Label: ✓" / "Label: ✗" pairs) — this just reads it back
+// instead of treating the row as write-once. If the text doesn't parse
+// (unexpected format, or a hand-edited row), falls back to the org's
+// default template so the tab still renders something sane.
+function parseOffboardingDoc(content: string, templateItems: string[]) {
+  let lastDay = ''
+  let reason = 'Resignation'
+  let notes = ''
+  let checklistLine = ''
+  for (const line of content.split('\n')) {
+    if (line.startsWith('Last day: ')) lastDay = line.slice('Last day: '.length).trim()
+    else if (line.startsWith('Reason: ')) reason = line.slice('Reason: '.length).trim()
+    else if (line.startsWith('Checklist: ')) checklistLine = line.slice('Checklist: '.length).trim()
+    else if (line.startsWith('Notes: ')) notes = line.slice('Notes: '.length).trim()
+  }
+  if (lastDay === 'Not set') lastDay = ''
+
+  let items = templateItems
+  let checked = templateItems.map(() => false)
+  if (checklistLine) {
+    const parts = checklistLine.split(', ')
+      .map(p => {
+        const idx = p.lastIndexOf(': ')
+        return idx === -1 ? null : { label: p.slice(0, idx), done: p.slice(idx + 2).trim() === '✓' }
+      })
+      .filter((p): p is { label: string; done: boolean } => p !== null && p.label.length > 0)
+    if (parts.length) {
+      items = parts.map(p => p.label)
+      checked = parts.map(p => p.done)
+    }
+  }
+  return { lastDay, reason, notes, items, checked }
+}
+
+function buildOffboardingContent(lastDay: string, reason: string, checklistItems: string[], checked: boolean[], notes: string) {
+  return `Last day: ${lastDay || 'Not set'}\nReason: ${reason}\nChecklist: ${checklistItems.map((label, i) => `${label}: ${checked[i] ? '✓' : '✗'}`).join(', ')}\nNotes: ${notes}`
+}
+
 type Tab = 'info' | 'onboarding' | 'offboarding' | 'documents' | 'payroll' | 'notes'
 
 type PayrollEntry = {
@@ -192,6 +233,10 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [checked, setChecked] = useState<boolean[]>([])
   const [offboardingSaving, setOffboardingSaving] = useState(false)
   const [offboardingDone, setOffboardingDone] = useState(false)
+  // JAY-47 — id of this employee's existing offboarding `documents` row, if
+  // any, so "Terminate now" and later "Mark done" clicks update the same row
+  // instead of inserting a new one each time.
+  const [offboardingDocId, setOffboardingDocId] = useState<number | null>(null)
 
   // Inline note box state
   const [showNoteBox, setShowNoteBox] = useState(false)
@@ -368,8 +413,36 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
       .select('offboarding_template, offboarding_checklist')
       .eq('user_id', sessionData.session.user.id)
       .single()
+    const templateItems = data?.offboarding_checklist?.length ? data.offboarding_checklist : DEFAULT_OFFBOARDING_ITEMS
+
+    // JAY-47 — if this employee already has a saved offboarding record (from a
+    // prior "Terminate now" or "Complete & terminate"), restore it instead of
+    // resetting to the org template, so an in-progress checklist survives
+    // reopening the panel. No schema change: still the same `documents` row
+    // (type='offboarding'), just made re-readable/re-editable by parsing its
+    // text content back out instead of treating it as write-once.
+    const { data: existingDocs } = await supabase
+      .from('documents')
+      .select('id, content')
+      .eq('type', 'offboarding')
+      .eq('employee_name', employee.name)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (existingDocs?.[0]) {
+      const parsed = parseOffboardingDoc(existingDocs[0].content, templateItems)
+      setOffboardingDocId(existingDocs[0].id)
+      setLastDay(parsed.lastDay)
+      setReason(parsed.reason)
+      setNotes(parsed.notes)
+      setChecklistItems(parsed.items)
+      setChecked(parsed.checked)
+      return
+    }
+
+    setOffboardingDocId(null)
     if (data?.offboarding_template) setNotes(data.offboarding_template)
-    const items = data?.offboarding_checklist?.length ? data.offboarding_checklist : DEFAULT_OFFBOARDING_ITEMS
+    const items = templateItems
     setChecklistItems(items)
     setChecked(new Array(items.length).fill(false))
   }
@@ -513,19 +586,56 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     setNotes(prev => applyPlaceholders(prev, lastDay, val))
   }
 
+  // JAY-47 — shared save: insert the offboarding `documents` row the first
+  // time, update the same row on every subsequent save (from "Terminate now"
+  // continuing the checklist later, or "Mark done" on a single item) instead
+  // of inserting a new write-once row each time.
+  async function saveOffboardingDoc(checklistState: boolean[], notesText: string) {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const content = buildOffboardingContent(lastDay, reason, checklistItems, checklistState, notesText)
+    if (offboardingDocId) {
+      await supabase.from('documents').update({ content }).eq('id', offboardingDocId)
+    } else {
+      const { data } = await supabase.from('documents').insert([{
+        type: 'offboarding',
+        employee_name: employee.name,
+        content,
+        user_id: sessionData.session?.user.id,
+      }]).select('id').single()
+      if (data?.id) setOffboardingDocId(data.id)
+    }
+  }
+
   async function completeOffboarding() {
     setOffboardingSaving(true)
-    const { data: sessionData } = await supabase.auth.getSession()
     await supabase.from('employees').update({ status: 'terminated' }).eq('id', employee.id)
-    await supabase.from('documents').insert([{
-      type: 'offboarding',
-      employee_name: employee.name,
-      content: `Last day: ${lastDay || 'Not set'}\nReason: ${reason}\nChecklist: ${checklistItems.map((label, i) => `${label}: ${checked[i] ? '✓' : '✗'}`).join(', ')}\nNotes: ${notes}`,
-      user_id: sessionData.session?.user.id,
-    }])
+    await saveOffboardingDoc(checked, notes)
     onUpdated({ ...form, status: 'terminated' })
     setOffboardingSaving(false)
     setOffboardingDone(true)
+  }
+
+  // JAY-47 — terminate immediately without claiming the checklist is done.
+  // Access revocation (status flip) shouldn't wait on equipment/badge returns
+  // that can take days; the checklist stays open and editable afterward via
+  // the "in progress" view below instead of being forced to false-check boxes
+  // or forced to delay termination.
+  async function terminateNow() {
+    setOffboardingSaving(true)
+    await supabase.from('employees').update({ status: 'terminated' }).eq('id', employee.id)
+    await saveOffboardingDoc(checked, notes)
+    onUpdated({ ...form, status: 'terminated' })
+    setOffboardingSaving(false)
+    // Deliberately not setting offboardingDone — the checklist may still have
+    // unchecked items; the data-driven isTerminated/allChecked check below
+    // decides whether to show "complete" or "in progress" from here on.
+  }
+
+  async function markOffboardingItemDone(i: number) {
+    const next = [...checked]
+    next[i] = true
+    setChecked(next)
+    await saveOffboardingDoc(next, notes)
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -1097,70 +1207,110 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
       )}
 
       {/* Offboarding tab */}
-      {tab === 'offboarding' && (
-        <div>
-          {offboardingDone ? (
-            <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
-              <div style={{ fontSize: '36px', marginBottom: '0.5rem' }}>✓</div>
-              <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '0.4rem', color: heading }}>Offboarding complete</div>
-              <p style={{ fontSize: '13px', color: muted }}>{employee.name} has been marked as terminated.</p>
-            </div>
-          ) : (
-            <>
-              <div style={{ ...row2Style, marginBottom: '1rem' }}>
-                <Field label="Last day"><input type="date" style={inputStyle} value={lastDay} onChange={e => handleLastDayChange(e.target.value)} /></Field>
-                <Field label="Reason">
-                  <select style={inputStyle} value={reason} onChange={e => handleReasonChange(e.target.value)}>
-                    <option>Resignation</option><option>Termination</option><option>Layoff</option>
-                    <option>Seasonal end</option><option>Retirement</option><option>Personal reasons</option>
-                  </select>
-                </Field>
-              </div>
+      {tab === 'offboarding' && (() => {
+        // JAY-47 — data-driven so this survives reopening the panel later, not
+        // just the immediate post-click session state.
+        const isTerminated = employee.status === 'terminated'
+        const allChecklistDone = checklistItems.length > 0 && checked.length === checklistItems.length && checked.every(Boolean)
+        const showComplete = offboardingDone || (isTerminated && allChecklistDone)
+        const showInProgress = isTerminated && !showComplete
+        const remainingItems = checklistItems.map((label, i) => ({ label, i })).filter(item => !checked[item.i])
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <div style={{ ...sectionLabelStyle, margin: 0 }}>Checklist</div>
-                <span style={{
-                  fontSize: '11px', fontWeight: 600, padding: '2px 9px', borderRadius: '99px',
-                  background: checked.filter(Boolean).length === checklistItems.length ? 'rgba(34,197,94,0.15)' : checked.some(Boolean) ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
-                  color: checked.filter(Boolean).length === checklistItems.length ? '#4ade80' : checked.some(Boolean) ? '#fbbf24' : '#f87171',
-                }}>
-                  {checked.filter(Boolean).length}/{checklistItems.length} done
-                </span>
+        return (
+          <div>
+            {showComplete ? (
+              <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                <div style={{ fontSize: '36px', marginBottom: '0.5rem' }}>✓</div>
+                <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '0.4rem', color: heading }}>Offboarding complete</div>
+                <p style={{ fontSize: '13px', color: muted }}>{employee.name} has been marked as terminated.</p>
               </div>
+            ) : showInProgress ? (
+              <div>
+                <div style={{ textAlign: 'center', padding: '1rem 0 1.25rem' }}>
+                  <div style={{ fontWeight: 600, fontSize: '15px', marginBottom: '0.3rem', color: '#fbbf24' }}>Offboarding in progress — access revoked</div>
+                  <p style={{ fontSize: '13px', color: muted }}>{employee.name} was terminated. {remainingItems.length} item{remainingItems.length !== 1 ? 's' : ''} still open.</p>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {remainingItems.map(({ label, i }) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}` }}>
+                      <div style={{ fontSize: '13px', color: text }}>{label}</div>
+                      <button
+                        onClick={() => markOffboardingItemDone(i)}
+                        style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px', border: `1px solid ${border}`, background: 'rgba(34,197,94,0.12)', color: '#4ade80', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+                      >
+                        Mark done
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ ...row2Style, marginBottom: '1rem' }}>
+                  <Field label="Last day"><input type="date" style={inputStyle} value={lastDay} onChange={e => handleLastDayChange(e.target.value)} /></Field>
+                  <Field label="Reason">
+                    <select style={inputStyle} value={reason} onChange={e => handleReasonChange(e.target.value)}>
+                      <option>Resignation</option><option>Termination</option><option>Layoff</option>
+                      <option>Seasonal end</option><option>Retirement</option><option>Personal reasons</option>
+                    </select>
+                  </Field>
+                </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '1rem' }}>
-                {checklistItems.map((label, i) => (
-                  <div
-                    key={i}
-                    onClick={() => setChecked(prev => { const next = [...prev]; next[i] = !next[i]; return next })}
-                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}` }}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div style={{ ...sectionLabelStyle, margin: 0 }}>Checklist</div>
+                  <span style={{
+                    fontSize: '11px', fontWeight: 600, padding: '2px 9px', borderRadius: '99px',
+                    background: checked.filter(Boolean).length === checklistItems.length ? 'rgba(34,197,94,0.15)' : checked.some(Boolean) ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+                    color: checked.filter(Boolean).length === checklistItems.length ? '#4ade80' : checked.some(Boolean) ? '#fbbf24' : '#f87171',
+                  }}>
+                    {checked.filter(Boolean).length}/{checklistItems.length} done
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '1rem' }}>
+                  {checklistItems.map((label, i) => (
+                    <div
+                      key={i}
+                      onClick={() => setChecked(prev => { const next = [...prev]; next[i] = !next[i]; return next })}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}` }}
+                    >
+                      <div style={{
+                        width: 18, height: 18, borderRadius: '5px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px',
+                        background: checked[i] ? 'rgba(34,197,94,0.2)' : 'transparent', border: `1.5px solid ${checked[i] ? '#4ade80' : border}`, color: '#4ade80',
+                      }}>
+                        {checked[i] ? '✓' : ''}
+                      </div>
+                      <div style={{ fontSize: '13px', textDecoration: checked[i] ? 'line-through' : 'none', color: checked[i] ? '#4ade80' : text }}>
+                        {label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Field label="Notes"><textarea style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional notes..." /></Field>
+
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={terminateNow}
+                    disabled={offboardingSaving}
+                    title="Terminate immediately and keep tracking the rest of the checklist afterward"
+                    style={{ ...dangerBtn, flex: 1, background: 'rgba(220,38,38,0.12)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.3)' }}
                   >
-                    <div style={{
-                      width: 18, height: 18, borderRadius: '5px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px',
-                      background: checked[i] ? 'rgba(34,197,94,0.2)' : 'transparent', border: `1.5px solid ${checked[i] ? '#4ade80' : border}`, color: '#4ade80',
-                    }}>
-                      {checked[i] ? '✓' : ''}
-                    </div>
-                    <div style={{ fontSize: '13px', textDecoration: checked[i] ? 'line-through' : 'none', color: checked[i] ? '#4ade80' : text }}>
-                      {label}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <Field label="Notes"><textarea style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional notes..." /></Field>
-
-              <button
-                onClick={completeOffboarding}
-                disabled={offboardingSaving}
-                style={{ ...dangerBtn, background: '#dc2626', color: '#fff', border: 'none' }}
-              >
-                {offboardingSaving ? 'Saving...' : 'Complete & terminate'}
-              </button>
-            </>
-          )}
-        </div>
-      )}
+                    {offboardingSaving ? 'Saving...' : 'Terminate now'}
+                  </button>
+                  <button
+                    onClick={completeOffboarding}
+                    disabled={offboardingSaving}
+                    style={{ ...dangerBtn, flex: 1, background: '#dc2626', color: '#fff', border: 'none' }}
+                  >
+                    {offboardingSaving ? 'Saving...' : 'Complete & terminate'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }

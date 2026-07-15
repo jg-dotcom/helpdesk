@@ -126,5 +126,55 @@ export async function GET(req: NextRequest) {
     openTimeEntries.push({ employeeId: emp.id, employeeName: emp.name, clockIn: entry.clock_in, hoursOpen: Math.round(hoursOpen * 10) / 10 })
   }
 
-  return NextResponse.json({ hoursAnomalies, overlaps, openTimeEntries })
+  // JAY-44 — advisory preview of the fix below: how many approved paid (PTO/
+  // Sick/Personal, not Unpaid) time-off requests fall in this period and how
+  // many hours they'll add once the run is created. Same day-by-day logic as
+  // POST /api/payroll/run, kept here read-only so the owner sees it before
+  // committing to a run.
+  const PAID_TIME_OFF_TYPES = ['PTO', 'Sick', 'Personal']
+  const DEFAULT_PTO_HOURS_PER_DAY = 8
+
+  const { data: paidTimeOffRows } = await supabaseAdmin
+    .from('time_off_requests')
+    .select('employee_id, start_date, end_date, type')
+    .eq('user_id', user.id)
+    .eq('status', 'approved')
+    .in('type', PAID_TIME_OFF_TYPES)
+    .lte('start_date', periodEnd)
+    .gte('end_date', periodStart)
+
+  const { data: periodShiftsForPto } = await supabaseAdmin
+    .from('shifts')
+    .select('employee_id, shift_date, start_time, end_time')
+    .eq('user_id', user.id)
+    .gte('shift_date', periodStart)
+    .lte('shift_date', periodEnd)
+
+  const shiftHoursByEmpDate = new Map<string, number>()
+  for (const s of periodShiftsForPto ?? []) {
+    if (s.employee_id == null) continue
+    const [sh, sm] = s.start_time.split(':').map(Number)
+    const [eh, em] = s.end_time.split(':').map(Number)
+    shiftHoursByEmpDate.set(`${s.employee_id}_${s.shift_date}`, ((eh * 60 + em) - (sh * 60 + sm)) / 60)
+  }
+
+  let paidTimeOffHours = 0
+  for (const req of paidTimeOffRows ?? []) {
+    const rangeStart = req.start_date > periodStart ? req.start_date : periodStart
+    const rangeEnd = req.end_date < periodEnd ? req.end_date : periodEnd
+    let cursor = new Date(rangeStart + 'T00:00:00')
+    const end = new Date(rangeEnd + 'T00:00:00')
+    while (cursor <= end) {
+      const dateStr = cursor.toISOString().slice(0, 10)
+      paidTimeOffHours += shiftHoursByEmpDate.get(`${req.employee_id}_${dateStr}`) ?? DEFAULT_PTO_HOURS_PER_DAY
+      cursor.setDate(cursor.getDate() + 1)
+    }
+  }
+
+  const paidTimeOff = {
+    requestCount: paidTimeOffRows?.length ?? 0,
+    totalHours: Math.round(paidTimeOffHours * 10) / 10,
+  }
+
+  return NextResponse.json({ hoursAnomalies, overlaps, openTimeEntries, paidTimeOff })
 }
