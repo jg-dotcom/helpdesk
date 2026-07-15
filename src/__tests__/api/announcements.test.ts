@@ -37,13 +37,14 @@ describe('POST /api/announcements', () => {
   it('saves the announcement and emails active employees with an email', async () => {
     mockOwner({ id: 'owner-1' })
     queueFromResponses(supabaseAdmin, [
-      { data: null, error: null }, // insert
+      { data: { id: 42 }, error: null }, // insert, returns id for JAY-27 seen-tracking lookup
       { data: [{ name: 'Jane', email: 'jane@example.com' }, { name: 'No Email', email: '' }], error: null },
     ])
     const res = await POST(mockRequest({ token: 'good', body: { title: 'Hi', message: 'Hello team' } }) as never)
     const body = await res.json()
     expect(res.status).toBe(200)
     expect(body.sent).toBe(1) // only the one with an email
+    expect(body.id).toBe(42)
     expect(sendMock).toHaveBeenCalledTimes(1)
   })
 })

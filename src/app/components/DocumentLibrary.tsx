@@ -23,6 +23,7 @@ export default function DocumentLibrary({ userId }: { userId: string }) {
   const { showToast } = useToast()
   const [docs, setDocs] = useState<Doc[]>([])
   const [uploading, setUploading] = useState(false)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     loadDocs()
@@ -79,6 +80,10 @@ export default function DocumentLibrary({ userId }: { userId: string }) {
     setDocs(prev => prev.filter(d => d.id !== doc.id))
   }
 
+  const filteredDocs = search.trim()
+    ? docs.filter(d => d.file_name.toLowerCase().includes(search.trim().toLowerCase()))
+    : docs
+
   return (
     <div className="card" style={{ marginTop: '1.5rem' }}>
       <div className="doc-upload-header">
@@ -99,12 +104,22 @@ export default function DocumentLibrary({ userId }: { userId: string }) {
         Documents uploaded here (W-4, I-9, handbook, etc.) will automatically appear in every employee's onboarding link.
       </div>
 
+      {docs.length > 0 && (
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search documents..."
+          style={{ width: '100%', fontSize: '13px', padding: '7px 10px', border: '1px solid #dde1ea', borderRadius: '7px', marginBottom: '0.75rem', boxSizing: 'border-box' }}
+        />
+      )}
 
       {docs.length === 0 ? (
         <div className="empty-state">No documents yet — upload your standard forms above.</div>
+      ) : filteredDocs.length === 0 ? (
+        <div className="empty-state">No documents match "{search}".</div>
       ) : (
         <div className="upload-list">
-          {docs.map(doc => (
+          {filteredDocs.map(doc => (
             <div key={doc.id} className="upload-item">
               <div className="upload-icon"><FileIcon size={16} color="#185fa5" /></div>
               <div style={{ flex: 1 }}>

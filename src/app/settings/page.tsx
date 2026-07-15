@@ -139,7 +139,10 @@ function SettingsContent() {
 
   // Team
   const [teamEmployees, setTeamEmployees] = useState<TeamEmployee[]>([])
+  const [pendingInviteIds, setPendingInviteIds] = useState<Set<number>>(new Set())
+  const [resendingId, setResendingId] = useState<number | null>(null)
   const [inviteEmail, setInviteEmail] = useState('')
+  const joinLink = typeof window !== 'undefined' && userId ? `${window.location.origin}/join/${userId}` : ''
   const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'employee'>('employee')
   const [inviting, setInviting] = useState(false)
   const [roleUpdating, setRoleUpdating] = useState<number | null>(null)
@@ -217,6 +220,14 @@ function SettingsContent() {
     if (empRes.data) setTeamEmployees(empRes.data)
     if (deptRes.data) setDepartments(deptRes.data)
 
+    // Who's still pending setup (never signed in) — powers the "Resend invite"
+    // button (JAY-28). Separate fetch, not folded into the employees query above,
+    // since it needs a Supabase Auth admin lookup the client can't do directly.
+    fetch('/api/team/invite/pending', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.pendingIds) setPendingInviteIds(new Set(d.pendingIds)) })
+      .catch(() => {})
+
     // Load billing status
     setBillingLoading(true)
     fetch('/api/billing/status', { headers: { Authorization: `Bearer ${session.access_token}` } })
@@ -271,6 +282,18 @@ function SettingsContent() {
     await supabase.from('employees').update({ access_role: newRole }).eq('id', empId)
     setTeamEmployees(prev => prev.map(e => e.id === empId ? { ...e, access_role: newRole } : e))
     setRoleUpdating(null)
+  }
+
+  async function resendInvite(empId: number) {
+    setResendingId(empId)
+    const res = await fetch('/api/team/invite/resend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ employeeId: empId }),
+    })
+    const data = await res.json().catch(() => ({}))
+    showToast(res.ok ? 'Invite resent.' : (data.error || 'Could not resend invite.'), res.ok ? 'success' : 'error')
+    setResendingId(null)
   }
 
   async function createDept() {
@@ -744,6 +767,7 @@ function SettingsContent() {
                   const rc = roleColors[emp.access_role] ?? roleColors.employee
                   const isOpen = permEmployee?.id === emp.id
                   const hasCustom = emp.permissions !== null
+                  const isPending = pendingInviteIds.has(emp.id)
                   return (
                     <div key={emp.id}>
                       <div
@@ -757,6 +781,19 @@ function SettingsContent() {
                           <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.name}</div>
                           <div style={{ fontSize: '11px', color: '#aaa', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.email || emp.role}</div>
                         </div>
+                        {isPending && (
+                          <>
+                            <span style={{ fontSize: '10px', color: '#d97706', background: '#fffbeb', padding: '2px 7px', borderRadius: 10, fontWeight: 600, flexShrink: 0 }}>Not yet accepted</span>
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); resendInvite(emp.id) }}
+                              disabled={resendingId === emp.id}
+                              style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #dde1ea', background: '#fff', cursor: 'pointer', color: '#185fa5', fontWeight: 500, flexShrink: 0 }}
+                            >
+                              {resendingId === emp.id ? 'Sending…' : 'Resend invite'}
+                            </button>
+                          </>
+                        )}
                         {hasCustom && <span style={{ fontSize: '10px', color: '#185fa5', background: '#e8f0fb', padding: '2px 7px', borderRadius: 10, fontWeight: 600, flexShrink: 0 }}>Custom</span>}
                         <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', background: rc.bg, color: rc.color, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           {emp.access_role}
@@ -834,6 +871,27 @@ function SettingsContent() {
                 <button className="btn auth-btn-primary" onClick={sendInvite} disabled={inviting || !inviteEmail.trim()} style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }}>
                   {inviting ? 'Sending...' : 'Send invite'}
                 </button>
+              </div>
+
+              {/* Join link (JAY-29) */}
+              <div className="card" style={{ marginTop: '1rem' }}>
+                <div className="section-label" style={{ marginBottom: '0.5rem' }}>Share a join link</div>
+                <div style={{ fontSize: '13px', color: '#666', marginBottom: '1rem', lineHeight: 1.5 }}>
+                  Don't have their email handy? Share this link and let them fill in their own name, email, and phone. They'll show up here as pending — assign their role afterward.
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <input readOnly value={joinLink} onClick={e => (e.target as HTMLInputElement).select()} style={{ flex: 1, minWidth: '200px', fontSize: '13px', color: '#666' }} />
+                  <button
+                    className="btn"
+                    style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(joinLink)
+                      showToast('Join link copied.', 'success')
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
               </div>
             </div>
           )}

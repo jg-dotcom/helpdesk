@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
 import { supabaseAdmin } from '../../../lib/supabaseAdmin'
 import { getBearerUser } from '../../../lib/apiAuth'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
+import { sendSetupInviteEmail } from '../../../../lib/teamInvite'
 
 export async function GET(req: NextRequest) {
   const user = await getBearerUser(req)
@@ -73,30 +71,8 @@ export async function POST(req: NextRequest) {
 
   if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
 
-  // Generate a magic link so they can set up their account
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  let inviteUrl = `${appUrl}/portal/setup`
   try {
-    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: cleanEmail,
-      options: { redirectTo: `${appUrl}/portal/setup` },
-    })
-    if (linkData?.properties?.action_link) inviteUrl = linkData.properties.action_link
-  } catch { /* fall back to setup page URL */ }
-
-  try {
-    await resend.emails.send({
-      from: 'Helpdesk <onboarding@resend.dev>',
-      to: cleanEmail,
-      subject: `You've been added to ${bizName} on Helpdesk`,
-      html: `
-        <p>You've been added to <strong>${bizName}</strong> on Helpdesk as a <strong>${accessRole}</strong>.</p>
-        <p>Click below to set up your account and get access:</p>
-        <p><a href="${inviteUrl}" style="background:#185fa5;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:8px;">Set up my account</a></p>
-        <p style="color:#888;font-size:12px;margin-top:16px;">This link expires in 1 hour. After setting up, sign in at ${appUrl}/login</p>
-      `,
-    })
+    await sendSetupInviteEmail(cleanEmail, accessRole, bizName)
   } catch { /* don't fail if email errors */ }
 
   return NextResponse.json({ success: true })

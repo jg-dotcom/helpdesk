@@ -17,10 +17,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Title and message are required.' }, { status: 400 })
   }
 
-  // Save announcement
-  const { error: insertError } = await supabaseAdmin
+  // Save announcement — id returned so the caller can immediately look up
+  // seen/read tracking (JAY-27) without a second round-trip.
+  const { data: inserted, error: insertError } = await supabaseAdmin
     .from('announcements')
     .insert([{ user_id: userId, title: title.trim(), message: message.trim() }])
+    .select('id')
+    .single()
 
   if (insertError) return NextResponse.json({ error: 'Could not save announcement.' }, { status: 500 })
 
@@ -50,5 +53,5 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  return NextResponse.json({ success: true, sent: emailList.length })
+  return NextResponse.json({ success: true, sent: emailList.length, id: inserted?.id })
 }

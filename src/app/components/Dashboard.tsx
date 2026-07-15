@@ -111,7 +111,8 @@ export default function Dashboard({
   const [upcomingTimeOff, setUpcomingTimeOff] = useState<TimeOffRequest[]>([])
   const [weeklyMins, setWeeklyMins] = useState<Record<number, number>>({})
   const [activityFeed, setActivityFeed] = useState<ActivityItem[]>([])
-  const [recentAnnouncement, setRecentAnnouncement] = useState<{ title: string; sent_count: number; created_at: string } | null>(null)
+  const [recentAnnouncement, setRecentAnnouncement] = useState<{ id: number; title: string; sent_count: number; created_at: string } | null>(null)
+  const [announcementSeen, setAnnouncementSeen] = useState<{ seenCount: number; totalEmployees: number } | null>(null)
 
   // Cross-module "needs attention" data (Hiring + Payroll)
   const [newApplicants, setNewApplicants] = useState<{ id: number; name: string; created_at: string }[]>([])
@@ -217,14 +218,23 @@ export default function Dashboard({
       supabase.from('shift_swaps').select('*').eq('user_id', uid).eq('status', 'pending').order('created_at', { ascending: false }),
       supabase.from('time_off_requests').select('*').eq('user_id', uid).eq('status', 'approved').gte('end_date', today).lte('start_date', twoWeeks).order('start_date'),
       supabase.from('time_entries').select('employee_id, clock_in').eq('user_id', uid).gte('clock_in', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()).order('clock_in', { ascending: false }).limit(10),
-      supabase.from('announcements').select('title, sent_count, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(1),
+      supabase.from('announcements').select('id, title, sent_count, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(1),
     ])
 
     setClockedInEntries(clockedIn ?? [])
     setTodayShifts(todayScheduled ?? [])
     setTimeOffRequests(ptoRequests ?? [])
     setUpcomingTimeOff(upcoming ?? [])
-    if (announcements?.[0]) setRecentAnnouncement(announcements[0])
+    if (announcements?.[0]) {
+      setRecentAnnouncement(announcements[0])
+      // Real "seen by" count (JAY-27) — separate API-route fetch rather than adding
+      // another direct supabase.from(...) call here, per the API-first data-layer
+      // direction in AGENTS.md.
+      fetch(`/api/announcements/${announcements[0].id}/seen`, { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) setAnnouncementSeen(d) })
+        .catch(() => {})
+    }
 
     // Enrich swaps with employee names
     const enrichedSwaps: ShiftSwap[] = (swaps ?? []).map((s: ShiftSwap) => ({
@@ -330,7 +340,8 @@ export default function Dashboard({
     const data = await res.json()
     if (res.ok) {
       showToast(`Sent to ${data.sent} employee${data.sent !== 1 ? 's' : ''}.`, 'success')
-      setRecentAnnouncement({ title: annTitle, sent_count: data.sent, created_at: new Date().toISOString() })
+      setRecentAnnouncement({ id: data.id, title: annTitle, sent_count: data.sent, created_at: new Date().toISOString() })
+      setAnnouncementSeen(data.id ? { seenCount: 0, totalEmployees: data.sent } : null)
       setAnnTitle(''); setAnnMsg('')
       setTimeout(() => setShowAnnouncementModal(false), 800)
     } else {
@@ -642,7 +653,9 @@ export default function Dashboard({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recentAnnouncement.title}</div>
                       <div style={{ fontSize: '11px', color: '#64748b' }}>
-                        Sent to all staff · {recentAnnouncement.sent_count} read · {timeAgo(recentAnnouncement.created_at)}
+                        Sent to {recentAnnouncement.sent_count} staff
+                        {announcementSeen && ` · Seen by ${announcementSeen.seenCount} of ${announcementSeen.totalEmployees}`}
+                        {' · '}{timeAgo(recentAnnouncement.created_at)}
                       </div>
                     </div>
                     <button onClick={() => setShowAnnouncementModal(true)} style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '7px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', flexShrink: 0 }}>

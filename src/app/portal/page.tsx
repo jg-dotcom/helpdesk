@@ -13,6 +13,7 @@ type SwapRequest = { id: number; requester_shift_id: number; target_shift_id: nu
 type TimeEntry = { id: number; clock_in: string; clock_out: string | null; total_minutes: number | null }
 type TimeOffRequest = { id: number; start_date: string; end_date: string; type: string; reason: string | null; status: string }
 type PTOBalance = { total: number; used: number; remaining: number }
+type Announcement = { id: number; title: string; message: string; created_at: string }
 
 function fmt(t: string) {
   const [h, m] = t.split(':'); const hr = parseInt(h)
@@ -51,6 +52,7 @@ export default function PortalPage() {
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([])
   const [ptoBalance, setPtoBalance] = useState<PTOBalance | null>(null)
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([])
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
   const [clockLoading, setClockLoading] = useState(false)
   const [ticker, setTicker] = useState(0)
@@ -162,6 +164,27 @@ export default function PortalPage() {
       setChatChannels(chatData.channels)
       const total = chatData.channels.reduce((s: number, c: { unreadCount: number }) => s + c.unreadCount, 0)
       setUnreadMessages(total)
+    }
+
+    // Announcements — in-app feed the owner's "seen by" tracking (JAY-27) depends on.
+    // Each announcement is its own pseudo-channel (`announcement:<id>`) in the same
+    // chat_read_receipts table message channels already use. Viewing this feed marks
+    // every announcement shown as read, best-effort (never blocks the page).
+    const annRes = await fetch('/api/employee/announcements', { headers })
+    const annData = await annRes.json()
+    if (annRes.ok && annData.announcements) {
+      setAnnouncements(annData.announcements)
+      if (chatData.businessId) {
+        Promise.allSettled(
+          (annData.announcements as Announcement[]).map((a: Announcement) =>
+            fetch('/api/messages/mark-read', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+              body: JSON.stringify({ channel: `announcement:${a.id}`, businessId: chatData.businessId }),
+            })
+          )
+        )
+      }
     }
   }
 
@@ -783,6 +806,22 @@ export default function PortalPage() {
               <div style={{ fontSize: '11px', color: '#bbb', marginTop: '5px' }}>{Math.round((weeklyMins / (40 * 60)) * 100)}% of 40h week</div>
             </div>
 
+            {/* Announcements */}
+            {announcements.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: '14px', padding: '1.5rem', border: '1px solid #eee' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Announcements</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                  {announcements.slice(0, 5).map(a => (
+                    <div key={a.id} style={{ paddingBottom: '0.9rem', borderBottom: '1px solid #f5f5f5' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '3px' }}>{a.title}</div>
+                      <div style={{ fontSize: '12px', color: '#666', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{a.message}</div>
+                      <div style={{ fontSize: '11px', color: '#bbb', marginTop: '4px' }}>{fmtDate(a.created_at.slice(0, 10))}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Time off */}
             <div style={{ background: '#fff', borderRadius: '14px', padding: '1.5rem', border: '1px solid #eee' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -834,6 +873,11 @@ export default function PortalPage() {
                     <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>Reason (optional)</label>
                     <input value={toReason} onChange={e => setToReason(e.target.value)} placeholder="e.g. Doctor appointment" style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid #dde1ea', borderRadius: '7px' }} />
                   </div>
+                  {toStart && (new Date(toStart + 'T00:00:00').getTime() - Date.now()) < 48 * 60 * 60 * 1000 && (
+                    <div style={{ fontSize: '12px', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '7px', padding: '8px 10px', marginBottom: '0.75rem' }}>
+                      ⚠ This request starts in under 48 hours. Consider also letting your manager know directly.
+                    </div>
+                  )}
                   <button
                     onClick={submitTimeOff}
                     disabled={toSaving || !toStart || !toEnd}
