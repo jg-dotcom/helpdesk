@@ -5,11 +5,11 @@ import { GET } from '../../app/api/employee/time-entries/route'
 import { mockAuthUser, queueFromResponses, mockRequest } from '../helpers/supabaseMock'
 
 describe('GET /api/employee/time-entries', () => {
-  it('returns 404 when no employee record matches the email', async () => {
+  it('returns 403 when no employee record matches the email (or the employee is terminated)', async () => {
     mockAuthUser(supabaseAdmin, { email: 'ghost@example.com' })
     queueFromResponses(supabaseAdmin, [{ data: null, error: null }])
     const res = await GET(mockRequest({ token: 'good' }) as never)
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(403)
   })
 
   it('returns recent time entries including an open one', async () => {

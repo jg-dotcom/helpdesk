@@ -11,11 +11,11 @@ describe('POST /api/employee/claim-shift', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 404 when no employee record matches the email', async () => {
+  it('returns 403 when no employee record matches the email (or the employee is terminated)', async () => {
     mockAuthUser(supabaseAdmin, { email: 'ghost@example.com' })
     queueFromResponses(supabaseAdmin, [{ data: null, error: null }])
     const res = await POST(mockRequest({ token: 'good', body: { shiftId: 5 } }) as never)
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(403)
   })
 
   it('returns 404 when the shift does not exist or belongs to a different business', async () => {

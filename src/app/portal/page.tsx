@@ -55,6 +55,10 @@ export default function PortalPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
   const [clockLoading, setClockLoading] = useState(false)
+  // JAY-33 — optional shift note captured at clock-out (e.g. a handoff note
+  // or incident), narrowly scoped to a single free-text field per the ticket.
+  const [showClockOutNote, setShowClockOutNote] = useState(false)
+  const [clockOutNote, setClockOutNote] = useState('')
   const [ticker, setTicker] = useState(0)
 
   // PTO form
@@ -295,11 +299,16 @@ export default function PortalPage() {
 
   async function clockOut() {
     setClockLoading(true)
-    const res = await fetch('/api/employee/clock-out', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+    const res = await fetch('/api/employee/clock-out', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: clockOutNote.trim() || undefined }),
+    })
     const data = await res.json()
     if (res.ok) {
       setWeekEntries(prev => [...prev, { ...currentEntry!, clock_out: data.entry.clock_out, total_minutes: data.entry.total_minutes }])
       setCurrentEntry(null); showToast('Clocked out.', 'success')
+      setShowClockOutNote(false); setClockOutNote('')
     } else showToast(data.error ?? 'Error', 'error')
     setClockLoading(false)
   }
@@ -652,19 +661,53 @@ export default function PortalPage() {
             <div style={{ background: '#fff', borderRadius: '14px', padding: '1.5rem', border: '1px solid #eee', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
               <div style={{ fontSize: '11px', fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Time clock</div>
               {currentEntry ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                  <div>
-                    <div style={{ fontSize: '11px', color: '#27ae60', fontWeight: 600, marginBottom: '4px' }}>&#9679; Clocked in</div>
-                    <div style={{ fontSize: '36px', fontWeight: 800, color: '#1a1a1a', lineHeight: 1 }}>{elapsed(currentEntry.clock_in)}</div>
-                    <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Since {fmtTime(currentEntry.clock_in)}</div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#27ae60', fontWeight: 600, marginBottom: '4px' }}>&#9679; Clocked in</div>
+                      <div style={{ fontSize: '36px', fontWeight: 800, color: '#1a1a1a', lineHeight: 1 }}>{elapsed(currentEntry.clock_in)}</div>
+                      <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>Since {fmtTime(currentEntry.clock_in)}</div>
+                    </div>
+                    {!showClockOutNote && (
+                      <button
+                        onClick={() => setShowClockOutNote(true)}
+                        disabled={clockLoading}
+                        style={{ padding: '11px 28px', borderRadius: '9px', border: 'none', background: '#c0392b', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >
+                        Clock out
+                      </button>
+                    )}
                   </div>
-                  <button
-                    onClick={clockOut}
-                    disabled={clockLoading}
-                    style={{ padding: '11px 28px', borderRadius: '9px', border: 'none', background: '#c0392b', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  >
-                    {clockLoading ? 'Clocking out...' : 'Clock out'}
-                  </button>
+                  {/* JAY-33 — narrow, optional shift note before confirming clock-out. */}
+                  {showClockOutNote && (
+                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f0f0f0' }}>
+                      <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '4px' }}>Shift notes (optional)</label>
+                      <textarea
+                        value={clockOutNote}
+                        onChange={e => setClockOutNote(e.target.value)}
+                        placeholder='e.g. "Low on register tape, restocked napkins"'
+                        rows={2}
+                        maxLength={500}
+                        style={{ width: '100%', resize: 'vertical', fontSize: '13px', padding: '8px 10px', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit' }}
+                      />
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                        <button
+                          onClick={clockOut}
+                          disabled={clockLoading}
+                          style={{ padding: '9px 20px', borderRadius: '9px', border: 'none', background: '#c0392b', color: '#fff', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
+                        >
+                          {clockLoading ? 'Clocking out...' : 'Confirm clock-out'}
+                        </button>
+                        <button
+                          onClick={() => { setShowClockOutNote(false); setClockOutNote('') }}
+                          disabled={clockLoading}
+                          style={{ padding: '9px 16px', borderRadius: '9px', border: '1px solid #ddd', background: '#fff', color: '#666', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>

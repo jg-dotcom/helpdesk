@@ -7,13 +7,15 @@ export async function GET(req: NextRequest) {
   const user = await getBearerUser(req)
   if (!user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // JAY-43 — block terminated employees; see employee/me/route.ts for context.
   const { data: employee } = await supabaseAdmin
     .from('employees')
     .select('id, user_id')
     .eq('email', user.email)
+    .eq('status', 'active')
     .single()
 
-  if (!employee) return NextResponse.json({ error: 'Employee not found.' }, { status: 404 })
+  if (!employee) return NextResponse.json({ error: 'Access revoked.' }, { status: 403 })
 
   const today = new Date().toISOString().slice(0, 10)
   const fourWeeksOut = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)

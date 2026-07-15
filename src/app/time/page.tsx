@@ -18,7 +18,14 @@ type Employee = { id: number; name: string; role: string; pay_type: string; pay_
 type Shift = { id: number; employee_id: number | null; shift_date: string; start_time: string; end_time: string; notes: string | null; status?: string; is_open_shift?: boolean }
 type ShiftSwap = { id: number; requester_employee_id: number; requester_shift_id: number; target_employee_id: number | null; target_shift_id: number | null; status: string; notes: string | null; created_at: string }
 type TimeOffRequest = { id: number; employee_id: number; start_date: string; end_date: string; type: string; reason: string | null; status: string; created_at: string }
-type TimeEntry = { id: number; employee_id: number; clock_in: string; clock_out: string | null; total_minutes: number | null }
+// JAY-33 — optional free-text note an employee can leave at clock-out
+// ("low on register tape, restocked napkins"). `notes` already exists on
+// time_entries (pre-existing schema-drift column, previously fetched but
+// never written or displayed anywhere) — no migration needed.
+// JAY-32 — optional unpaid break deduction, editable by the owner via the
+// entry edit modal below. total_minutes is recalculated server-side whenever
+// break_minutes changes, so this page never needs to redo that math itself.
+type TimeEntry = { id: number; employee_id: number; clock_in: string; clock_out: string | null; total_minutes: number | null; notes: string | null; break_minutes: number }
 type Availability = { employee_id: number; day_of_week: number; start_time: string; end_time: string }
 type ShiftNote = { id: number; shift_date: string; author_name: string; note: string; created_at: string }
 
@@ -53,6 +60,12 @@ function ptoBalanceUsedDays(allRequests: TimeOffRequest[], employeeId: number, e
   return used
 }
 function elapsed(clockIn: string) { return fmtMins(Math.floor((Date.now() - new Date(clockIn).getTime()) / 60000)) }
+// JAY-32 — <input type="datetime-local"> needs "YYYY-MM-DDTHH:mm" in local time, not the UTC ISO string we store.
+function toLocalInputValue(iso: string) {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 function weekStartISO() {
   const d = new Date(); d.setDate(d.getDate() - d.getDay()); d.setHours(0, 0, 0, 0); return d.toISOString()
 }
@@ -102,6 +115,43 @@ export default function TimePage() {
   const [repeatWeeks, setRepeatWeeks] = useState(1)
   const [shiftIsOpen, setShiftIsOpen] = useState(false)
   const [swapRequests, setSwapRequests] = useState<ShiftSwap[]>([])
+
+  // JAY-32 — owner-side edit of an existing time entry (break deduction,
+  // plus clock_in/clock_out correction since the mockup shows them together).
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null)
+  const [editClockIn, setEditClockIn] = useState('')
+  const [editClockOut, setEditClockOut] = useState('')
+  const [editBreakMinutes, setEditBreakMinutes] = useState('0')
+  const [savingEntry, setSavingEntry] = useState(false)
+
+  function openEntryEdit(e: TimeEntry) {
+    setEditingEntry(e)
+    setEditClockIn(toLocalInputValue(e.clock_in))
+    setEditClockOut(e.clock_out ? toLocalInputValue(e.clock_out) : '')
+    setEditBreakMinutes(String(e.break_minutes ?? 0))
+  }
+
+  async function saveEntryEdit() {
+    if (!editingEntry) return
+    setSavingEntry(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`/api/time-entries/${editingEntry.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({
+        clock_in: new Date(editClockIn).toISOString(),
+        clock_out: editClockOut ? new Date(editClockOut).toISOString() : null,
+        break_minutes: Number(editBreakMinutes) || 0,
+      }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setEntries(prev => prev.map(en => en.id === editingEntry.id ? { ...en, ...data.entry } : en))
+      showToast('Time entry updated.', 'success')
+      setEditingEntry(null)
+    } else showToast(data.error ?? 'Error saving entry.', 'error')
+    setSavingEntry(false)
+  }
 
   // Weekly view
   const [weekOffset, setWeekOffset] = useState(0)
@@ -1256,11 +1306,28 @@ export default function TimePage() {
                       <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>{emp?.name ?? 'Unknown'}</div>
                       <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
                         {new Date(e.clock_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {fmtTime(e.clock_in)} – {e.clock_out ? fmtTime(e.clock_out) : <span style={{ color: '#4ade80' }}>now</span>}
+                        {/* JAY-32 — unpaid break already deducted from total_minutes server-side. */}
+                        {e.break_minutes > 0 && <span style={{ color: '#f59e0b' }}> · −{e.break_minutes}m break</span>}
                       </div>
+                      {/* JAY-33 — shift note left at clock-out, e.g. a handoff note or incident. */}
+                      {e.notes && (
+                        <div style={{ fontSize: '12px', color: '#93c5fd', marginTop: '3px' }}>
+                          📝 {e.notes}
+                        </div>
+                      )}
                     </div>
                     <div style={{ fontSize: '13px', fontWeight: 700, color: e.clock_out ? '#94a3b8' : '#4ade80', minWidth: '40px', textAlign: 'right' }}>
                       {e.clock_out && e.total_minutes ? fmtMins(e.total_minutes) : elapsed(e.clock_in)}
                     </div>
+                    {/* JAY-32 — edit modal trigger; only meaningful once the entry has closed. */}
+                    {e.clock_out && (
+                      <button
+                        onClick={() => openEntryEdit(e)}
+                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: '#94a3b8', fontSize: '11px', padding: '4px 8px', cursor: 'pointer' }}
+                      >
+                        Edit
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -1270,6 +1337,62 @@ export default function TimePage() {
 
       </div>
     </div>
+
+    {/* ── JAY-32: EDIT TIME ENTRY MODAL ── */}
+    {editingEntry && (
+      <div
+        onClick={() => setEditingEntry(null)}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}
+      >
+        <div
+          onClick={ev => ev.stopPropagation()}
+          style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '1.25rem', width: '320px', maxWidth: '90vw' }}
+        >
+          <div style={{ fontSize: '14px', fontWeight: 600, color: '#f1f5f9', marginBottom: '1rem' }}>Edit time entry</div>
+
+          <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Clock in</label>
+          <input
+            type="datetime-local"
+            value={editClockIn}
+            onChange={e => setEditClockIn(e.target.value)}
+            style={{ width: '100%', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#e2e8f0', padding: '8px 10px', fontSize: '13px', marginBottom: '0.75rem' }}
+          />
+
+          <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Clock out</label>
+          <input
+            type="datetime-local"
+            value={editClockOut}
+            onChange={e => setEditClockOut(e.target.value)}
+            style={{ width: '100%', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#e2e8f0', padding: '8px 10px', fontSize: '13px', marginBottom: '0.75rem' }}
+          />
+
+          <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Break (unpaid), minutes</label>
+          <input
+            type="number"
+            min={0}
+            value={editBreakMinutes}
+            onChange={e => setEditBreakMinutes(e.target.value)}
+            style={{ width: '100%', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#e2e8f0', padding: '8px 10px', fontSize: '13px', marginBottom: '1rem' }}
+          />
+
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setEditingEntry(null)}
+              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', color: '#94a3b8', fontSize: '13px', padding: '8px 14px', cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveEntryEdit}
+              disabled={savingEntry}
+              style={{ background: '#3b82f6', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '13px', padding: '8px 14px', cursor: savingEntry ? 'default' : 'pointer', opacity: savingEntry ? 0.6 : 1 }}
+            >
+              {savingEntry ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* ── SHIFT DRAWER BACKDROP ── */}
     {showShiftForm && (

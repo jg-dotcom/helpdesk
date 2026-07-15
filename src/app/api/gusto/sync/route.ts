@@ -33,6 +33,16 @@ async function getValidToken(userId: string) {
   return { accessToken: conn.access_token, companyUuid: conn.company_uuid }
 }
 
+// JAY-46 — persist the outcome of a sync so it's visible after a page refresh,
+// not just in the one-time toast. `last_sync_summary` shape matches the other
+// two integrations (google, quickbooks) for a consistent Settings UI.
+async function recordSyncResult(userId: string, summary: { count: number; errors: number; label: string }) {
+  await supabase
+    .from('gusto_connections')
+    .update({ last_synced_at: new Date().toISOString(), last_sync_summary: summary })
+    .eq('user_id', userId)
+}
+
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('Authorization')
   const token = authHeader?.replace('Bearer ', '')
@@ -86,6 +96,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      await recordSyncResult(user.id, { count: synced, errors: errors.length, label: 'pushed' })
       return NextResponse.json({ synced, errors })
     }
 
@@ -124,6 +135,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      await recordSyncResult(user.id, { count: imported, errors: 0, label: 'imported' })
       return NextResponse.json({ imported })
     }
 

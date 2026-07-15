@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser(userToken)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = user.id
 
   const { periodStart, periodEnd } = await req.json()
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     await supabase
       .from('quickbooks_connections')
       .update({ access_token: accessToken, access_token_expires_at: expiresAt })
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
   }
 
   // Determine date range (default: current month)
@@ -54,7 +55,17 @@ export async function POST(req: NextRequest) {
 
   if (runErr) return NextResponse.json({ error: 'Could not load payroll runs.' }, { status: 500 })
 
+  // JAY-46 — persist the outcome so it's visible after a page refresh, not
+  // just in the one-time toast.
+  async function recordSyncResult(count: number, errCount: number) {
+    await supabase
+      .from('quickbooks_connections')
+      .update({ last_synced_at: new Date().toISOString(), last_sync_summary: { count, errors: errCount, label: 'pushed' } })
+      .eq('user_id', userId)
+  }
+
   if (!runs || runs.length === 0) {
+    await recordSyncResult(0, 0)
     return NextResponse.json({ pushed: 0, message: 'No finalized payroll runs found in that range.' })
   }
 
@@ -68,6 +79,7 @@ export async function POST(req: NextRequest) {
 
   if (itemErr) return NextResponse.json({ error: 'Could not load payroll items.' }, { status: 500 })
   if (!items || items.length === 0) {
+    await recordSyncResult(0, 0)
     return NextResponse.json({ pushed: 0, message: 'No payroll line items found.' })
   }
 
@@ -95,5 +107,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  await recordSyncResult(pushed, errors.length)
   return NextResponse.json({ pushed, errors: errors.length ? errors : undefined })
 }

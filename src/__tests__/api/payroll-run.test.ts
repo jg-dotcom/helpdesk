@@ -20,9 +20,26 @@ describe('POST /api/payroll/run', () => {
     expect(res.status).toBe(400)
   })
 
+  // JAY-48: a finalized run already covering this exact period must block a
+  // second run outright, before any pay is calculated.
+  it('returns 409 when a finalized run already exists for this period', async () => {
+    mockOwner({ id: 'owner-1' })
+    queueFromResponses(supabaseAdmin, [
+      { data: { id: 42, run_date: '2026-07-16', total_gross: 4230 }, error: null }, // payroll_runs — existing finalized check
+    ])
+    const res = await POST(mockRequest({ token: 'good', body: { periodStart: '2026-07-01', periodEnd: '2026-07-14' } }) as never)
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.existingRunId).toBe(42)
+    expect(body.error).toContain('already exists')
+  })
+
   it('returns 400 when there are no active employees with pay rates', async () => {
     mockOwner({ id: 'owner-1' })
-    queueFromResponses(supabaseAdmin, [{ data: [], error: null }])
+    queueFromResponses(supabaseAdmin, [
+      { data: null, error: null }, // payroll_runs — no existing finalized run
+      { data: [], error: null }, // employees
+    ])
     const res = await POST(mockRequest({ token: 'good', body: { periodStart: '2026-07-01', periodEnd: '2026-07-14' } }) as never)
     expect(res.status).toBe(400)
   })
@@ -31,6 +48,7 @@ describe('POST /api/payroll/run', () => {
   it('adds paid hours for an approved PTO request but not an approved Unpaid one, for hourly employees', async () => {
     mockOwner({ id: 'owner-1' })
     queueFromResponses(supabaseAdmin, [
+      { data: null, error: null }, // payroll_runs — no existing finalized run
       { data: [{ id: 1, name: 'Jordan T.', pay_type: 'hourly', pay_rate: 20 }, { id: 2, name: 'Casey R.', pay_type: 'hourly', pay_rate: 15 }], error: null }, // employees
       { data: [{ employee_id: 1, total_minutes: 4800, clock_in: '2026-07-03T09:00:00' }], error: null }, // time_entries — 80 hrs worked for Jordan
       { data: [], error: null }, // pay_rate_history — no logged changes, everyone falls back to current rate
@@ -47,7 +65,7 @@ describe('POST /api/payroll/run', () => {
 
     // Verify the items inserted into payroll_run_items reflect the PTO bump.
     const fromMock = supabaseAdmin.from as jest.Mock
-    const itemsCall = fromMock.mock.results[6].value // 7th .from() call = payroll_run_items insert
+    const itemsCall = fromMock.mock.results[7].value // 8th .from() call = payroll_run_items insert
     const insertedItems = itemsCall.insert.mock.calls[0][0]
     const jordan = insertedItems.find((i: { employee_id: number }) => i.employee_id === 1)
     const casey = insertedItems.find((i: { employee_id: number }) => i.employee_id === 2)
@@ -66,6 +84,7 @@ describe('POST /api/payroll/run', () => {
   it('does not add PTO hours for salaried employees', async () => {
     mockOwner({ id: 'owner-1' })
     queueFromResponses(supabaseAdmin, [
+      { data: null, error: null }, // payroll_runs — no existing finalized run
       { data: [{ id: 3, name: 'Sam K.', pay_type: 'salary', pay_rate: 52000 }], error: null },
       { data: [], error: null },
       { data: [], error: null }, // pay_rate_history
@@ -78,7 +97,7 @@ describe('POST /api/payroll/run', () => {
     expect(res.status).toBe(200)
 
     const fromMock = supabaseAdmin.from as jest.Mock
-    const itemsCall = fromMock.mock.results[6].value
+    const itemsCall = fromMock.mock.results[7].value
     const insertedItems = itemsCall.insert.mock.calls[0][0]
     expect(insertedItems[0].hours_worked).toBeNull()
     expect(insertedItems[0].gross_pay).toBe(Math.round((52000 / 26) * 100) / 100)
@@ -91,6 +110,7 @@ describe('POST /api/payroll/run', () => {
   it('applies the OLD rate to days before the change and the NEW rate to days after, when both are logged', async () => {
     mockOwner({ id: 1 })
     queueFromResponses(supabaseAdmin, [
+      { data: null, error: null }, // payroll_runs — no existing finalized run
       { data: [{ id: 1, name: 'Jordan T.', pay_type: 'hourly', pay_rate: 20 }], error: null },
       { data: [
         { employee_id: 1, total_minutes: 480, clock_in: '2026-07-01T09:00:00' },
@@ -110,7 +130,7 @@ describe('POST /api/payroll/run', () => {
     expect(res.status).toBe(200)
 
     const fromMock = supabaseAdmin.from as jest.Mock
-    const itemsCall = fromMock.mock.results[6].value
+    const itemsCall = fromMock.mock.results[7].value
     const insertedItems = itemsCall.insert.mock.calls[0][0]
     const jordan = insertedItems.find((i: { employee_id: number }) => i.employee_id === 1)
 

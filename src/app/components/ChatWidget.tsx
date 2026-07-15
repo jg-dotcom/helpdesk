@@ -81,25 +81,60 @@ export default function ChatWidget() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
+  // JAY-42 — whether the restore-from-history fetch has completed, so the
+  // greeting effect below knows to wait for it instead of racing ahead with
+  // a blank greeting that then gets overwritten.
+  const [historyChecked, setHistoryChecked] = useState(false)
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) return
       setToken(session.access_token)
       const { data: biz } = await supabase.from('business_profiles').select('id').eq('user_id', session.user.id).maybeSingle()
       setIsOwner(!!biz)
+
+      // JAY-42 — restore the last 20 messages instead of always starting blank.
+      try {
+        const res = await fetch('/api/ai/chat', { headers: { Authorization: `Bearer ${session.access_token}` } })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.messages?.length) {
+            setMessages(data.messages.map((m: { role: string; content: string; actions?: ChatAction[] }) => ({
+              role: m.role, content: m.content, actions: m.actions ?? undefined,
+            })))
+          }
+        }
+      } catch { /* restore is best-effort — falls through to the greeting below */ }
+      setHistoryChecked(true)
     })
   }, [])
 
-  // Set initial greeting when role is determined
+  // Set initial greeting when role is determined AND there's no restored history.
   useEffect(() => {
-    if (isOwner === null || messages.length > 0) return
+    if (isOwner === null || !historyChecked || messages.length > 0) return
     setMessages([{
       role: 'assistant',
       content: isOwner
         ? "Hi! I can manage employees, handle applicants, generate job descriptions, approve time off, and pull up analytics — just ask."
         : "Hi! I can clock you in/out, check your PTO, request time off, or show your schedule — just ask.",
     }])
-  }, [isOwner]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOwner, historyChecked]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // JAY-42 — "+ New" clears stored history server-side and resets the local
+  // view back to the greeting, matching the mockup's header button.
+  async function startNewThread() {
+    if (!token) return
+    setMessages([])
+    try {
+      await fetch('/api/ai/chat', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    } catch { /* best-effort — local view is already reset */ }
+    setMessages([{
+      role: 'assistant',
+      content: isOwner
+        ? "Hi! I can manage employees, handle applicants, generate job descriptions, approve time off, and pull up analytics — just ask."
+        : "Hi! I can clock you in/out, check your PTO, request time off, or show your schedule — just ask.",
+    }])
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -195,10 +230,19 @@ export default function ChatWidget() {
                 <div style={{ fontSize: '11px', opacity: 0.8 }}>Powered by Claude</div>
               </div>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '20px', opacity: 0.8, lineHeight: 1, padding: '2px 4px' }}
-            >×</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {messages.length > 1 && (
+                <button
+                  onClick={startNewThread}
+                  title="Start a new conversation"
+                  style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '11px', fontWeight: 600, borderRadius: '6px', padding: '4px 8px', lineHeight: 1 }}
+                >+ New</button>
+              )}
+              <button
+                onClick={() => setOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '20px', opacity: 0.8, lineHeight: 1, padding: '2px 4px' }}
+              >×</button>
+            </div>
           </div>
 
           {/* Messages */}

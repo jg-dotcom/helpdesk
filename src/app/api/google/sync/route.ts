@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser(userToken)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = user.id
 
   const { weekStart, timeZone = 'America/New_York' } = await req.json()
 
@@ -57,7 +58,18 @@ export async function POST(req: NextRequest) {
     .lte('shift_date', endStr)
 
   if (shiftErr) return NextResponse.json({ error: 'Could not load shifts.' }, { status: 500 })
+
+  // JAY-46 — persist the outcome so it's visible after a page refresh, not
+  // just in the one-time toast.
+  async function recordSyncResult(count: number, errCount: number) {
+    await supabase
+      .from('google_connections')
+      .update({ last_synced_at: new Date().toISOString(), last_sync_summary: { count, errors: errCount, label: 'pushed' } })
+      .eq('user_id', userId)
+  }
+
   if (!shifts || shifts.length === 0) {
+    await recordSyncResult(0, 0)
     return NextResponse.json({ pushed: 0, message: 'No shifts found in that range.' })
   }
 
@@ -99,5 +111,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  await recordSyncResult(pushed, errors.length)
   return NextResponse.json({ pushed, errors: errors.length ? errors : undefined })
 }

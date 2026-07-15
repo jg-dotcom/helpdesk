@@ -9,13 +9,15 @@ export async function POST(req: NextRequest) {
   const { shiftId } = await req.json()
   if (!shiftId) return NextResponse.json({ error: 'Missing shiftId' }, { status: 400 })
 
+  // JAY-43 — block terminated employees; see employee/me/route.ts for context.
   const { data: employee } = await supabaseAdmin
     .from('employees')
     .select('id, user_id')
     .eq('email', user.email)
+    .eq('status', 'active')
     .single()
 
-  if (!employee) return NextResponse.json({ error: 'Employee not found.' }, { status: 404 })
+  if (!employee) return NextResponse.json({ error: 'Access revoked.' }, { status: 403 })
 
   // Verify the shift is open and belongs to the same business
   const { data: shift } = await supabaseAdmin

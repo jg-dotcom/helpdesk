@@ -384,6 +384,37 @@ async function executeTool(
 
 // ─── Chat route ───────────────────────────────────────────────────────────────
 
+// JAY-42 — restore-only chat history. GET returns the last 20 messages for
+// the caller (scoped by their own auth id — this is a personal assistant
+// thread, not a shared channel), oldest-first so the client can render it
+// directly into the message list.
+export async function GET(req: NextRequest) {
+  const user = await getBearerUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data } = await supabaseAdmin
+    .from('ai_chat_messages')
+    .select('role, content, actions, created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  return NextResponse.json({ messages: (data ?? []).reverse() })
+}
+
+// "+ New" in the widget — clears this user's stored history so the next
+// restore is genuinely empty. Thread management (multiple named threads,
+// rename) is deliberately out of scope per the ticket's own validation
+// gut-check — this is a single-thread reset, not a new thread alongside
+// the old one.
+export async function DELETE(req: NextRequest) {
+  const user = await getBearerUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  await supabaseAdmin.from('ai_chat_messages').delete().eq('user_id', user.id)
+  return NextResponse.json({ success: true })
+}
+
 export async function POST(req: NextRequest) {
   const user = await getBearerUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -391,6 +422,17 @@ export async function POST(req: NextRequest) {
   const { messages, timezone: tz } = await req.json()
   if (!messages?.length) return NextResponse.json({ error: 'No messages' }, { status: 400 })
   const timezone = tz ?? 'UTC'
+
+  // JAY-42 — persist only the newest user turn from the incoming array (the
+  // client sends the full conversation-so-far on every call, so re-inserting
+  // earlier turns here would duplicate them). The assistant's reply is
+  // persisted once it's computed, below.
+  const latestUserMessage = messages[messages.length - 1]
+  if (latestUserMessage?.role === 'user' && typeof latestUserMessage.content === 'string') {
+    await supabaseAdmin.from('ai_chat_messages').insert({
+      user_id: user.id, role: 'user', content: latestUserMessage.content,
+    })
+  }
 
   const role = await getUserRole(user.id, user.email ?? '')
 
@@ -459,5 +501,10 @@ export async function POST(req: NextRequest) {
     ? "Sorry, I couldn't complete that. You can make this change directly from the dashboard, or try rephrasing."
     : "Sorry, I couldn't complete that. Your manager can help if this doesn't work here."
 
-  return NextResponse.json({ reply: finalText || fallback, actions })
+  const replyText = finalText || fallback
+  await supabaseAdmin.from('ai_chat_messages').insert({
+    user_id: user.id, role: 'assistant', content: replyText, actions: actions.length ? actions : null,
+  })
+
+  return NextResponse.json({ reply: replyText, actions })
 }

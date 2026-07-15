@@ -1178,9 +1178,12 @@ function SettingsContent() {
 
 function IntegrationsTab() {
   const { showToast } = useToast()
-  const [gusto, setGusto] = useState<{ company_uuid: string | null; connected_at: string } | null>(null)
-  const [google, setGoogle] = useState<{ connected_at: string } | null>(null)
-  const [qb, setQb] = useState<{ realm_id: string; connected_at: string } | null>(null)
+  // JAY-46 — last_synced_at/last_sync_summary persist sync outcome across
+  // page loads (previously only a one-time toast, gone on refresh).
+  type SyncStatus = { last_synced_at: string | null; last_sync_summary: { count: number; errors: number; label: string } | null }
+  const [gusto, setGusto] = useState<({ company_uuid: string | null; connected_at: string } & SyncStatus) | null>(null)
+  const [google, setGoogle] = useState<({ connected_at: string } & SyncStatus) | null>(null)
+  const [qb, setQb] = useState<({ realm_id: string; connected_at: string } & SyncStatus) | null>(null)
   const [loading, setLoading] = useState(true)
   const [accessToken, setAccessToken] = useState('')
   const [syncing, setSyncing] = useState<string | null>(null)
@@ -1190,17 +1193,21 @@ function IntegrationsTab() {
       if (!session) return
       setAccessToken(session.access_token)
       const uid = session.user.id
-      const [g, gc, qbr] = await Promise.all([
-        supabase.from('gusto_connections').select('company_uuid, connected_at').eq('user_id', uid).single(),
-        supabase.from('google_connections').select('connected_at').eq('user_id', uid).single(),
-        supabase.from('quickbooks_connections').select('realm_id, connected_at').eq('user_id', uid).single(),
-      ])
-      if (g.data) setGusto(g.data)
-      if (gc.data) setGoogle(gc.data)
-      if (qbr.data) setQb(qbr.data)
+      await reloadConnections(uid)
       setLoading(false)
     })
   }, [])
+
+  async function reloadConnections(uid: string) {
+    const [g, gc, qbr] = await Promise.all([
+      supabase.from('gusto_connections').select('company_uuid, connected_at, last_synced_at, last_sync_summary').eq('user_id', uid).single(),
+      supabase.from('google_connections').select('connected_at, last_synced_at, last_sync_summary').eq('user_id', uid).single(),
+      supabase.from('quickbooks_connections').select('realm_id, connected_at, last_synced_at, last_sync_summary').eq('user_id', uid).single(),
+    ])
+    if (g.data) setGusto(g.data)
+    if (gc.data) setGoogle(gc.data)
+    if (qbr.data) setQb(qbr.data)
+  }
 
   async function handleConnect(service: 'gusto' | 'google' | 'quickbooks') {
     const { data: { session } } = await supabase.auth.getSession()
@@ -1223,10 +1230,24 @@ function IntegrationsTab() {
     const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify(body) })
     const data = await res.json()
     showToast(res.ok ? (data.message ?? '✓ Done.') : `Error: ${data.error}`, res.ok ? 'success' : 'error')
+    // JAY-46 — refresh last_synced_at/last_sync_summary so the new status
+    // line reflects this sync immediately, not just the one-time toast.
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) await reloadConnections(session.user.id)
     setSyncing(null)
   }
 
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const fmtDateTime = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  function syncStatusLine(status: SyncStatus) {
+    if (!status.last_synced_at || !status.last_sync_summary) return null
+    const { count, errors, label } = status.last_sync_summary
+    return (
+      <div style={{ fontSize: '12px', color: errors > 0 ? '#c0392b' : '#27ae60', background: errors > 0 ? '#fdf0ee' : '#eefcf2', padding: '6px 10px', borderRadius: '6px', marginBottom: '0.75rem' }}>
+        Last synced {fmtDateTime(status.last_synced_at)} — {count} {label}{errors > 0 ? `, ${errors} error${errors !== 1 ? 's' : ''}` : ''}
+      </div>
+    )
+  }
   const connectedBadge = <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', background: '#e8f8ef', color: '#27ae60' }}>● Connected</span>
   const notConnectedBadge = <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', background: '#f5f6fa', color: '#9a9a9a' }}>○ Not connected</span>
 
@@ -1245,6 +1266,7 @@ function IntegrationsTab() {
           {loading ? <div style={{ fontSize: '13px', color: '#999' }}>Loading...</div> : gusto ? (
             <>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '0.75rem' }}>Connected {fmtDate(gusto.connected_at)}</div>
+              {syncStatusLine(gusto)}
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
                 <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 14px' }} onClick={() => sync('push_employees', '/api/gusto/sync', { action: 'push_employees' })} disabled={!!syncing}>{syncing === 'push_employees' ? 'Syncing…' : '↑ Push employees'}</button>
                 <button className="btn" style={{ fontSize: '13px', padding: '7px 14px' }} onClick={() => sync('pull_payrolls', '/api/gusto/sync', { action: 'pull_payrolls' })} disabled={!!syncing}>{syncing === 'pull_payrolls' ? 'Importing…' : '↓ Pull payrolls'}</button>
@@ -1264,6 +1286,7 @@ function IntegrationsTab() {
           {loading ? <div style={{ fontSize: '13px', color: '#999' }}>Loading...</div> : google ? (
             <>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '0.75rem' }}>Connected {fmtDate(google.connected_at)}</div>
+              {syncStatusLine(google)}
               <div style={{ marginBottom: '0.75rem' }}>
                 <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 14px' }} onClick={() => sync('push_shifts', '/api/google/sync', {})} disabled={!!syncing}>{syncing === 'push_shifts' ? 'Syncing…' : '↑ Push this week\'s shifts'}</button>
               </div>
@@ -1282,6 +1305,7 @@ function IntegrationsTab() {
           {loading ? <div style={{ fontSize: '13px', color: '#999' }}>Loading...</div> : qb ? (
             <>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '0.75rem' }}>Connected {fmtDate(qb.connected_at)}</div>
+              {syncStatusLine(qb)}
               <div style={{ marginBottom: '0.75rem' }}>
                 <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 14px' }} onClick={() => sync('push_payroll', '/api/quickbooks/sync', {})} disabled={!!syncing}>{syncing === 'push_payroll' ? 'Syncing…' : '↑ Push this month\'s payroll'}</button>
               </div>

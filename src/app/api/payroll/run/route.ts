@@ -27,6 +27,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'periodStart and periodEnd required' }, { status: 400 })
   }
 
+  // JAY-48 — block a second FINALIZED run for the same period (double-pay
+  // risk from a double-click or retried request). Draft runs stay
+  // unrestricted — an owner may want to regenerate a draft preview more than
+  // once before finalizing, and only a finalized run represents money
+  // actually considered "paid." Backed by a DB-level partial unique index
+  // (payroll_runs_one_finalized_per_period) as defense in depth; this check
+  // is what produces the actual helpful error message.
+  const { data: existingFinalized } = await supabaseAdmin
+    .from('payroll_runs')
+    .select('id, run_date, total_gross')
+    .eq('user_id', user.id)
+    .eq('period_start', periodStart)
+    .eq('period_end', periodEnd)
+    .eq('status', 'finalized')
+    .maybeSingle()
+
+  if (existingFinalized) {
+    return NextResponse.json({
+      error: `A finalized payroll run already exists for this period (run on ${existingFinalized.run_date}, $${Number(existingFinalized.total_gross).toFixed(2)} total).`,
+      existingRunId: existingFinalized.id,
+    }, { status: 409 })
+  }
+
   // Fetch active employees with pay info
   const { data: employees } = await supabaseAdmin
     .from('employees')
