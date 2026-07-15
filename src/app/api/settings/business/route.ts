@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { business_name, address, timezone, contact_email, logo_url, business_hours, accountant_email } = body
+  const { business_name, address, timezone, contact_email, logo_url, business_hours, accountant_email, weekly_labor_budget_cents } = body
 
   const { error } = await supabaseAdmin
     .from('business_profiles')
@@ -47,6 +47,10 @@ export async function POST(req: NextRequest) {
       logo_url: logo_url ?? null,
       business_hours: business_hours ?? null,
       accountant_email: accountant_email ?? null,
+      // JAY-54 (prerequisite step) — nullable so "no budget set" stays distinct
+      // from "$0 budget"; only written when the caller actually sent a value,
+      // so unrelated saves (e.g. saveAccount, saveHours) never clobber it.
+      ...(weekly_labor_budget_cents !== undefined ? { weekly_labor_budget_cents } : {}),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
 

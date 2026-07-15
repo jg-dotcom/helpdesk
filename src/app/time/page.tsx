@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { resolveTenantContext } from '../lib/tenant'
 import Nav from '../components/Nav'
 import CalloutModal from '../components/CalloutModal'
 import { useToast } from '../components/Toast'
@@ -123,6 +124,8 @@ export default function TimePage() {
   const [deptMembers, setDeptMembers] = useState<Record<number, number[]>>({})
   // Business hours
   const [bizHours, setBizHours] = useState<BusinessHours | null>(null)
+  // JAY-54 (prerequisite step) — weekly labor budget in cents, null if unset.
+  const [laborBudgetCents, setLaborBudgetCents] = useState<number | null>(null)
 
   // Callout modal
   type CalloutTarget = { shiftId: number; shiftDate: string; startTime: string; endTime: string; employee: { id: number; name: string } }
@@ -166,18 +169,30 @@ export default function TimePage() {
   async function load() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
-    setUserId(session.user.id)
+
+    // JAY-50 — an invited admin/manager's own auth id is never the tenant id;
+    // resolve which business's data they should actually see (their own, if
+    // they're the owner, or the inviting owner's, if not) before querying
+    // anything. Previously this page used session.user.id directly, which is
+    // why admins/managers landed on a blank schedule with zero data.
+    const tenant = await resolveTenantContext(session.user.id, session.user.email)
+    if (!tenant) { router.push('/login'); return }
+    const tenantId = tenant.tenantId
+    setUserId(tenantId)
 
     // Load business hours
     fetch('/api/settings/business', { headers: { Authorization: `Bearer ${session.access_token}` } })
-      .then(r => r.json()).then(d => { if (d.profile?.business_hours) setBizHours(d.profile.business_hours) })
+      .then(r => r.json()).then(d => {
+        if (d.profile?.business_hours) setBizHours(d.profile.business_hours)
+        setLaborBudgetCents(d.profile?.weekly_labor_budget_cents ?? null)
+      })
 
     const [{ data: emps }, { data: sh }, { data: reqs }, { data: ents }, { data: depts }, { data: memberships }] = await Promise.all([
-      supabase.from('employees').select('id, name, role, pay_type, pay_rate, pto_days_per_year').eq('user_id', session.user.id).eq('status', 'active'),
-      supabase.from('shifts').select('*').eq('user_id', session.user.id).order('shift_date'),
-      supabase.from('time_off_requests').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
-      supabase.from('time_entries').select('*').eq('user_id', session.user.id).gte('clock_in', weekStartISO()).order('clock_in', { ascending: false }),
-      supabase.from('departments').select('id, name, color').eq('user_id', session.user.id).order('name'),
+      supabase.from('employees').select('id, name, role, pay_type, pay_rate, pto_days_per_year').eq('user_id', tenantId).eq('status', 'active'),
+      supabase.from('shifts').select('*').eq('user_id', tenantId).order('shift_date'),
+      supabase.from('time_off_requests').select('*').eq('user_id', tenantId).order('created_at', { ascending: false }),
+      supabase.from('time_entries').select('*').eq('user_id', tenantId).gte('clock_in', weekStartISO()).order('clock_in', { ascending: false }),
+      supabase.from('departments').select('id, name, color').eq('user_id', tenantId).order('name'),
       supabase.from('department_members').select('employee_id, department_id'),
     ])
     setDepartments(depts ?? [])
@@ -202,7 +217,7 @@ export default function TimePage() {
     const { data: swaps } = await supabase
       .from('shift_swaps')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', tenantId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
     setSwapRequests(swaps ?? [])
@@ -214,7 +229,7 @@ export default function TimePage() {
     const { data: notes } = await supabase
       .from('shift_notes')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', tenantId)
       .gte('shift_date', since.toISOString().slice(0, 10))
       .order('created_at', { ascending: false })
     setLogEntries(notes ?? [])
@@ -966,6 +981,26 @@ export default function TimePage() {
                       </div>
                     </div>
                   )}
+
+                  {/* JAY-54 (prerequisite step) — budget vs. actual, only shown once an
+                      owner has actually set a weekly labor budget in Settings. This is
+                      the validation signal for whether the full auto-scheduling engine
+                      is worth building: if this goes unused, it isn't. */}
+                  {sortedEmployees.length > 0 && laborBudgetCents != null && (() => {
+                    const budget = laborBudgetCents / 100
+                    const diff = budget - estimatedCost
+                    const overBudget = diff < 0
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px', padding: '8px 10px', borderRadius: '8px', background: overBudget ? 'rgba(248,113,113,0.08)' : 'rgba(34,197,94,0.08)', border: `1px solid ${overBudget ? 'rgba(248,113,113,0.2)' : 'rgba(34,197,94,0.2)'}` }}>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                          Weekly labor budget: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>${budget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        </div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: overBudget ? '#f87171' : '#4ade80' }}>
+                          Projected: ${estimatedCost.toLocaleString(undefined, { maximumFractionDigits: 0 })} ({overBudget ? 'over' : 'under'} by ${Math.abs(diff).toLocaleString(undefined, { maximumFractionDigits: 0 })})
+                        </div>
+                      </div>
+                    )
+                  })()}
 
                   {/* Active shift action panel */}
                   {activeShiftId != null && (() => {

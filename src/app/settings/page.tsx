@@ -116,6 +116,11 @@ function SettingsContent() {
   const [bizHours, setBizHours] = useState<BusinessHours>(DEFAULT_HOURS)
   const [hoursSaving, setHoursSaving] = useState(false)
 
+  // JAY-54 (prerequisite step) — weekly labor budget, entered in dollars,
+  // stored in cents. Empty string means "not set" (kept distinct from $0).
+  const [laborBudget, setLaborBudget] = useState('')
+  const [budgetSaving, setBudgetSaving] = useState(false)
+
   // Account
   const [bizName, setBizName] = useState('')
   const [address, setAddress] = useState('')
@@ -209,6 +214,7 @@ function SettingsContent() {
       setContactEmail(bizData.profile.contact_email ?? '')
       setAccountantEmail(bizData.profile.accountant_email ?? '')
       if (bizData.profile.business_hours) setBizHours(bizData.profile.business_hours)
+      if (bizData.profile.weekly_labor_budget_cents != null) setLaborBudget((bizData.profile.weekly_labor_budget_cents / 100).toString())
     }
 
     if (tmplRes.data?.fields?.length) setFields(tmplRes.data.fields)
@@ -313,6 +319,21 @@ function SettingsContent() {
     })
     showToast(res.ok ? 'Saved.' : 'Error saving.', res.ok ? 'success' : 'error')
     setHoursSaving(false)
+  }
+
+  // JAY-54 (prerequisite step) — saved separately from hours/account so a
+  // partially-typed budget never gets bundled into an unrelated save.
+  async function saveLaborBudget() {
+    setBudgetSaving(true)
+    const trimmed = laborBudget.trim()
+    const cents = trimmed === '' ? null : Math.round(parseFloat(trimmed) * 100)
+    const res = await fetch('/api/settings/business', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ business_name: bizName, address, timezone, contact_email: contactEmail, weekly_labor_budget_cents: cents }),
+    })
+    showToast(res.ok ? 'Saved.' : 'Error saving.', res.ok ? 'success' : 'error')
+    setBudgetSaving(false)
   }
 
   async function saveTemplate() {
@@ -567,6 +588,30 @@ function SettingsContent() {
               <button className="btn auth-btn-primary" onClick={saveHours} disabled={hoursSaving} style={{ marginTop: '1.25rem', width: 'auto' }}>
                 {hoursSaving ? 'Saving...' : 'Save hours'}
               </button>
+
+              {/* JAY-54 (prerequisite step) — the missing input a "budget vs. actual"
+                  comparison needs. Optional: leaving it blank hides the comparison
+                  on the Schedule page rather than showing a false $0 target. */}
+              <div style={{ marginTop: '1.75rem', paddingTop: '1.5rem', borderTop: '1px solid #f0f0f0' }}>
+                <div className="section-label" style={{ marginBottom: '0.25rem' }}>Weekly labor budget</div>
+                <div style={{ fontSize: '13px', color: '#666', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                  Optional. Set a target and the Schedule page will show projected cost against it. Leave blank to hide the comparison.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '220px' }}>
+                  <span style={{ fontSize: '13px', color: '#888' }}>$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={laborBudget}
+                    onChange={e => setLaborBudget(e.target.value)}
+                    placeholder="e.g. 3200"
+                  />
+                </div>
+                <button className="btn auth-btn-primary" onClick={saveLaborBudget} disabled={budgetSaving} style={{ marginTop: '1rem', width: 'auto' }}>
+                  {budgetSaving ? 'Saving...' : 'Save budget'}
+                </button>
+              </div>
             </div>
           )}
 

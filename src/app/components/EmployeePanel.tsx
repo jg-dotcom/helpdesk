@@ -519,6 +519,12 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
 
   async function save() {
     setSaving(true)
+    // JAY-51 — capture whether pay rate/type is actually changing before the
+    // update overwrites the old value, so payroll can later split a pay
+    // period across the old and new rate instead of applying today's rate
+    // to the whole period.
+    const rateChanged = form.pay_rate != null && form.pay_rate !== employee.pay_rate
+    const typeChanged = form.pay_type != null && form.pay_type !== employee.pay_type
     const { error } = await supabase
       .from('employees')
       .update({
@@ -534,6 +540,18 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     if (error) {
       showToast('Error saving. Try again.', 'error')
     } else {
+      if ((rateChanged || typeChanged) && form.pay_rate != null) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          await supabase.from('pay_rate_history').insert({
+            user_id: session.user.id,
+            employee_id: employee.id,
+            pay_rate: form.pay_rate,
+            pay_type: form.pay_type ?? employee.pay_type,
+            effective_from: new Date().toISOString().slice(0, 10),
+          })
+        }
+      }
       onUpdated(form)
       setTimeout(() => animateClose(), 600)
     }

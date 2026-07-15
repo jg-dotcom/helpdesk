@@ -39,20 +39,66 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No active employees with pay rates set.' }, { status: 400 })
   }
 
-  // Fetch time entries for the period (for hourly employees)
+  // Fetch time entries for the period (for hourly employees). Includes clock_in
+  // so hours can be bucketed per day — needed for JAY-51 (below) to apply the
+  // rate that was actually in effect on each specific day worked, not just
+  // whatever the employee's current rate happens to be at run-time.
   const { data: timeEntries } = await supabaseAdmin
     .from('time_entries')
-    .select('employee_id, total_minutes')
+    .select('employee_id, total_minutes, clock_in')
     .eq('user_id', user.id)
     .gte('clock_in', `${periodStart}T00:00:00`)
     .lte('clock_in', `${periodEnd}T23:59:59`)
     .not('clock_out', 'is', null)
 
-  // Build hours map
+  // Build hours map (period total, still used for the hours_worked column)
+  // and a per-employee-per-day map (used for the rate-split calculation).
   const hoursMap: Record<number, number> = {}
+  const dailyHoursByEmp = new Map<number, Map<string, number>>()
+  function addDailyHours(empId: number, dateStr: string, hrs: number) {
+    if (!dailyHoursByEmp.has(empId)) dailyHoursByEmp.set(empId, new Map())
+    const m = dailyHoursByEmp.get(empId)!
+    m.set(dateStr, (m.get(dateStr) ?? 0) + hrs)
+  }
   for (const entry of timeEntries ?? []) {
     if (!hoursMap[entry.employee_id]) hoursMap[entry.employee_id] = 0
-    hoursMap[entry.employee_id] += (entry.total_minutes ?? 0) / 60
+    const hrs = (entry.total_minutes ?? 0) / 60
+    hoursMap[entry.employee_id] += hrs
+    addDailyHours(entry.employee_id, entry.clock_in.slice(0, 10), hrs)
+  }
+
+  // JAY-51 — pay_rate_history holds one row per rate change, keyed by the date
+  // it took effect. To find the rate in effect on a given day, take the most
+  // recent row with effective_from <= that day. Employees with zero history
+  // rows (never had a logged change) fall back to their current pay_rate for
+  // every day — identical to pre-fix behavior.
+  const employeeIds = employees.map(e => e.id)
+  const { data: rateHistory } = await supabaseAdmin
+    .from('pay_rate_history')
+    .select('employee_id, pay_rate, effective_from')
+    .eq('user_id', user.id)
+    .in('employee_id', employeeIds)
+    .order('effective_from', { ascending: true })
+
+  const rateHistoryByEmp = new Map<number, { rate: number; effective_from: string }[]>()
+  for (const r of rateHistory ?? []) {
+    if (!rateHistoryByEmp.has(r.employee_id)) rateHistoryByEmp.set(r.employee_id, [])
+    rateHistoryByEmp.get(r.employee_id)!.push({ rate: r.pay_rate, effective_from: r.effective_from })
+  }
+
+  // Note: if every logged change for an employee happened AFTER a given day,
+  // there's no historical data point for what the rate was on that earlier
+  // day (history only exists from whenever this feature started logging) —
+  // falls back to the current rate for those days, same as before this fix.
+  function effectiveRate(empId: number, dateStr: string, fallbackRate: number): number {
+    const history = rateHistoryByEmp.get(empId)
+    if (!history?.length) return fallbackRate
+    let rate = fallbackRate
+    let found = false
+    for (const h of history) {
+      if (h.effective_from <= dateStr) { rate = h.rate; found = true } else break
+    }
+    return found ? rate : fallbackRate
   }
 
   // JAY-44 — approved PTO/Sick/Personal time off never added paid hours; payroll
@@ -105,7 +151,11 @@ export async function POST(req: NextRequest) {
     while (cursor <= end) {
       const dateStr = cursor.toISOString().slice(0, 10)
       const scheduled = shiftHoursByEmpDate.get(`${req.employee_id}_${dateStr}`)
-      requestHours += scheduled ?? DEFAULT_PTO_HOURS_PER_DAY
+      const dayHours = scheduled ?? DEFAULT_PTO_HOURS_PER_DAY
+      requestHours += dayHours
+      // JAY-51 — PTO days need to land in the same per-day bucket as worked
+      // hours so a rate change mid-period also applies correctly to time off.
+      addDailyHours(req.employee_id, dateStr, dayHours)
       cursor.setDate(cursor.getDate() + 1)
     }
     ptoHoursMap[req.employee_id] = (ptoHoursMap[req.employee_id] ?? 0) + requestHours
@@ -118,6 +168,7 @@ export async function POST(req: NextRequest) {
     let hoursWorked: number | null = null
     let grossPay: number
     const ptoHours = Math.round((ptoHoursMap[emp.id] ?? 0) * 100) / 100
+    let rateSplitNote: string | null = null
 
     if (emp.pay_type === 'salary') {
       // Bi-weekly pay = annual / 26 — fixed regardless of time off, so PTO
@@ -125,8 +176,33 @@ export async function POST(req: NextRequest) {
       grossPay = rate / 26
     } else {
       hoursWorked = Math.round(((hoursMap[emp.id] ?? 0) + ptoHours) * 100) / 100
-      grossPay = hoursWorked * rate
+
+      // JAY-51 — sum pay day-by-day using whatever rate was in effect on
+      // each specific day, instead of applying the current rate to every
+      // hour in the period. Falls back to a flat calculation (old behavior)
+      // if there's no per-day data at all.
+      const dayMap = dailyHoursByEmp.get(emp.id)
+      if (dayMap && dayMap.size > 0) {
+        let sum = 0
+        const segments: { rate: number; hours: number }[] = []
+        for (const [dateStr, hrs] of dayMap) {
+          const r = effectiveRate(emp.id, dateStr, rate)
+          sum += hrs * r
+          const seg = segments.find(s => s.rate === r)
+          if (seg) seg.hours += hrs; else segments.push({ rate: r, hours: hrs })
+        }
+        grossPay = sum
+        if (segments.length > 1) {
+          rateSplitNote = segments
+            .map(s => `${(Math.round(s.hours * 100) / 100) % 1 === 0 ? s.hours : s.hours.toFixed(1)}h @ $${s.rate.toFixed(2)}/hr`)
+            .join(' + ')
+        }
+      } else {
+        grossPay = hoursWorked * rate
+      }
     }
+
+    const ptoNote = emp.pay_type !== 'salary' && ptoHours > 0 ? `+${ptoHours.toFixed(1)} hrs PTO` : null
 
     return {
       user_id: user.id,
@@ -138,7 +214,7 @@ export async function POST(req: NextRequest) {
       gross_pay: Math.round(grossPay * 100) / 100,
       deductions: { federal: 0, state: 0, other: 0 },
       net_pay: Math.round(grossPay * 100) / 100,
-      notes: emp.pay_type !== 'salary' && ptoHours > 0 ? `+${ptoHours.toFixed(1)} hrs PTO` : null,
+      notes: [rateSplitNote, ptoNote].filter(Boolean).join(' · ') || null,
     }
   })
 
