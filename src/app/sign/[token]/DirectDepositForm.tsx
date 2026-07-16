@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useToast } from '../../components/Toast'
+import { isValidRoutingNumber } from '../../../lib/routingNumber'
 
 type Props = {
   token: string
@@ -34,6 +35,10 @@ export default function DirectDepositForm({ token, employeeId, userId, onComplet
     }
     if (form.routingNumber.length !== 9 || !/^\d+$/.test(form.routingNumber)) {
       showToast('Routing number must be 9 digits.', 'error')
+      return
+    }
+    if (!isValidRoutingNumber(form.routingNumber)) {
+      showToast("This doesn't look like a valid routing number — please double-check with your bank.", 'error')
       return
     }
     if (form.accountNumber !== form.confirmAccountNumber) {
@@ -99,7 +104,15 @@ export default function DirectDepositForm({ token, employeeId, userId, onComplet
           inputMode="numeric"
           maxLength={9}
         />
-        <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>Found at the bottom-left of a check</div>
+        {form.routingNumber.length === 9 ? (
+          isValidRoutingNumber(form.routingNumber) ? (
+            <div style={{ fontSize: '11px', color: '#27ae60', marginTop: '4px' }}>✓ Valid routing number</div>
+          ) : (
+            <div style={{ fontSize: '11px', color: '#c0392b', marginTop: '4px' }}>✗ This doesn&apos;t look like a valid routing number — please double-check with your bank</div>
+          )
+        ) : (
+          <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>Found at the bottom-left of a check</div>
+        )}
       </div>
 
       <div className="field">

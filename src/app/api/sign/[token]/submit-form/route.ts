@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../../lib/supabaseAdmin'
 import { encryptField, last4 } from '../../../../lib/fieldEncryption'
+import { isValidRoutingNumber } from '../../../../../lib/routingNumber'
 
 // JAY-63 — bank routing/account numbers were previously written to
 // form_data verbatim, in plain text, despite the form's own copy claiming
@@ -32,6 +33,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 
   if (!formType || !rawFormData || !employeeId || !userId) {
     return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
+  }
+
+  // JAY-65 — the client-side check can't be trusted alone (any direct API
+  // call bypasses it entirely); re-validate the ABA routing-number checksum
+  // here before ever encrypting/persisting it, so a transposed-digit typo
+  // that happens to be 9 digits still gets caught server-side.
+  if (formType === 'direct_deposit' && typeof rawFormData.routingNumber === 'string' && !isValidRoutingNumber(rawFormData.routingNumber)) {
+    return NextResponse.json({ error: "This doesn't look like a valid routing number — please double-check with your bank." }, { status: 400 })
   }
 
   const formData = encryptSensitiveFields(formType, rawFormData)

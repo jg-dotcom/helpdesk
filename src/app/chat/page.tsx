@@ -176,6 +176,7 @@ export default function ChatPage() {
               style={{
                 flex: 1, resize: 'none', fontSize: '14px', padding: '10px 14px',
                 borderRadius: '12px', border: '1px solid rgba(255,255,255,0.15)',
+                background: 'rgba(255,255,255,0.05)', color: '#e2e8f0',
                 fontFamily: 'inherit', outline: 'none', lineHeight: 1.5,
                 maxHeight: '120px', overflowY: 'auto',
               }}
@@ -188,8 +189,8 @@ export default function ChatPage() {
             <button
               onClick={() => send()}
               disabled={loading || !input.trim()}
-              className="btn auth-btn-primary"
-              style={{ padding: '10px 18px', flexShrink: 0, fontSize: '14px', borderRadius: '12px' }}
+              className="btn"
+              style={{ padding: '10px 18px', flexShrink: 0, fontSize: '14px', borderRadius: '12px', background: '#3b82f6', color: '#fff', border: 'none' }}
             >
               Send
             </button>

@@ -72,6 +72,29 @@ describe('POST /api/sign/[token]/submit-form', () => {
     expect(formData.accountType).toBe('checking')
   })
 
+  // JAY-65 — server-side re-validation: the client check can't be trusted
+  // alone, so a 9-digit number that fails the ABA checksum must be rejected
+  // here too, before ever reaching encryption/persistence.
+  it('rejects a 9-digit routing number that fails the ABA checksum', async () => {
+    const fromMock = queueFromResponses(supabaseAdmin, [])
+    const res = await POST(mockRequest({
+      body: {
+        formType: 'direct_deposit',
+        formData: {
+          bankName: 'Chase',
+          accountType: 'checking',
+          routingNumber: '021000029', // one digit off from the valid 021000021
+          accountNumber: '123456789',
+        },
+        employeeId: 1,
+        userId: 'owner-1',
+      },
+    }) as never, params())
+    expect(res.status).toBe(400)
+    // No supabase calls should have happened — rejected before any lookup/insert.
+    expect(fromMock).not.toHaveBeenCalled()
+  })
+
   it('does not touch form_data for non-direct_deposit form types', async () => {
     queueFromResponses(supabaseAdmin, [
       { data: { employee_id: 1, user_id: 'owner-1' }, error: null },
