@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { resolveTenantContext } from '../lib/tenant'
 import { Employee, ActionType } from '../page'
 import EmployeePanel from './EmployeePanel'
 import Nav from './Nav'
@@ -179,7 +180,12 @@ export default function Dashboard({
   async function loadAttentionData() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    const uid = session.user.id
+    // JAY-68 — resolve the real tenant instead of the invited viewer's own
+    // auth id (same fix as time/page.tsx for JAY-50); otherwise an invited
+    // admin/manager's Dashboard silently queries an empty tenant.
+    const tenant = await resolveTenantContext(session.user.id, session.user.email)
+    if (!tenant) return
+    const uid = tenant.tenantId
     const now = new Date()
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
@@ -206,7 +212,9 @@ export default function Dashboard({
   async function loadOperationalData() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    const uid = session.user.id
+    const tenant = await resolveTenantContext(session.user.id, session.user.email)
+    if (!tenant) return
+    const uid = tenant.tenantId
     const today = new Date().toISOString().slice(0, 10)
     const twoWeeks = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
@@ -284,8 +292,10 @@ export default function Dashboard({
   async function loadDepartments() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
+    const tenant = await resolveTenantContext(session.user.id, session.user.email)
+    if (!tenant) return
     const [{ data: depts }, { data: members }] = await Promise.all([
-      supabase.from('departments').select('id, name, color').eq('user_id', session.user.id).order('name'),
+      supabase.from('departments').select('id, name, color').eq('user_id', tenant.tenantId).order('name'),
       supabase.from('department_members').select('employee_id, department_id'),
     ])
     if (depts) setDepartments(depts)

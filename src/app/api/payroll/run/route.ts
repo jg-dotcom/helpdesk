@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   // Fetch active employees with pay info
   const { data: employees } = await supabaseAdmin
     .from('employees')
-    .select('id, name, pay_type, pay_rate')
+    .select('id, name, pay_type, pay_rate, pay_period')
     .eq('user_id', user.id)
     .eq('status', 'active')
     .not('pay_rate', 'is', null)
@@ -219,9 +219,17 @@ export async function POST(req: NextRequest) {
     let overtimeNote: string | null = null
 
     if (emp.pay_type === 'salary') {
-      // Bi-weekly pay = annual / 26 — fixed regardless of time off, so PTO
-      // hours aren't added for salaried employees (nothing to add them to).
-      grossPay = rate / 26
+      // JAY-75 — `pay_period` is a real, UI-editable per-employee field
+      // (weekly/biweekly/semi-monthly/monthly, set in EmployeePanel.tsx and
+      // already read/display-only client-side by payroll/page.tsx's own
+      // getPeriodForType()), but this route previously ignored it entirely
+      // and hardcoded annual/26 for every salaried employee regardless of
+      // their actual pay period — silently underpaying a "weekly" employee
+      // by half, or overpaying a "monthly" one by ~2.17x, every single run.
+      // Mirrors the same divisor convention as getPeriodForType() client-side.
+      const divisorByPeriod: Record<string, number> = { weekly: 52, biweekly: 26, 'semi-monthly': 24, monthly: 12 }
+      const divisor = divisorByPeriod[emp.pay_period as string] ?? 26
+      grossPay = rate / divisor
     } else {
       hoursWorked = Math.round(((hoursMap[emp.id] ?? 0) + ptoHours) * 100) / 100
 

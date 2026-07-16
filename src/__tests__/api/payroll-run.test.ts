@@ -138,6 +138,32 @@ describe('POST /api/payroll/run', () => {
     expect(insertedItems[0].notes).toBeNull()
   })
 
+  // JAY-75: pay_period is a real, per-employee, UI-editable field — a
+  // salaried employee set to "weekly" must be paid annual/52, not the
+  // hardcoded annual/26 every other salaried employee (implicitly
+  // "biweekly") gets. Previously the route never even selected pay_period.
+  it('uses the correct divisor for a salaried employee whose pay_period is "weekly", not a hardcoded /26', async () => {
+    mockOwner({ id: 'owner-1' })
+    queueFromResponses(supabaseAdmin, [
+      { data: null, error: null }, // payroll_runs — no existing finalized run
+      { data: [{ id: 4, name: 'Riley P.', pay_type: 'salary', pay_rate: 52000, pay_period: 'weekly' }], error: null },
+      { data: [], error: null },
+      { data: [], error: null }, // pay_rate_history
+      { data: [], error: null }, // paid time off
+      { data: [], error: null }, // shifts
+      { data: { id: 102, period_start: '2026-07-01', period_end: '2026-07-14' }, error: null },
+      { data: null, error: null },
+    ])
+    const res = await POST(mockRequest({ token: 'good', body: { periodStart: '2026-07-01', periodEnd: '2026-07-14' } }) as never)
+    expect(res.status).toBe(200)
+
+    const fromMock = supabaseAdmin.from as jest.Mock
+    const itemsCall = fromMock.mock.results[7].value
+    const insertedItems = itemsCall.insert.mock.calls[0][0]
+    // $52,000 / 52 weeks = $1,000 — NOT $52,000 / 26 = $2,000 (the old bug).
+    expect(insertedItems[0].gross_pay).toBe(1000)
+  })
+
   // JAY-51: a mid-period rate change must split gross pay across the old and
   // new rate by which days each hour was actually worked on, instead of
   // applying whichever rate is current at run-time to the whole period.

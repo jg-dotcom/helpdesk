@@ -1347,7 +1347,7 @@ function IntegrationsTab() {
     if (!status.last_synced_at || !status.last_sync_summary) return null
     const { count, errors, label } = status.last_sync_summary
     return (
-      <div style={{ fontSize: '12px', color: errors > 0 ? '#c0392b' : '#27ae60', background: errors > 0 ? '#fdf0ee' : '#eefcf2', padding: '6px 10px', borderRadius: '6px', marginBottom: '0.75rem' }}>
+      <div style={{ fontSize: '12px', color: errors > 0 ? '#f87171' : '#4ade80', background: errors > 0 ? 'rgba(248,113,113,0.1)' : 'rgba(74,222,128,0.1)', padding: '6px 10px', borderRadius: '6px', marginBottom: '0.75rem' }}>
         Last synced {fmtDateTime(status.last_synced_at)} — {count} {label}{errors > 0 ? `, ${errors} error${errors !== 1 ? 's' : ''}` : ''}
       </div>
     )

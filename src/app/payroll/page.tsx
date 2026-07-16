@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { resolveTenantContext } from '../lib/tenant'
 import Nav from '../components/Nav'
 import { DollarIcon } from '../components/Icons'
 import { useToast } from '../components/Toast'
@@ -149,13 +150,21 @@ export default function PayrollPage() {
   async function load() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
-    setUserId(session.user.id)
+
+    // JAY-68 — an invited admin/manager's own auth id is never the tenant id;
+    // resolve the real owner-scoped tenant (same pattern as time/page.tsx,
+    // JAY-50) instead of querying session.user.id directly, which silently
+    // returned an empty tenant for anyone who wasn't the owner.
+    const tenant = await resolveTenantContext(session.user.id, session.user.email)
+    if (!tenant) { router.push('/login'); return }
+    const tenantId = tenant.tenantId
+    setUserId(tenantId)
     const token = session.access_token
     setSessionToken(token)
 
     const [{ data: emps }, { data: payroll }, runsRes, bizRes] = await Promise.all([
-      supabase.from('employees').select('id, name, role, type, status, pay_type, pay_rate, pay_period').eq('user_id', session.user.id).eq('status', 'active'),
-      supabase.from('payroll_entries').select('*').eq('user_id', session.user.id).order('period_start', { ascending: false }),
+      supabase.from('employees').select('id, name, role, type, status, pay_type, pay_rate, pay_period').eq('user_id', tenantId).eq('status', 'active'),
+      supabase.from('payroll_entries').select('*').eq('user_id', tenantId).order('period_start', { ascending: false }),
       fetch('/api/payroll/run', { headers: { Authorization: `Bearer ${token}` } }),
       fetch('/api/settings/business', { headers: { Authorization: `Bearer ${token}` } }),
     ])

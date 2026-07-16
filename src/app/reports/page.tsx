@@ -8,6 +8,9 @@ type Employee = { id: number; name: string; role: string; status: string; start:
 type TimeEntry = { employee_id: number; total_minutes: number | null; clock_in: string }
 type TimeOffRequest = { employee_id: number; start_date: string; end_date: string; status: string }
 type PayrollEntry = { gross_pay: number; created_at: string }
+// JAY-71 — companion reporting surface for JAY-57's overtime-premium fix:
+// the calculation existed with no visibility into it anywhere in Reports.
+type OvertimeRow = { employeeName: string; periodStart: string; periodEnd: string; hoursWorked: number | null; overtimeHours: number; grossPay: number }
 
 function fmtMoney(n: number) {
   if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`
@@ -61,6 +64,7 @@ export default function ReportsPage() {
   // deferred until the picker itself sees real use.
   const [rangeMonths, setRangeMonths] = useState(12)
   const [paperworkExpanded, setPaperworkExpanded] = useState(false) // JAY-56
+  const [overtimeRows, setOvertimeRows] = useState<OvertimeRow[]>([]) // JAY-71
 
   useEffect(() => {
     setLoading(true)
@@ -69,16 +73,46 @@ export default function ReportsPage() {
       const uid = session.user.id
       const since = new Date(); since.setMonth(since.getMonth() - rangeMonths)
 
-      const [{ data: emps }, { data: ents }, { data: to }, { data: pay }] = await Promise.all([
+      const [{ data: emps }, { data: ents }, { data: to }, { data: pay }, { data: runs }] = await Promise.all([
         supabase.from('employees').select('id, name, role, status, start, pay_type, pay_rate, i9_status, w4_status, direct_deposit_status').eq('user_id', uid),
         supabase.from('time_entries').select('employee_id, total_minutes, clock_in').eq('user_id', uid).gte('clock_in', since.toISOString()).not('total_minutes', 'is', null),
         supabase.from('time_off_requests').select('employee_id, start_date, end_date, status').eq('user_id', uid).eq('status', 'approved').gte('start_date', since.toISOString().slice(0, 10)),
         supabase.from('payroll_entries').select('gross_pay, created_at').eq('user_id', uid).gte('created_at', since.toISOString()),
+        // JAY-71 — pull overtime line items (JAY-57) for read-only display.
+        // Two-step query (runs, then items scoped to those run ids) since
+        // payroll_run_items doesn't carry user_id directly — same tenant-scoping
+        // shape JAY-76 established for the deductions PATCH ownership check.
+        supabase.from('payroll_runs').select('id, period_start, period_end').eq('user_id', uid).gte('period_start', since.toISOString().slice(0, 10)),
       ])
       setEmployees(emps ?? [])
       setEntries(ents ?? [])
       setTimeOff(to ?? [])
       setPayroll(pay ?? [])
+
+      const runIds = (runs ?? []).map(r => r.id)
+      if (runIds.length > 0) {
+        const { data: items } = await supabase
+          .from('payroll_run_items')
+          .select('run_id, employee_name, hours_worked, overtime_hours, gross_pay')
+          .in('run_id', runIds)
+          .not('overtime_hours', 'is', null)
+          .gt('overtime_hours', 0)
+        const runById = new Map((runs ?? []).map(r => [r.id, r]))
+        setOvertimeRows((items ?? []).map(it => {
+          const run = runById.get(it.run_id)
+          return {
+            employeeName: it.employee_name,
+            periodStart: run?.period_start ?? '',
+            periodEnd: run?.period_end ?? '',
+            hoursWorked: it.hours_worked,
+            overtimeHours: it.overtime_hours,
+            grossPay: it.gross_pay,
+          }
+        }).sort((a, b) => new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime()))
+      } else {
+        setOvertimeRows([])
+      }
+
       setLoading(false)
     })
   }, [rangeMonths])
@@ -217,6 +251,40 @@ export default function ReportsPage() {
             </div>
           )}
         </div>
+
+        {/* Overtime (JAY-71) — read-only visibility into JAY-57's overtime
+            premium calculation, which previously had zero reporting surface
+            anywhere in the app. Only renders when there's OT to show. */}
+        {overtimeRows.length > 0 && (
+          <div style={{ ...cardStyle, marginBottom: '1rem' }}>
+            <div style={{ fontWeight: 600, fontSize: '13px', color: '#f1f5f9', marginBottom: '0.75rem' }}>Overtime</div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 90px 90px 80px 90px', gap: '8px', fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 0 8px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <span>Employee</span>
+                <span>Period</span>
+                <span style={{ textAlign: 'right' }}>Reg hrs</span>
+                <span style={{ textAlign: 'right' }}>OT hrs</span>
+                <span style={{ textAlign: 'right' }}>Mult.</span>
+                <span style={{ textAlign: 'right' }}>OT pay</span>
+              </div>
+              {overtimeRows.map((r, i) => {
+                const regHours = r.hoursWorked != null ? Math.max(0, r.hoursWorked - r.overtimeHours) : null
+                return (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 90px 90px 80px 90px', gap: '8px', fontSize: '13px', padding: '8px 0', borderBottom: i < overtimeRows.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <span style={{ color: '#e2e8f0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.employeeName}</span>
+                    <span style={{ color: '#94a3b8' }}>
+                      {new Date(r.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(r.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                    <span style={{ textAlign: 'right', color: '#94a3b8' }}>{regHours != null ? regHours.toFixed(1) : '—'}</span>
+                    <span style={{ textAlign: 'right', color: '#fbbf24', fontWeight: 600 }}>{r.overtimeHours.toFixed(1)}</span>
+                    <span style={{ textAlign: 'right', color: '#94a3b8' }}>1.5x</span>
+                    <span style={{ textAlign: 'right', color: '#e2e8f0', fontWeight: 600 }}>{fmtMoney(r.grossPay)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Compliance detail — JAY-56: when many employees share the exact
             same missing item, that's one fact ("nobody has X set up"), not

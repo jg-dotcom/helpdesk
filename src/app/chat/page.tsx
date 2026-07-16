@@ -33,7 +33,7 @@ function Bubble({ msg }: { msg: Message }) {
       {!isUser && (
         <div style={{
           width: 30, height: 30, borderRadius: '50%',
-          background: '#185fa5', color: '#fff',
+          background: '#1d4ed8', color: '#fff',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '13px', fontWeight: 700, flexShrink: 0,
           marginRight: '8px', alignSelf: 'flex-end',
@@ -43,11 +43,11 @@ function Bubble({ msg }: { msg: Message }) {
         maxWidth: '75%',
         padding: '10px 14px',
         borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-        background: isUser ? '#185fa5' : '#fff',
-        color: isUser ? '#fff' : '#1a1a1a',
+        background: isUser ? '#1d4ed8' : '#1e293b',
+        color: isUser ? '#fff' : '#e2e8f0',
         fontSize: '14px',
         lineHeight: 1.6,
-        border: isUser ? 'none' : '0.5px solid rgba(0,0,0,0.12)',
+        border: isUser ? 'none' : '1px solid rgba(255,255,255,0.07)',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
       }}>
@@ -130,10 +130,10 @@ export default function ChatPage() {
           {/* Typing indicator */}
           {loading && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#185fa5', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700 }}>AI</div>
-              <div style={{ padding: '10px 14px', background: '#fff', borderRadius: '16px 16px 16px 4px', border: '0.5px solid rgba(0,0,0,0.12)', display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#1d4ed8', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700 }}>AI</div>
+              <div style={{ padding: '10px 14px', background: '#1e293b', borderRadius: '16px 16px 16px 4px', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', gap: '4px', alignItems: 'center' }}>
                 {[0, 1, 2].map(i => (
-                  <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#9a9a9a', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+                  <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#64748b', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
                 ))}
               </div>
             </div>
@@ -146,12 +146,12 @@ export default function ChatPage() {
                 <button key={s} onClick={() => send(s)}
                   style={{
                     padding: '6px 14px', borderRadius: '999px', fontSize: '13px',
-                    border: '0.5px solid rgba(0,0,0,0.20)', background: '#fff',
-                    color: '#1a1a1a', cursor: 'pointer', fontFamily: 'inherit',
+                    border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)',
+                    color: '#e2e8f0', cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'background 0.1s',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#f7f7f5')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                 >
                   {s}
                 </button>
@@ -163,7 +163,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input bar */}
-        <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.10)', background: '#fff', padding: '1rem', boxSizing: 'border-box' }}>
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: '#1e293b', padding: '1rem', boxSizing: 'border-box' }}>
           <div style={{ maxWidth: '760px', margin: '0 auto', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
             <textarea
               ref={inputRef}
@@ -175,7 +175,7 @@ export default function ChatPage() {
               disabled={loading}
               style={{
                 flex: 1, resize: 'none', fontSize: '14px', padding: '10px 14px',
-                borderRadius: '12px', border: '0.5px solid rgba(0,0,0,0.22)',
+                borderRadius: '12px', border: '1px solid rgba(255,255,255,0.15)',
                 fontFamily: 'inherit', outline: 'none', lineHeight: 1.5,
                 maxHeight: '120px', overflowY: 'auto',
               }}
@@ -194,7 +194,7 @@ export default function ChatPage() {
               Send
             </button>
           </div>
-          <div style={{ maxWidth: '760px', margin: '6px auto 0', fontSize: '11px', color: '#9a9a9a', textAlign: 'center' }}>
+          <div style={{ maxWidth: '760px', margin: '6px auto 0', fontSize: '11px', color: '#64748b', textAlign: 'center' }}>
             Press Enter to send · Shift+Enter for new line
           </div>
         </div>

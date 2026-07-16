@@ -55,7 +55,14 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       name: cleanEmail.split('@')[0],
       email: cleanEmail,
-      role: accessRole,
+      // JAY-77 — `role` is the free-text job-title field shown/edited in
+      // EmployeePanel.tsx and interpolated into the offboarding checklist
+      // template ({{role}}); it is NOT the same thing as `access_role` (the
+      // permission level). Writing accessRole into both columns silently
+      // corrupted every invited employee's job title with the literal string
+      // "manager"/"admin"/"employee". Leave it blank so the owner can fill in
+      // a real title later, same as a manually-added employee starts blank.
+      role: null,
       access_role: accessRole,
       status: 'active',
       type: 'Full-time',

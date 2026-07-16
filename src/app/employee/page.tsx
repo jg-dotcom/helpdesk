@@ -182,34 +182,39 @@ export default function EmployeePortal() {
     window.location.href = '/employee/login'
   }
 
+  // JAY-73 — this page (the employee self-serve portal reached via the
+  // magic-link login, distinct from portal/page.tsx which was already dark)
+  // never got the dark-theme redesign pass. Matches the established palette:
+  // #0f172a page bg, #1e293b cards, rgba(255,255,255,0.07) borders,
+  // #e2e8f0/#94a3b8/#64748b text tiers, #3b82f6/#1d4ed8 accent.
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7f8fa' }}>
-        <div style={{ fontSize: '14px', color: '#999' }}>Loading...</div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
+        <div style={{ fontSize: '14px', color: '#64748b' }}>Loading...</div>
       </div>
     )
   }
 
-  const statusColor = { pending: '#f59e0b', approved: '#27ae60', denied: '#c0392b' } as Record<string, string>
+  const statusColor = { pending: '#fbbf24', approved: '#4ade80', denied: '#f87171' } as Record<string, string>
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f8fa', maxWidth: '480px', margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', background: '#0f172a', maxWidth: '480px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #eee', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+      <div style={{ background: '#1e293b', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div>
-          <div style={{ fontSize: '16px', fontWeight: 800 }}>help<span style={{ color: '#185fa5' }}>desk</span></div>
-          <div style={{ fontSize: '12px', color: '#888', marginTop: '1px' }}>{employee?.name} · {employee?.role}</div>
+          <div style={{ fontSize: '16px', fontWeight: 800, color: '#e2e8f0' }}>help<span style={{ color: '#3b82f6' }}>desk</span></div>
+          <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '1px' }}>{employee?.name} · {employee?.role}</div>
         </div>
-        <button onClick={handleLogout} style={{ fontSize: '12px', color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
+        <button onClick={handleLogout} style={{ fontSize: '12px', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}>Sign out</button>
       </div>
 
       {/* Tab bar */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #eee', display: 'flex' }}>
+      <div style={{ background: '#1e293b', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex' }}>
         {([['clock', 'Clock'], ['pay', 'Pay stubs'], ['timeoff', 'Time off']] as [Tab, string][]).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             flex: 1, padding: '12px 0', fontSize: '13px', fontWeight: tab === key ? 700 : 400,
-            color: tab === key ? '#185fa5' : '#888', background: 'none', border: 'none', cursor: 'pointer',
-            borderBottom: tab === key ? '2px solid #185fa5' : '2px solid transparent',
+            color: tab === key ? '#93c5fd' : '#64748b', background: 'none', border: 'none', cursor: 'pointer',
+            borderBottom: tab === key ? '2px solid #3b82f6' : '2px solid transparent',
           }}>{label}</button>
         ))}
       </div>
@@ -220,12 +225,12 @@ export default function EmployeePortal() {
         {tab === 'clock' && (
           <>
             {/* Big clock button */}
-            <div style={{ background: '#fff', borderRadius: '20px', padding: '2rem', textAlign: 'center', marginBottom: '1rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '20px', padding: '2rem', textAlign: 'center', marginBottom: '1rem' }}>
               {clockedIn ? (
                 <>
-                  <div style={{ fontSize: '13px', color: '#27ae60', fontWeight: 600, marginBottom: '0.5rem' }}>● Clocked in</div>
-                  <div style={{ fontSize: '13px', color: '#888', marginBottom: '0.25rem' }}>Since {fmtTime(clockedIn.clock_in)}</div>
-                  <div style={{ fontSize: '32px', fontWeight: 800, color: '#111', margin: '1rem 0' }}>
+                  <div style={{ fontSize: '13px', color: '#4ade80', fontWeight: 600, marginBottom: '0.5rem' }}>● Clocked in</div>
+                  <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '0.25rem' }}>Since {fmtTime(clockedIn.clock_in)}</div>
+                  <div style={{ fontSize: '32px', fontWeight: 800, color: '#e2e8f0', margin: '1rem 0' }}>
                     {elapsed(clockedIn.clock_in)}
                   </div>
                   <button
@@ -233,8 +238,8 @@ export default function EmployeePortal() {
                     disabled={clockLoading}
                     style={{
                       width: '140px', height: '140px', borderRadius: '50%', border: 'none', cursor: 'pointer',
-                      background: '#c0392b', color: '#fff', fontSize: '18px', fontWeight: 800,
-                      boxShadow: '0 4px 20px rgba(192,57,43,0.4)', transition: 'transform 0.1s',
+                      background: '#f87171', color: '#fff', fontSize: '18px', fontWeight: 800,
+                      boxShadow: '0 4px 20px rgba(248,113,113,0.3)', transition: 'transform 0.1s',
                     }}
                   >
                     {clockLoading ? '...' : 'Clock\nOut'}
@@ -242,14 +247,14 @@ export default function EmployeePortal() {
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: '13px', color: '#888', marginBottom: '1rem' }}>You are not clocked in</div>
+                  <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '1rem' }}>You are not clocked in</div>
                   <button
                     onClick={clockIn}
                     disabled={clockLoading}
                     style={{
                       width: '140px', height: '140px', borderRadius: '50%', border: 'none', cursor: 'pointer',
-                      background: '#185fa5', color: '#fff', fontSize: '18px', fontWeight: 800,
-                      boxShadow: '0 4px 20px rgba(24,95,165,0.35)', transition: 'transform 0.1s',
+                      background: '#1d4ed8', color: '#fff', fontSize: '18px', fontWeight: 800,
+                      boxShadow: '0 4px 20px rgba(29,78,216,0.35)', transition: 'transform 0.1s',
                     }}
                   >
                     {clockLoading ? '...' : 'Clock\nIn'}
@@ -260,15 +265,15 @@ export default function EmployeePortal() {
 
             {/* Recent entries */}
             {entries.filter(e => e.clock_out).length > 0 && (
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>Recent shifts</div>
+              <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px', padding: '1.25rem' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>Recent shifts</div>
                 {entries.filter(e => e.clock_out).slice(0, 7).map(e => (
-                  <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
+                  <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 500 }}>{fmt(e.clock_in)}</div>
-                      <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>{fmtTime(e.clock_in)} – {fmtTime(e.clock_out!)}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{fmt(e.clock_in)}</div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{fmtTime(e.clock_in)} – {fmtTime(e.clock_out!)}</div>
                     </div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#185fa5' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#93c5fd' }}>
                       {e.total_minutes ? fmtMinutes(e.total_minutes) : '—'}
                     </div>
                   </div>
@@ -280,20 +285,20 @@ export default function EmployeePortal() {
 
         {/* PAY STUBS TAB */}
         {tab === 'pay' && (
-          <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>Pay history</div>
+          <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px', padding: '1.25rem' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>Pay history</div>
             {stubs.length === 0 ? (
-              <div style={{ fontSize: '13px', color: '#aaa', textAlign: 'center', padding: '2rem 0' }}>No pay records yet.</div>
+              <div style={{ fontSize: '13px', color: '#475569', textAlign: 'center', padding: '2rem 0' }}>No pay records yet.</div>
             ) : stubs.map(s => (
-              <div key={s.id} style={{ padding: '12px 0', borderBottom: '1px solid #f5f5f5' }}>
+              <div key={s.id} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600 }}>{fmt(s.period_start)} – {fmt(s.period_end)}</div>
-                    <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>{fmt(s.period_start)} – {fmt(s.period_end)}</div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
                       {s.pay_type === 'hourly' && s.hours_worked ? `${s.hours_worked}h × ${fmtMoney(s.gross_pay / s.hours_worked)}/hr` : s.pay_type}
                     </div>
                   </div>
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#111' }}>{fmtMoney(s.gross_pay)}</div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#e2e8f0' }}>{fmtMoney(s.gross_pay)}</div>
                 </div>
               </div>
             ))}
@@ -305,35 +310,35 @@ export default function EmployeePortal() {
           <>
             {/* PTO Balance */}
             {ptoBalance && ptoBalance.total > 0 && (
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.875rem' }}>PTO Balance — {new Date().getFullYear()}</div>
+              <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.875rem' }}>PTO Balance — {new Date().getFullYear()}</div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   {[
-                    { label: 'Total', value: ptoBalance.total, color: '#185fa5' },
-                    { label: 'Used', value: ptoBalance.used, color: '#888' },
-                    { label: 'Remaining', value: ptoBalance.remaining, color: '#27ae60' },
+                    { label: 'Total', value: ptoBalance.total, color: '#93c5fd' },
+                    { label: 'Used', value: ptoBalance.used, color: '#94a3b8' },
+                    { label: 'Remaining', value: ptoBalance.remaining, color: '#4ade80' },
                   ].map(item => (
-                    <div key={item.label} style={{ flex: 1, textAlign: 'center', background: '#f7f8fa', borderRadius: '10px', padding: '0.75rem 0.5rem' }}>
+                    <div key={item.label} style={{ flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '0.75rem 0.5rem' }}>
                       <div style={{ fontSize: '22px', fontWeight: 800, color: item.color }}>{item.value}</div>
-                      <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>{item.label}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{item.label}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ marginTop: '0.875rem', height: '6px', background: '#f0f2f5', borderRadius: '999px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${Math.min(100, (ptoBalance.used / ptoBalance.total) * 100)}%`, background: ptoBalance.remaining === 0 ? '#c0392b' : '#185fa5', borderRadius: '999px', transition: 'width 0.3s' }} />
+                <div style={{ marginTop: '0.875rem', height: '6px', background: '#334155', borderRadius: '999px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(100, (ptoBalance.used / ptoBalance.total) * 100)}%`, background: ptoBalance.remaining === 0 ? '#f87171' : '#3b82f6', borderRadius: '999px', transition: 'width 0.3s' }} />
                 </div>
               </div>
             )}
 
-            <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '1rem' }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '1rem' }}>Request time off</div>
+            <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1rem' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '1rem', color: '#e2e8f0' }}>Request time off</div>
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>From</label>
+                  <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '3px' }}>From</label>
                   <input type="date" value={toStart} onChange={e => setToStart(e.target.value)} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '3px' }}>To</label>
+                  <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '3px' }}>To</label>
                   <input type="date" value={toEnd} onChange={e => setToEnd(e.target.value)} />
                 </div>
               </div>
@@ -349,13 +354,13 @@ export default function EmployeePortal() {
             </div>
 
             {requests.length > 0 && (
-              <div style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>My requests</div>
+              <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '16px', padding: '1.25rem' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>My requests</div>
                 {requests.map(r => (
-                  <div key={r.id} style={{ padding: '10px 0', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={r.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 500 }}>{fmt(r.start_date)} – {fmt(r.end_date)}</div>
-                      <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>{r.type}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{fmt(r.start_date)} – {fmt(r.end_date)}</div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{r.type}</div>
                     </div>
                     <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', background: `${statusColor[r.status]}20`, color: statusColor[r.status], textTransform: 'capitalize' }}>
                       {r.status}

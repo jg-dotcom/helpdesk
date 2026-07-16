@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
+import { resolveTenantContext } from '../lib/tenant'
 import Nav from '../components/Nav'
 import { useToast } from '../components/Toast'
 import { MailIcon, PhoneIcon, TagIcon } from '../components/Icons'
@@ -96,11 +97,17 @@ export default function JobsPage() {
   async function load() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
-    setUserId(session.user.id)
+    // JAY-68 — resolve the real tenant (owner) id instead of session.user.id
+    // directly, same fix as time/page.tsx (JAY-50) — an invited admin/manager
+    // otherwise sees an empty Hiring pipeline, and the public careers link
+    // built from this id below would point at the wrong (empty) business.
+    const tenant = await resolveTenantContext(session.user.id, session.user.email)
+    if (!tenant) { router.push('/login'); return }
+    setUserId(tenant.tenantId)
     setToken(session.access_token)
     const [{ data: jobData }, { data: appData }] = await Promise.all([
-      supabase.from('job_postings').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
-      supabase.from('job_applications').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
+      supabase.from('job_postings').select('*').eq('user_id', tenant.tenantId).order('created_at', { ascending: false }),
+      supabase.from('job_applications').select('*').eq('user_id', tenant.tenantId).order('created_at', { ascending: false }),
     ])
     if (jobData) setJobs(jobData)
     if (appData) setApps(appData)

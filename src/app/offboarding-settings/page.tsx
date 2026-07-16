@@ -69,30 +69,39 @@ export default function OffboardingSettings() {
     setSaving(false)
   }
 
-  if (loading) return <div className="dash-content"><div className="loading-state">Loading...</div></div>
+  // JAY-74 — this page was still on the pre-redesign light template (the
+  // ticket flagged just the chip-button colors, but on inspection the whole
+  // page — nav bar, card background, all text colors — was light; fixing the
+  // full page rather than just the chip block it was filed against, since
+  // that's the actual scope of the drift). Matches the established dark
+  // palette (payroll/page.tsx reference): #0f172a page bg, #1e293b cards,
+  // rgba(255,255,255,0.07) borders, #e2e8f0/#94a3b8/#64748b text tiers.
+  const cardStyle: React.CSSProperties = { background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
+
+  if (loading) return <div className="dash-content" style={{ background: '#0f172a', minHeight: '100vh', color: '#94a3b8' }}><div className="loading-state">Loading...</div></div>
 
   return (
-    <div className="dash-wrap">
-      <div className="dash-nav">
+    <div className="dash-wrap" style={{ background: '#0f172a', minHeight: '100vh' }}>
+      <div className="dash-nav" style={{ background: '#1e293b', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="dash-nav-left">
-          <div className="logo">help<span>desk</span></div>
+          <div className="logo" style={{ color: '#e2e8f0' }}>help<span>desk</span></div>
         </div>
       </div>
 
       <div className="dash-content">
-        <a href="/" className="back-btn">← Back to dashboard</a>
-        <div className="screen-title">Offboarding template</div>
+        <a href="/" className="back-btn" style={{ color: '#94a3b8' }}>← Back to dashboard</a>
+        <div className="screen-title" style={{ color: '#e2e8f0' }}>Offboarding template</div>
 
-        <div className="card">
-          <div className="section-label">Checklist items</div>
-          <p style={{ fontSize: '13px', color: '#6b6b6b', marginBottom: '1rem' }}>
+        <div style={cardStyle}>
+          <div className="section-label" style={{ color: '#64748b' }}>Checklist items</div>
+          <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '1rem' }}>
             These steps appear every time you offboard someone. Edit, add, or remove to match your process.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.75rem' }}>
             {checklistItems.map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ color: '#bbb', fontSize: '13px', userSelect: 'none' }}>☰</span>
+                <span style={{ color: '#475569', fontSize: '13px', userSelect: 'none' }}>☰</span>
                 <input
                   value={item}
                   onChange={e => updateItem(i, e.target.value)}
@@ -100,7 +109,7 @@ export default function OffboardingSettings() {
                 />
                 <button
                   onClick={() => removeItem(i)}
-                  style={{ background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: '0 4px' }}
+                  style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: '0 4px' }}
                 >×</button>
               </div>
             ))}
@@ -114,11 +123,11 @@ export default function OffboardingSettings() {
               placeholder="Add a step..."
               style={{ flex: 1, fontSize: '13px' }}
             />
-            <button className="btn" onClick={addItem}>+ Add</button>
+            <button className="btn" style={{ background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.12)' }} onClick={addItem}>+ Add</button>
           </div>
 
-          <div className="section-label" style={{ marginTop: '0.5rem' }}>Notes template</div>
-          <p style={{ fontSize: '13px', color: '#6b6b6b', marginBottom: '0.75rem' }}>
+          <div className="section-label" style={{ marginTop: '0.5rem', color: '#64748b' }}>Notes template</div>
+          <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '0.75rem' }}>
             Pre-fills the notes field. Use <strong>{'{{employee_name}}'}</strong>, <strong>{'{{lastDay}}'}</strong>, <strong>{'{{reason}}'}</strong>, <strong>{'{{role}}'}</strong>.
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
@@ -133,12 +142,12 @@ export default function OffboardingSettings() {
                 onClick={() => setOffboardingTemplate(prev => prev + `{{${id}}}`)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-                  padding: '5px 10px', borderRadius: '6px', border: '1.5px solid #d0d5e8',
-                  background: '#f4f6fc', color: '#185fa5', fontSize: '12px', fontWeight: 600,
+                  padding: '5px 10px', borderRadius: '6px', border: '1.5px solid rgba(59,130,246,0.3)',
+                  background: 'rgba(59,130,246,0.15)', color: '#93c5fd', fontSize: '12px', fontWeight: 600,
                   cursor: 'pointer', transition: 'all 0.15s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#e8edf8')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#f4f6fc')}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.25)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
               >
                 <span style={{ fontSize: '10px', opacity: 0.6 }}>[ ]</span> {label}
               </button>
