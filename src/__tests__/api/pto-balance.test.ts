@@ -75,4 +75,19 @@ describe('GET /api/employee/pto-balance', () => {
     const body = await res.json()
     expect(body.balance.used).toBe(2.5)
   })
+
+  // JAY-59 — "Unpaid" requests shouldn't decrement the paid PTO balance.
+  // The mock doesn't simulate real DB filtering, so this asserts the route
+  // actually issues the `.neq('type', 'Unpaid')` filter on the query — the
+  // regression this ticket fixes was that no such filter existed at all.
+  it('excludes Unpaid-type requests from the approved-days query', async () => {
+    mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
+    const fromMock = queueFromResponses(supabaseAdmin, [
+      { data: [{ id: 1, name: 'Jane', pto_days_per_year: 10 }], error: null },
+      { data: [{ start_date: '2026-07-06', end_date: '2026-07-10' }], error: null },
+    ])
+    await GET(mockRequest({ token: 'good-token' }) as never)
+    const approvedQueryBuilder = fromMock.mock.results[1].value
+    expect(approvedQueryBuilder.neq).toHaveBeenCalledWith('type', 'Unpaid')
+  })
 })

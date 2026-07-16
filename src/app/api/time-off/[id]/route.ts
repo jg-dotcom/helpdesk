@@ -52,6 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     user_id: user.id,
     message: `${label} time-off request for ${emp?.name || 'employee'} (${req_.type}) ${req_.start_date} – ${req_.end_date}.`,
     read: false,
+    link: '/time', // JAY-60
   }])
 
   return NextResponse.json({ success: true })

@@ -34,15 +34,20 @@ export default async function CareersPage({ params }: { params: Promise<{ userId
     getOpenJobs(userId),
   ])
 
+  // JAY-61 — this is the one applicant-facing surface that never got the
+  // dark-theme redesign the rest of the app went through (Settings in
+  // JAY-55, Dashboard/Payroll/Reports in JAY-56). Same palette used
+  // everywhere else: #1e293b cards, rgba(255,255,255,0.07) borders, #e2e8f0
+  // primary text, #64748b muted text.
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6fa', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#0f172a', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       <div style={{ maxWidth: '700px', margin: '0 auto', padding: '2rem 1rem' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <div style={{ fontSize: '28px', fontWeight: 700, color: '#151823', marginBottom: '0.5rem' }}>
+          <div style={{ fontSize: '28px', fontWeight: 700, color: '#f1f5f9', marginBottom: '0.5rem' }}>
             {businessName ? `${businessName} — Open roles` : 'Open roles'}
           </div>
-          <div style={{ color: '#666', fontSize: '15px' }}>
+          <div style={{ color: '#94a3b8', fontSize: '15px' }}>
             {jobs.length === 0
               ? 'No open positions at this time. Check back soon!'
               : `${jobs.length} open position${jobs.length === 1 ? '' : 's'}`}
@@ -52,11 +57,11 @@ export default async function CareersPage({ params }: { params: Promise<{ userId
         {/* Job cards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {jobs.map(job => (
-            <div key={job.id} id={`job-${job.id}`} style={{ background: '#fff', border: '1px solid #dde1ea', borderRadius: '10px', padding: '1.25rem 1.5rem' }}>
-              <div style={{ fontSize: '17px', fontWeight: 700, color: '#151823', marginBottom: '0.35rem' }}>
+            <div key={job.id} id={`job-${job.id}`} style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '1.25rem 1.5rem' }}>
+              <div style={{ fontSize: '17px', fontWeight: 700, color: '#f1f5f9', marginBottom: '0.35rem' }}>
                 {job.title}
               </div>
-              <div style={{ fontSize: '13px', color: '#888', marginBottom: '0.75rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '0.75rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                 {job.employment_type && <span>{job.employment_type}</span>}
                 {job.location && <span>{job.location}</span>}
                 {(job.pay_min || job.pay_max) && (
@@ -64,14 +69,14 @@ export default async function CareersPage({ params }: { params: Promise<{ userId
                 )}
               </div>
               {job.description && (
-                <div style={{ fontSize: '14px', color: '#333', lineHeight: '1.6', marginBottom: job.requirements ? '0.75rem' : 0, whiteSpace: 'pre-wrap' }}>
+                <div style={{ fontSize: '14px', color: '#cbd5e1', lineHeight: '1.6', marginBottom: job.requirements ? '0.75rem' : 0, whiteSpace: 'pre-wrap' }}>
                   {job.description}
                 </div>
               )}
               {job.requirements && (
                 <div style={{ marginTop: '0.75rem' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>Requirements</div>
-                  <div style={{ fontSize: '14px', color: '#333', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>Requirements</div>
+                  <div style={{ fontSize: '14px', color: '#cbd5e1', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
                     {job.requirements}
                   </div>
                 </div>
@@ -82,7 +87,7 @@ export default async function CareersPage({ params }: { params: Promise<{ userId
         </div>
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', marginTop: '2.5rem', fontSize: '12px', color: '#aaa' }}>
+        <div style={{ textAlign: 'center', marginTop: '2.5rem', fontSize: '12px', color: '#475569' }}>
           Powered by Helpdesk
         </div>
       </div>

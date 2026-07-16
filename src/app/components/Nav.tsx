@@ -10,7 +10,7 @@ type Props = {
   viewerPerms?: Record<string, boolean> | null
 }
 
-type Notification = { id: number; message: string; created_at: string; read: boolean }
+type Notification = { id: number; message: string; created_at: string; read: boolean; link?: string | null }
 
 type PaletteData = {
   ptos:      Array<{ id: number; employeeName: string; start_date: string; end_date: string; type: string; reason: string | null }>
@@ -259,6 +259,15 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
   }
 
+  // JAY-60 — clicking a notification now marks just that one read instead of
+  // only being reachable via "mark all read". Fire-and-forget: the dropdown
+  // closes and navigation happens immediately, no need to block on the write.
+  function markOneRead(id: number) {
+    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)))
+    supabase.from('notifications').update({ read: true }).eq('id', id).then(() => {})
+    setShowNotifs(false)
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
     window.location.href = '/login'
@@ -452,10 +461,22 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
         {notifications.length === 0 ? (
           <div className="notif-empty">No notifications yet.</div>
         ) : notifications.map(n => (
-          <div key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
-            <div className="notif-msg">{n.message}</div>
-            <div className="notif-time">{timeAgo(n.created_at)}</div>
-          </div>
+          // JAY-60 — every notification is now a real link when the insert
+          // site provided one, matching the Linear/Slack pattern of clicking
+          // through to the thing referenced instead of a dead-end text row.
+          // Older rows (or insert sites not yet updated) have no `link`, so
+          // they fall back to the old plain, non-navigating row.
+          n.link ? (
+            <a key={n.id} href={n.link} className={`notif-item${n.read ? '' : ' unread'}`} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }} onClick={() => markOneRead(n.id)}>
+              <div className="notif-msg">{n.message}</div>
+              <div className="notif-time">{timeAgo(n.created_at)}</div>
+            </a>
+          ) : (
+            <div key={n.id} className={`notif-item${n.read ? '' : ' unread'}`} style={{ cursor: n.read ? 'default' : 'pointer' }} onClick={() => !n.read && markOneRead(n.id)}>
+              <div className="notif-msg">{n.message}</div>
+              <div className="notif-time">{timeAgo(n.created_at)}</div>
+            </div>
+          )
         ))}
       </div>
     )}

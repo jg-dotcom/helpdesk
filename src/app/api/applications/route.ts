@@ -3,6 +3,8 @@ import { Resend } from 'resend'
 import { supabaseAdmin } from '../../lib/supabaseAdmin'
 import { getBearerUser } from '../../lib/apiAuth'
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 // Public: submit an application
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -10,6 +12,27 @@ export async function POST(req: NextRequest) {
 
   if (!job_posting_id || !owner_id || !name || !email) {
     return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
+  }
+
+  if (!EMAIL_RE.test(email)) {
+    return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 })
+  }
+
+  // JAY-58 — job_posting_id/owner_id previously went straight from the
+  // client-supplied body into the insert with no cross-check, so anyone who
+  // could read a business's owner_id (trivially visible in every careers
+  // URL/share link) could pair it with any job_posting_id — including one
+  // belonging to a different business, or a job the owner has since closed.
+  // Re-verify ownership and open status server-side, the same way the
+  // careers page's own render query already does.
+  const { data: posting } = await supabaseAdmin
+    .from('job_postings')
+    .select('id, user_id, status')
+    .eq('id', job_posting_id)
+    .single()
+
+  if (!posting || posting.user_id !== owner_id || posting.status !== 'open') {
+    return NextResponse.json({ error: 'This job posting is no longer accepting applications.' }, { status: 400 })
   }
 
   const { data: inserted, error } = await supabaseAdmin.from('job_applications').insert({
@@ -30,10 +53,12 @@ export async function POST(req: NextRequest) {
   const jobTitle = job?.title ?? 'a role'
   const businessName = profile?.business_name || 'the team'
 
-  // Notify owner
+  // Notify owner — JAY-60: link routes the owner straight to Hiring instead
+  // of leaving the notification as dead-end text.
   await supabaseAdmin.from('notifications').insert({
     user_id: owner_id,
     message: `New application from ${name} for ${jobTitle}.`,
+    link: '/hiring',
   })
 
   // Confirmation email to candidate — day-zero acknowledgment, no next-step promise.

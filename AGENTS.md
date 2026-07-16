@@ -4,6 +4,15 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# ⚠ Two "helpdesk" folders exist on this machine — use the right one
+
+There are two separate local clones of this repo:
+
+- **`~/Documents/01_Dev/helpdesk`** — this one. Kept in sync with `origin/main`, this is where all real work happens (agent edits and the user's own `git` commands should both happen here).
+- **`~/helpdesk`** — a stale, diverged clone. As of 2026-07-15 it was dozens of commits behind `origin/main` (last commit `203f230`) and had unrelated uncommitted junk sitting in it (`SYNC_TEST.txt`, old-format migration filenames, a stray leftover route/test). **Do not run `git commit`/`git push` from this directory** — a push from a branch that's missing commits `origin/main` already has will either get rejected outright, or if force-pushed, could overwrite real work already live on GitHub/Vercel.
+
+If a deployment seems to be "missing" changes that were supposedly committed, the first thing to check is whether the commit actually landed in `01_Dev/helpdesk` (`cd ~/Documents/01_Dev/helpdesk && git log -1` should show the expected commit) rather than in the stale `~/helpdesk` clone. This exact mix-up happened once already (JAY-58–62 batch, 2026-07-15): the user ran the commit in `~/helpdesk`, the push was silently rejected as non-fast-forward, and Vercel had nothing new to deploy even though the user believed the push succeeded.
+
 # Testing protocol
 
 See `TESTING.md` for the full protocol (unit vs. integration conventions, mocking patterns, coverage status).

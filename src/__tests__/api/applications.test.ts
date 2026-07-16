@@ -21,8 +21,45 @@ describe('POST /api/applications (public)', () => {
     expect(res.status).toBe(400)
   })
 
+  it('returns 400 for a malformed email', async () => {
+    const res = await POST(mockRequest({
+      body: { job_posting_id: 1, owner_id: 'owner-1', name: 'Jane', email: 'not-an-email' },
+    }) as never)
+    expect(res.status).toBe(400)
+  })
+
+  // JAY-58 — job_posting_id/owner_id are client-supplied on this public
+  // endpoint; the route now re-verifies the posting belongs to owner_id and
+  // is still open before inserting, closing a cross-tenant spam vector.
+  it('returns 400 when the job posting does not exist', async () => {
+    queueFromResponses(supabaseAdmin, [{ data: null, error: null }]) // posting lookup
+    const res = await POST(mockRequest({
+      body: { job_posting_id: 999, owner_id: 'owner-1', name: 'Jane', email: 'jane@example.com' },
+    }) as never)
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when the job posting belongs to a different owner', async () => {
+    queueFromResponses(supabaseAdmin, [{ data: { id: 1, user_id: 'owner-2', status: 'open' }, error: null }])
+    const res = await POST(mockRequest({
+      body: { job_posting_id: 1, owner_id: 'owner-1', name: 'Jane', email: 'jane@example.com' },
+    }) as never)
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when the job posting is no longer open', async () => {
+    queueFromResponses(supabaseAdmin, [{ data: { id: 1, user_id: 'owner-1', status: 'closed' }, error: null }])
+    const res = await POST(mockRequest({
+      body: { job_posting_id: 1, owner_id: 'owner-1', name: 'Jane', email: 'jane@example.com' },
+    }) as never)
+    expect(res.status).toBe(400)
+  })
+
   it('returns 500 when the insert fails', async () => {
-    queueFromResponses(supabaseAdmin, [{ data: null, error: { message: 'insert failed' } }])
+    queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'owner-1', status: 'open' }, error: null }, // posting lookup
+      { data: null, error: { message: 'insert failed' } },
+    ])
     const res = await POST(mockRequest({
       body: { job_posting_id: 1, owner_id: 'owner-1', name: 'Jane', email: 'jane@example.com' },
     }) as never)
@@ -31,6 +68,7 @@ describe('POST /api/applications (public)', () => {
 
   it('creates the application, notifies the owner, and confirms receipt by email with a status link', async () => {
     queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'owner-1', status: 'open' }, error: null }, // posting lookup
       { data: { id: 42 }, error: null }, // insert application
       { data: { title: 'Cashier' }, error: null }, // job posting title lookup
       { data: { business_name: 'Joe\'s Diner' }, error: null }, // business profile lookup
@@ -51,6 +89,7 @@ describe('POST /api/applications (public)', () => {
   it('still succeeds if the confirmation email fails to send', async () => {
     sendMock.mockRejectedValueOnce(new Error('resend down'))
     queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'owner-1', status: 'open' }, error: null },
       { data: null, error: null },
       { data: { title: 'Cashier' }, error: null },
       { data: { business_name: 'Joe\'s Diner' }, error: null },

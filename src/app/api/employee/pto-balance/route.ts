@@ -21,12 +21,18 @@ export async function GET(req: NextRequest) {
   const startOfYear = `${year}-01-01`
   const endOfYear = `${year}-12-31`
 
-  // Count approved time-off days this year
+  // Count approved time-off days this year.
+  // JAY-59 — "Unpaid" is a distinct request type from PTO/Sick/Personal (see
+  // the portal's request form); it shouldn't decrement a paid PTO balance.
+  // This previously summed every approved request regardless of type, so an
+  // employee approved for unpaid leave saw their real PTO balance drop by
+  // the same amount — the opposite of what "Unpaid" is supposed to mean.
   const { data: approved } = await supabaseAdmin
     .from('time_off_requests')
-    .select('start_date, end_date, portion')
+    .select('start_date, end_date, portion, type')
     .eq('employee_id', emp.id)
     .eq('status', 'approved')
+    .neq('type', 'Unpaid')
     .gte('start_date', startOfYear)
     .lte('start_date', endOfYear)
 

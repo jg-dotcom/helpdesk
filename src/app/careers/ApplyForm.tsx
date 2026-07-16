@@ -33,12 +33,13 @@ export default function ApplyForm({ jobId, jobTitle, ownerId }: Props) {
     setLoading(false)
   }
 
+  // JAY-61 — dark-theme pass to match careers/[userId]/page.tsx.
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
         style={{
-          marginTop: '1rem', padding: '10px 20px', background: '#185fa5', color: '#fff',
+          marginTop: '1rem', padding: '10px 20px', background: '#1d4ed8', color: '#fff',
           border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
         }}
       >
@@ -48,14 +49,14 @@ export default function ApplyForm({ jobId, jobTitle, ownerId }: Props) {
   }
 
   return (
-    <div style={{ marginTop: '1.25rem', borderTop: '1px solid #eee', paddingTop: '1.25rem' }}>
+    <div style={{ marginTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.25rem' }}>
       {done ? (
-        <div style={{ fontSize: '14px', color: '#27ae60', fontWeight: 600 }}>
+        <div style={{ fontSize: '14px', color: '#4ade80', fontWeight: 600 }}>
           ✓ Application submitted! We'll be in touch.
         </div>
       ) : (
         <>
-          <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '1rem' }}>Apply — {jobTitle}</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '1rem', color: '#f1f5f9' }}>Apply — {jobTitle}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <div>
               <label style={lbl}>Full name *</label>
@@ -88,15 +89,15 @@ export default function ApplyForm({ jobId, jobTitle, ownerId }: Props) {
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button onClick={handleSubmit} disabled={loading} style={{
-                padding: '10px 20px', background: '#185fa5', color: '#fff',
+                padding: '10px 20px', background: '#1d4ed8', color: '#fff',
                 border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
                 opacity: loading ? 0.6 : 1,
               }}>
                 {loading ? 'Submitting...' : 'Submit application'}
               </button>
               <button onClick={() => setOpen(false)} style={{
-                padding: '10px 16px', background: 'transparent', color: '#666',
-                border: '1px solid #dde1ea', borderRadius: '8px', fontSize: '14px', cursor: 'pointer',
+                padding: '10px 16px', background: 'rgba(255,255,255,0.05)', color: '#94a3b8',
+                border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', fontSize: '14px', cursor: 'pointer',
               }}>
                 Cancel
               </button>
@@ -108,5 +109,5 @@ export default function ApplyForm({ jobId, jobTitle, ownerId }: Props) {
   )
 }
 
-const lbl: React.CSSProperties = { fontSize: '12px', color: '#888', display: 'block', marginBottom: '4px', fontWeight: 500 }
-const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', fontSize: '14px', border: '1px solid #dde1ea', borderRadius: '7px', outline: 'none', boxSizing: 'border-box' }
+const lbl: React.CSSProperties = { fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '4px', fontWeight: 500 }
+const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', fontSize: '14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', outline: 'none', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', color: '#e2e8f0' }

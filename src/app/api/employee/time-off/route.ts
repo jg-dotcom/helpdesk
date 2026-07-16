@@ -64,11 +64,13 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Notify owner
+  // Notify owner — JAY-60: link routes straight to the Time page where
+  // pending requests are approved/denied.
   await supabaseAdmin.from('notifications').insert([{
     user_id: employee.user_id,
     message: `${employee.name} requested time off (${type}) from ${startDate} to ${endDate}.`,
     read: false,
+    link: '/time',
   }])
 
   return NextResponse.json({ success: true })
