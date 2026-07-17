@@ -46,3 +46,10 @@ mobile/.expo
 mobile/dist
 mobile/expo-env.d.ts
 mobile/*.env*
+
+# autopilot pipeline runtime logs/scratch — untracked on purpose, but were
+# false-flagging the pipeline's own "clean working tree" confidence check
+scripts/autopilot.log
+scripts/autopilot-launchd.log
+scripts/autopilot-launchd-error.log
+.tsc_before.txt
