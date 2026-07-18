@@ -467,11 +467,11 @@ export default function PayrollPage() {
     }
   })
 
-  const cardStyle: React.CSSProperties = { background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
+  const cardStyle: React.CSSProperties = { background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
   const ghostBtn: React.CSSProperties = { fontSize: '12px', padding: '5px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit' }
-  const primaryBtn: React.CSSProperties = { fontSize: '13px', padding: '7px 14px', borderRadius: '8px', border: 'none', background: '#1d4ed8', color: '#fff', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
-  const sectionLabel: React.CSSProperties = { fontSize: '10px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }
-  const emptyState: React.CSSProperties = { textAlign: 'center', padding: '2rem', color: '#475569', fontSize: '13px' }
+  const primaryBtn: React.CSSProperties = { fontSize: '13px', padding: '7px 14px', borderRadius: '8px', border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
+  const sectionLabel: React.CSSProperties = { fontSize: '10px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }
+  const emptyState: React.CSSProperties = { textAlign: 'center', padding: '2rem', color: 'var(--text-tertiary)', fontSize: '13px' }
 
   return (
     <div className="dash-wrap">
@@ -520,22 +520,22 @@ export default function PayrollPage() {
             <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.75rem' }}>Needs attention</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {missingPayRate.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
-                  <span style={{ color: '#fbbf24' }}>●</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)' }}>
+                  <span style={{ color: 'var(--amber)' }}>●</span>
                   {missingPayRate.length} employee{missingPayRate.length !== 1 ? 's' : ''} {missingPayRate.length !== 1 ? 'have' : 'has'} no pay rate set
                   <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('overview')}>Review</button>
                 </div>
               )}
               {notYetPaidThisPeriod.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
-                  <span style={{ color: '#fbbf24' }}>●</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)' }}>
+                  <span style={{ color: 'var(--amber)' }}>●</span>
                   {notYetPaidThisPeriod.length} employee{notYetPaidThisPeriod.length !== 1 ? 's' : ''} not yet paid for the current period
                   <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('overview')}>Review</button>
                 </div>
               )}
               {draftRuns.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
-                  <span style={{ color: '#fbbf24' }}>●</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)' }}>
+                  <span style={{ color: 'var(--amber)' }}>●</span>
                   {draftRuns.length} pay run{draftRuns.length !== 1 ? 's' : ''} still in draft, not finalized
                   <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('runs')}>Review</button>
                 </div>
@@ -547,29 +547,29 @@ export default function PayrollPage() {
                     {openTimeEntriesByEmployee.length > 0 && ` (${openTimeEntriesByEmployee.length} employee${openTimeEntriesByEmployee.length !== 1 ? 's' : ''}, ${openTimeEntries.length} open clock-in${openTimeEntries.length !== 1 ? 's' : ''})`}
                   </div>
                   {hoursAnomalies.map(a => (
-                    <div key={`hours-${a.employeeId}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
-                      <span style={{ color: '#fbbf24' }}>●</span>
+                    <div key={`hours-${a.employeeId}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)' }}>
+                      <span style={{ color: 'var(--amber)' }}>●</span>
                       {a.employeeName} — {a.hoursThisPeriod} hrs this period (avg: {a.avgHours})
                       <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('overview')}>Review time entries</button>
                     </div>
                   ))}
                   {clockOverlaps.map(o => (
-                    <div key={`overlap-${o.employeeId}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
-                      <span style={{ color: '#fbbf24' }}>●</span>
+                    <div key={`overlap-${o.employeeId}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)' }}>
+                      <span style={{ color: 'var(--amber)' }}>●</span>
                       Overlapping clock-in/out for {o.employeeName} ({o.count} instance{o.count !== 1 ? 's' : ''})
                       <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('overview')}>Review time entries</button>
                     </div>
                   ))}
                   {openTimeEntriesByEmployee.map(o => (
-                    <div key={`open-${o.employeeId}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
-                      <span style={{ color: '#fbbf24' }}>●</span>
+                    <div key={`open-${o.employeeId}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)' }}>
+                      <span style={{ color: 'var(--amber)' }}>●</span>
                       {o.employeeName} — {o.count} shift{o.count !== 1 ? 's' : ''} open, oldest {new Date(o.oldestClockIn).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
                       <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('overview')}>Review time entries</button>
                     </div>
                   ))}
                   {paidTimeOff.requestCount > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
-                      <span style={{ color: '#4ade80' }}>●</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)' }}>
+                      <span style={{ color: 'var(--success)' }}>●</span>
                       {paidTimeOff.requestCount} approved paid time-off request{paidTimeOff.requestCount !== 1 ? 's' : ''} will add {paidTimeOff.totalHours.toFixed(1)} hrs to this period's pay (PTO/Sick/Personal — Unpaid excluded)
                     </div>
                   )}
@@ -632,7 +632,7 @@ export default function PayrollPage() {
               </div>
             )}
             {selectedEmp?.pay_rate && (selectedEmp.pay_type === 'salary' || hours) ? (
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#93c5fd', marginBottom: '0.75rem' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent)', marginBottom: '0.75rem' }}>
                 Gross pay: {formatMoney(calcGrossPay())}
               </div>
             ) : null}
@@ -651,7 +651,7 @@ export default function PayrollPage() {
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           {([['dashboard', 'Dashboard'], ['overview', 'By employee'], ['history', 'Full history'], ['runs', 'Pay runs']] as [typeof activeTab, string][]).map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)} style={{ padding: '8px 18px', fontWeight: activeTab === key ? 600 : 400, fontSize: '13px', color: activeTab === key ? '#93c5fd' : 'var(--text-tertiary)', background: 'none', border: 'none', borderBottom: activeTab === key ? '2px solid #3b82f6' : '2px solid transparent', marginBottom: '-1px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button key={key} onClick={() => setActiveTab(key)} style={{ padding: '8px 18px', fontWeight: activeTab === key ? 600 : 400, fontSize: '13px', color: activeTab === key ? 'var(--accent)' : 'var(--text-tertiary)', background: 'none', border: 'none', borderBottom: activeTab === key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: '-1px', cursor: 'pointer', fontFamily: 'inherit' }}>
               {label}
             </button>
           ))}
@@ -747,18 +747,18 @@ export default function PayrollPage() {
                           const isCurrentMonth = key === `${thisYear}-${String(thisMonth + 1).padStart(2, '0')}`
                           return (
                             <div key={key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', height: '140px', justifyContent: 'flex-end' }}>
-                              <div style={{ fontSize: '10px', color: '#93c5fd', fontWeight: 600, opacity: pct > 0.5 ? 1 : 0 }}>
+                              <div style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 600, opacity: pct > 0.5 ? 1 : 0 }}>
                                 {formatMoney(val).replace('$', '$').split('.')[0]}
                               </div>
                               <div
                                 title={`${labelMonth(key)}: ${formatMoney(val)}`}
                                 style={{
                                   width: '100%', height: `${barH}px`, borderRadius: '4px 4px 0 0',
-                                  background: isCurrentMonth ? '#3b82f6' : 'rgba(59,130,246,0.25)',
+                                  background: isCurrentMonth ? 'var(--accent)' : 'rgba(59,130,246,0.25)',
                                   transition: 'height 0.3s',
                                 }}
                               />
-                              <div style={{ fontSize: '9px', color: '#475569', textAlign: 'center', position: 'absolute', bottom: 0, width: `${100 / sortedMonths.length}%`, left: `${(i / sortedMonths.length) * 100}%` }}>
+                              <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', textAlign: 'center', position: 'absolute', bottom: 0, width: `${100 / sortedMonths.length}%`, left: `${(i / sortedMonths.length) * 100}%` }}>
                                 {labelMonth(key)}
                               </div>
                             </div>
@@ -777,11 +777,11 @@ export default function PayrollPage() {
                           {sortedEmps.map(({ emp, total }) => (
                             <div key={emp!.id}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
-                                <span style={{ fontWeight: 500, color: '#e2e8f0' }}>{emp!.name}</span>
-                                <span style={{ color: '#93c5fd', fontWeight: 600 }}>{formatMoney(total)}</span>
+                                <span style={{ fontWeight: 500, color: 'var(--text)' }}>{emp!.name}</span>
+                                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{formatMoney(total)}</span>
                               </div>
                               <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px' }}>
-                                <div style={{ height: '100%', width: `${(total / maxEmpVal) * 100}%`, background: '#3b82f6', borderRadius: '3px' }} />
+                                <div style={{ height: '100%', width: `${(total / maxEmpVal) * 100}%`, background: 'var(--accent)', borderRadius: '3px' }} />
                               </div>
                             </div>
                           ))}
@@ -798,16 +798,16 @@ export default function PayrollPage() {
                         <>
                           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
                             <div style={{ flex: 1, textAlign: 'center', background: 'rgba(29,78,216,0.12)', borderRadius: '8px', padding: '12px' }}>
-                              <div style={{ fontSize: '24px', fontWeight: 700, color: '#93c5fd' }}>{hourlyCount}</div>
+                              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--accent)' }}>{hourlyCount}</div>
                               <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Hourly</div>
                             </div>
                             <div style={{ flex: 1, textAlign: 'center', background: 'rgba(34,197,94,0.1)', borderRadius: '8px', padding: '12px' }}>
-                              <div style={{ fontSize: '24px', fontWeight: 700, color: '#4ade80' }}>{salaryCount}</div>
+                              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--success)' }}>{salaryCount}</div>
                               <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Salary</div>
                             </div>
                           </div>
                           <div style={{ height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${(hourlyCount / totalEmps) * 100}%`, background: '#3b82f6', borderRadius: '4px' }} />
+                            <div style={{ height: '100%', width: `${(hourlyCount / totalEmps) * 100}%`, background: 'var(--accent)', borderRadius: '4px' }} />
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
                             <span>{Math.round((hourlyCount / totalEmps) * 100)}% hourly</span>
@@ -837,7 +837,7 @@ export default function PayrollPage() {
                         {emp.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{emp.name}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)' }}>{emp.name}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
                           {emp.pay_type === 'salary'
                             ? `${formatMoney(emp.pay_rate ?? 0)}/yr`
@@ -850,7 +850,7 @@ export default function PayrollPage() {
                         </div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 600, color: '#93c5fd' }}>{formatMoney(total)}</div>
+                        <div style={{ fontWeight: 600, color: 'var(--accent)' }}>{formatMoney(total)}</div>
                         <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>total paid</div>
                       </div>
                     </div>
@@ -869,11 +869,11 @@ export default function PayrollPage() {
                   scoped to hand-picked employees, exempt from the JAY-48
                   duplicate-period guard. */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
                   <input type="radio" name="run-type" checked={runType === 'regular'} onChange={() => setRunType('regular')} style={{ width: '16px', height: '16px', flexShrink: 0 }} />
                   Regular run — all active employees
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
                   <input type="radio" name="run-type" checked={runType === 'off_cycle'} onChange={() => setRunType('off_cycle')} style={{ width: '16px', height: '16px', flexShrink: 0 }} />
                   Off-cycle run — bonus, correction, or one-off payment
                 </label>
@@ -904,7 +904,7 @@ export default function PayrollPage() {
                     <label>Employees</label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px' }}>
                       {employees.filter(e => e.status === 'active').map(emp => (
-                        <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                        <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
                           <input
                             type="checkbox"
                             checked={offCycleEmployeeIds.includes(emp.id)}
@@ -954,7 +954,7 @@ export default function PayrollPage() {
                           <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {formatDate(run.period_start)} – {formatDate(run.period_end)}
                             {run.run_type === 'off_cycle' && (
-                              <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', background: 'rgba(147,51,234,0.16)', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                              <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', background: 'rgba(147,51,234,0.16)', color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                                 Off-cycle{run.reason ? ` · ${run.reason}` : ''}
                               </span>
                             )}
@@ -964,11 +964,11 @@ export default function PayrollPage() {
                             {run.notes ? ` · ${run.notes}` : ''}
                           </div>
                         </div>
-                        <div style={{ fontWeight: 700, color: '#93c5fd', fontSize: '15px' }}>{formatMoney(run.total_gross)}</div>
+                        <div style={{ fontWeight: 700, color: 'var(--accent)', fontSize: '15px' }}>{formatMoney(run.total_gross)}</div>
                         <span style={{
                           fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '12px',
                           background: run.status === 'finalized' ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.16)',
-                          color: run.status === 'finalized' ? '#4ade80' : '#fbbf24',
+                          color: run.status === 'finalized' ? 'var(--success)' : 'var(--amber)',
                         }}>
                           {run.status === 'finalized' ? 'Finalized' : 'Draft'}
                         </span>
@@ -993,7 +993,7 @@ export default function PayrollPage() {
                                       <th style={{ textAlign: 'right', padding: '8px 10px', fontWeight: 600, color: 'var(--text-tertiary)' }}>Federal</th>
                                       <th style={{ textAlign: 'right', padding: '8px 10px', fontWeight: 600, color: 'var(--text-tertiary)' }}>State</th>
                                       <th style={{ textAlign: 'right', padding: '8px 10px', fontWeight: 600, color: 'var(--text-tertiary)' }}>Other</th>
-                                      <th style={{ textAlign: 'right', padding: '8px 10px', fontWeight: 600, color: '#93c5fd' }}>Net pay</th>
+                                      <th style={{ textAlign: 'right', padding: '8px 10px', fontWeight: 600, color: 'var(--accent)' }}>Net pay</th>
                                       {run.status === 'draft' && <th style={{ padding: '8px 10px' }}></th>}
                                     </tr>
                                   </thead>
@@ -1011,13 +1011,13 @@ export default function PayrollPage() {
                                       return (
                                         <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                                           <td style={{ padding: '8px 10px' }}>
-                                            <div style={{ fontWeight: 500, color: '#e2e8f0' }}>{item.employee_name}</div>
+                                            <div style={{ fontWeight: 500, color: 'var(--text)' }}>{item.employee_name}</div>
                                             <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
                                               {item.pay_type === 'salary' ? 'Salary' : `${item.hours_worked ?? 0} hrs`}
-                                              {item.notes && <span style={{ color: '#4ade80', marginLeft: '6px' }}>{item.notes}</span>}
+                                              {item.notes && <span style={{ color: 'var(--success)', marginLeft: '6px' }}>{item.notes}</span>}
                                             </div>
                                           </td>
-                                          <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 500, color: '#e2e8f0' }}>{formatMoney(item.gross_pay)}</td>
+                                          <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 500, color: 'var(--text)' }}>{formatMoney(item.gross_pay)}</td>
                                           {run.status === 'draft' ? (
                                             <>
                                               {(['federal', 'state', 'other'] as const).map(key => (
@@ -1028,7 +1028,7 @@ export default function PayrollPage() {
                                                   />
                                                 </td>
                                               ))}
-                                              <td style={{ padding: '8px 10px', textAlign: 'right', color: '#93c5fd', fontWeight: 600 }}>
+                                              <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--accent)', fontWeight: 600 }}>
                                                 {formatMoney(previewNet)}
                                               </td>
                                               <td style={{ padding: '4px 8px', textAlign: 'right' }}>
@@ -1047,7 +1047,7 @@ export default function PayrollPage() {
                                               <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-secondary)' }}>{formatMoney(item.deductions?.federal ?? 0)}</td>
                                               <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-secondary)' }}>{formatMoney(item.deductions?.state ?? 0)}</td>
                                               <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-secondary)' }}>{formatMoney(item.deductions?.other ?? 0)}</td>
-                                              <td style={{ padding: '8px 10px', textAlign: 'right', color: '#93c5fd', fontWeight: 600 }}>{formatMoney(item.net_pay)}</td>
+                                              <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--accent)', fontWeight: 600 }}>{formatMoney(item.net_pay)}</td>
                                             </>
                                           )}
                                         </tr>
@@ -1096,16 +1096,16 @@ export default function PayrollPage() {
                   const emp = employees.find(e => e.id === entry.employee_id)
                   return (
                     <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px' }}>
-                      <div style={{ width: 32, textAlign: 'center', flexShrink: 0 }}><DollarIcon size={16} color="#93c5fd" /></div>
+                      <div style={{ width: 32, textAlign: 'center', flexShrink: 0 }}><DollarIcon size={16} color="var(--accent)" /></div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{emp?.name ?? 'Unknown'}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)' }}>{emp?.name ?? 'Unknown'}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
                           {formatDate(entry.period_start)} – {formatDate(entry.period_end)}
                           {entry.hours_worked != null ? ` · ${entry.hours_worked} hrs` : ''}
                           {entry.notes ? ` · ${entry.notes}` : ''}
                         </div>
                       </div>
-                      <span style={{ fontWeight: 600, color: '#93c5fd', fontSize: '14px' }}>{formatMoney(entry.gross_pay)}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: '14px' }}>{formatMoney(entry.gross_pay)}</span>
                     </div>
                   )
                 })}

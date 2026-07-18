@@ -470,10 +470,10 @@ export default function PortalPage() {
   const weeklyMins = weekEntries.reduce((s, e) => s + (e.total_minutes ?? 0), 0)
   const weeklyHrs = Math.floor(weeklyMins / 60)
   const weeklyMinsRem = weeklyMins % 60
-  const statusColor = { approved: '#4ade80', denied: '#f87171', pending: '#fbbf24' }
+  const statusColor = { approved: 'var(--success)', denied: 'var(--error)', pending: 'var(--amber)' }
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', background: '#0f172a' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', background: 'var(--bg)' }}>
       <div style={{ color: 'var(--text-tertiary)', fontSize: '14px' }}>Loading...</div>
     </div>
   )
@@ -481,11 +481,11 @@ export default function PortalPage() {
   const initials = employee?.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f172a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
 
       {/* Header */}
-      <div style={{ background: '#1e293b', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 2rem', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.5px', color: '#e2e8f0' }}>help<span style={{ color: '#3b82f6' }}>desk</span></div>
+      <div style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 2rem', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>help<span style={{ color: 'var(--accent)' }}>desk</span></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
 
           {/* Tab nav */}
@@ -502,15 +502,15 @@ export default function PortalPage() {
                 style={{
                   padding: '5px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 500,
                   border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                  background: activeTab === tab ? '#334155' : 'transparent',
-                  color: activeTab === tab ? '#e2e8f0' : 'var(--text-tertiary)',
+                  background: activeTab === tab ? 'var(--border)' : 'transparent',
+                  color: activeTab === tab ? 'var(--text)' : 'var(--text-tertiary)',
                   transition: 'all 0.15s',
                   position: 'relative',
                 }}
               >
                 {tab === 'home' ? 'Home' : tab === 'pay' ? 'Pay' : 'Messages'}
                 {tab === 'messages' && unreadMessages > 0 && (
-                  <span style={{ position: 'absolute', top: '1px', right: '1px', width: 8, height: 8, borderRadius: '50%', background: '#3b82f6' }} />
+                  <span style={{ position: 'absolute', top: '1px', right: '1px', width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)' }} />
                 )}
               </button>
             ))}
@@ -523,19 +523,19 @@ export default function PortalPage() {
               style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px', display: 'flex', alignItems: 'center' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              {(onboardingToken || notifications.some(n => !n.read)) && <span style={{ position: 'absolute', top: 2, right: 2, width: 8, height: 8, borderRadius: '50%', background: '#f87171', border: '1.5px solid #1e293b' }} />}
+              {(onboardingToken || notifications.some(n => !n.read)) && <span style={{ position: 'absolute', top: 2, right: 2, width: 8, height: 8, borderRadius: '50%', background: 'var(--error)', border: '1.5px solid var(--bg-elevated)' }} />}
             </button>
             {showBell && (
-              <div style={{ position: 'absolute', right: 0, top: '120%', width: 280, maxHeight: 360, overflowY: 'auto', background: '#1e293b', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 100 }}>
+              <div style={{ position: 'absolute', right: 0, top: '120%', width: 280, maxHeight: 360, overflowY: 'auto', background: 'var(--bg-elevated)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 100 }}>
                 <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notifications</div>
                 {onboardingToken && (
                   <div
                     onClick={() => { setShowBell(false); openOnboarding() }}
                     style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                   >
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', flexShrink: 0, marginTop: 5 }} />
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0, marginTop: 5 }} />
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>Complete your onboarding</div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>Complete your onboarding</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>W-4, I-9, direct deposit, and more.</div>
                     </div>
                   </div>
@@ -546,24 +546,24 @@ export default function PortalPage() {
                     onClick={() => { markNotificationRead(n.id); if (n.link) { setShowBell(false); window.location.href = n.link } }}
                     style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 14px', cursor: n.link ? 'pointer' : 'default', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                   >
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.read ? 'transparent' : '#3b82f6', flexShrink: 0, marginTop: 5 }} />
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.read ? 'transparent' : 'var(--accent)', flexShrink: 0, marginTop: 5 }} />
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: n.read ? 400 : 600, color: '#e2e8f0' }}>{n.message}</div>
+                      <div style={{ fontSize: '13px', fontWeight: n.read ? 400 : 600, color: 'var(--text)' }}>{n.message}</div>
                       <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{timeAgo(n.created_at)}</div>
                     </div>
                   </div>
                 )) : !onboardingToken && (
-                  <div style={{ padding: '16px 14px', fontSize: '13px', color: '#475569' }}>No new notifications.</div>
+                  <div style={{ padding: '16px 14px', fontSize: '13px', color: 'var(--text-tertiary)' }}>No new notifications.</div>
                 )}
               </div>
             )}
           </div>
 
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>{employee?.name}</div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>{employee?.name}</div>
             <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{employee?.role}</div>
           </div>
-          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#3b82f6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
+          <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--accent)', color: 'var(--accent-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
             {initials}
           </div>
           <button onClick={signOut} style={{ fontSize: '12px', color: 'var(--text-tertiary)', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer', padding: '5px 10px' }}>Sign out</button>
@@ -573,20 +573,20 @@ export default function PortalPage() {
       {/* Pay tab */}
       {activeTab === 'pay' && (
         <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '2rem 1.5rem' }}>
-          <div style={{ background: '#1e293b', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)', maxWidth: '560px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Pay history</div>
+          <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)', maxWidth: '560px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Pay history</div>
             {stubs.length === 0 ? (
-              <div style={{ fontSize: '13px', color: '#475569', textAlign: 'center', padding: '2rem 0' }}>No pay records yet.</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', textAlign: 'center', padding: '2rem 0' }}>No pay records yet.</div>
             ) : stubs.map(s => (
               <div key={s.id} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>{fmtDate(s.period_start)} – {fmtDate(s.period_end)}</div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>{fmtDate(s.period_start)} – {fmtDate(s.period_end)}</div>
                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                       {s.pay_type === 'hourly' && s.hours_worked ? `${s.hours_worked}h × ${fmtMoney(s.gross_pay / s.hours_worked)}/hr` : s.pay_type}
                     </div>
                   </div>
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#e2e8f0' }}>{fmtMoney(s.gross_pay)}</div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>{fmtMoney(s.gross_pay)}</div>
                 </div>
               </div>
             ))}
@@ -598,9 +598,9 @@ export default function PortalPage() {
       {activeTab === 'messages' && (
         <div style={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
           {/* Channel sidebar */}
-          <div style={{ width: '240px', flexShrink: 0, background: '#1e293b', borderRight: '0.5px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ width: '240px', flexShrink: 0, background: 'var(--bg-elevated)', borderRight: '0.5px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '1rem 1rem 0.5rem', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>Messages</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>Messages</div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {chatChannels.map(ch => (
@@ -611,13 +611,13 @@ export default function PortalPage() {
                     display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
                     cursor: 'pointer',
                     background: activeChatChannel?.id === ch.id ? 'rgba(59,130,246,0.12)' : 'transparent',
-                    borderLeft: `3px solid ${activeChatChannel?.id === ch.id ? '#3b82f6' : 'transparent'}`,
+                    borderLeft: `3px solid ${activeChatChannel?.id === ch.id ? 'var(--accent)' : 'transparent'}`,
                   }}
                 >
                   <div style={{
                     width: 34, height: 34, borderRadius: ch.type === 'group' ? '8px' : '50%',
-                    background: ch.type === 'group' ? '#3b82f6' : 'rgba(59,130,246,0.15)',
-                    color: ch.type === 'group' ? '#fff' : '#3b82f6',
+                    background: ch.type === 'group' ? 'var(--accent)' : 'rgba(59,130,246,0.15)',
+                    color: ch.type === 'group' ? 'var(--accent-text)' : 'var(--accent)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: ch.type === 'group' ? '14px' : '11px', fontWeight: 700, flexShrink: 0,
                   }}>
@@ -627,7 +627,7 @@ export default function PortalPage() {
                     }
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: ch.unreadCount > 0 ? 700 : 500, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '13px', fontWeight: ch.unreadCount > 0 ? 700 : 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {ch.name}
                     </div>
                     {ch.lastMessage && (
@@ -637,7 +637,7 @@ export default function PortalPage() {
                     )}
                   </div>
                   {ch.unreadCount > 0 && (
-                    <div style={{ minWidth: 18, height: 18, borderRadius: '99px', background: '#3b82f6', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', flexShrink: 0 }}>
+                    <div style={{ minWidth: 18, height: 18, borderRadius: '99px', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', flexShrink: 0 }}>
                       {ch.unreadCount}
                     </div>
                   )}
@@ -649,17 +649,17 @@ export default function PortalPage() {
           {/* Thread */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {activeChatChannel && (
-              <div style={{ background: '#1e293b', borderBottom: '0.5px solid rgba(255,255,255,0.07)', padding: '0 1.25rem', height: '52px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#e2e8f0' }}>{activeChatChannel.name}</div>
+              <div style={{ background: 'var(--bg-elevated)', borderBottom: '0.5px solid rgba(255,255,255,0.07)', padding: '0 1.25rem', height: '52px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)' }}>{activeChatChannel.name}</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{activeChatChannel.type === 'group' ? 'Team chat' : 'Direct message'}</div>
               </div>
             )}
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem' }}>
               {chatLoadingThread ? (
-                <div style={{ textAlign: 'center', color: '#475569', fontSize: '13px', paddingTop: '2rem' }}>Loading…</div>
+                <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px', paddingTop: '2rem' }}>Loading…</div>
               ) : chatMessages.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#475569', fontSize: '13px', paddingTop: '4rem' }}>No messages yet.</div>
+                <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px', paddingTop: '4rem' }}>No messages yet.</div>
               ) : chatMessages.map((msg, i) => {
                 const isMe = msg.sender_id === chatUserId
                 const prevMsg = chatMessages[i - 1]
@@ -668,7 +668,7 @@ export default function PortalPage() {
                 return (
                   <div key={msg.id} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: '5px', marginTop: showName ? '10px' : 0 }}>
                     {!isMe && (
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(59,130,246,0.15)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0, marginRight: '8px', alignSelf: 'flex-end', opacity: showName ? 1 : 0 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(59,130,246,0.15)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0, marginRight: '8px', alignSelf: 'flex-end', opacity: showName ? 1 : 0 }}>
                         {msg.sender_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                     )}
@@ -677,8 +677,8 @@ export default function PortalPage() {
                       <div style={{
                         padding: '8px 12px',
                         borderRadius: isMe ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
-                        background: isMe ? '#3b82f6' : '#334155',
-                        color: isMe ? '#fff' : '#e2e8f0',
+                        background: isMe ? 'var(--accent)' : 'var(--border)',
+                        color: isMe ? 'var(--accent-text)' : 'var(--text)',
                         fontSize: '14px', lineHeight: 1.5,
                         border: isMe ? 'none' : '0.5px solid rgba(255,255,255,0.08)',
                         wordBreak: 'break-word', whiteSpace: 'pre-wrap',
@@ -693,7 +693,7 @@ export default function PortalPage() {
             </div>
 
             {activeChatChannel && (
-              <div style={{ background: '#1e293b', borderTop: '0.5px solid rgba(255,255,255,0.07)', padding: '0.75rem 1.25rem', flexShrink: 0 }}>
+              <div style={{ background: 'var(--bg-elevated)', borderTop: '0.5px solid rgba(255,255,255,0.07)', padding: '0.75rem 1.25rem', flexShrink: 0 }}>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '7px 10px', border: '0.5px solid rgba(255,255,255,0.07)' }}>
                   <textarea
                     ref={chatInputRef}
@@ -703,13 +703,13 @@ export default function PortalPage() {
                     placeholder={`Message ${activeChatChannel.name}…`}
                     rows={1}
                     disabled={chatSending}
-                    style={{ flex: 1, resize: 'none', fontSize: '14px', padding: '3px 2px', border: 'none', background: 'transparent', fontFamily: 'inherit', outline: 'none', lineHeight: 1.5, maxHeight: '80px', overflowY: 'auto', color: '#e2e8f0' }}
+                    style={{ flex: 1, resize: 'none', fontSize: '14px', padding: '3px 2px', border: 'none', background: 'transparent', fontFamily: 'inherit', outline: 'none', lineHeight: 1.5, maxHeight: '80px', overflowY: 'auto', color: 'var(--text)' }}
                     onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = `${Math.min(t.scrollHeight, 80)}px` }}
                   />
                   <button
                     onClick={sendChatMessage}
                     disabled={chatSending || !chatInput.trim()}
-                    style={{ width: 32, height: 32, borderRadius: '7px', border: 'none', flexShrink: 0, background: chatInput.trim() && !chatSending ? '#3b82f6' : 'rgba(255,255,255,0.12)', color: '#fff', cursor: chatInput.trim() && !chatSending ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ width: 32, height: 32, borderRadius: '7px', border: 'none', flexShrink: 0, background: chatInput.trim() && !chatSending ? 'var(--accent)' : 'rgba(255,255,255,0.12)', color: 'var(--accent-text)', cursor: chatInput.trim() && !chatSending ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                   </button>
@@ -725,7 +725,7 @@ export default function PortalPage() {
 
         {/* Greeting row */}
         <div style={{ marginBottom: '1.75rem' }}>
-          <div style={{ fontSize: '22px', fontWeight: 700, color: '#e2e8f0' }}>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>
             {greeting()}, {employee?.name.split(' ')[0]}
           </div>
           <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
@@ -739,14 +739,14 @@ export default function PortalPage() {
             onClick={openOnboarding}
             style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem', cursor: 'pointer' }}
           >
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#3b82f6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', color: 'var(--accent-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#3b82f6' }}>You have onboarding paperwork to complete</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent)' }}>You have onboarding paperwork to complete</div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>W-4, I-9, direct deposit, and more — takes about 5 minutes.</div>
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#3b82f6', whiteSpace: 'nowrap' }}>{onboardingLoading ? 'Loading…' : 'Start now →'}</div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent)', whiteSpace: 'nowrap' }}>{onboardingLoading ? 'Loading…' : 'Start now →'}</div>
           </div>
         )}
 
@@ -754,7 +754,7 @@ export default function PortalPage() {
         {showOnboarding && onboardingData && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, overflowY: 'auto' }}>
             <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem' }}>
-              <div style={{ width: '100%', maxWidth: '600px', background: '#1e293b', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
+              <div style={{ width: '100%', maxWidth: '600px', background: 'var(--bg-elevated)', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
                 <button
                   onClick={() => { setShowOnboarding(false); sessionStorage.setItem('onboarding_shown', '1') }}
                   style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', fontSize: '20px', color: 'var(--text-tertiary)', cursor: 'pointer', zIndex: 1, lineHeight: 1 }}
@@ -781,21 +781,21 @@ export default function PortalPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
             {/* Clock in / out */}
-            <div style={{ background: '#1e293b', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Time clock</div>
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Time clock</div>
               {currentEntry ? (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
                     <div>
-                      <div style={{ fontSize: '11px', color: '#4ade80', fontWeight: 600, marginBottom: '4px' }}>&#9679; Clocked in</div>
-                      <div style={{ fontSize: '36px', fontWeight: 800, color: '#e2e8f0', lineHeight: 1 }}>{elapsed(currentEntry.clock_in)}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--success)', fontWeight: 600, marginBottom: '4px' }}>&#9679; Clocked in</div>
+                      <div style={{ fontSize: '36px', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{elapsed(currentEntry.clock_in)}</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '5px' }}>Since {fmtTime(currentEntry.clock_in)}</div>
                     </div>
                     {!showClockOutNote && (
                       <button
                         onClick={() => setShowClockOutNote(true)}
                         disabled={clockLoading}
-                        style={{ padding: '11px 28px', borderRadius: '9px', border: 'none', background: '#f87171', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        style={{ padding: '11px 28px', borderRadius: '9px', border: 'none', background: 'var(--error)', color: 'var(--accent-text)', fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                       >
                         Clock out
                       </button>
@@ -811,20 +811,20 @@ export default function PortalPage() {
                         placeholder='e.g. "Low on register tape, restocked napkins"'
                         rows={2}
                         maxLength={500}
-                        style={{ width: '100%', resize: 'vertical', fontSize: '13px', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', fontFamily: 'inherit' }}
+                        style={{ width: '100%', resize: 'vertical', fontSize: '13px', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--text)', fontFamily: 'inherit' }}
                       />
                       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
                         <button
                           onClick={clockOut}
                           disabled={clockLoading}
-                          style={{ padding: '9px 20px', borderRadius: '9px', border: 'none', background: '#f87171', color: '#fff', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
+                          style={{ padding: '9px 20px', borderRadius: '9px', border: 'none', background: 'var(--error)', color: 'var(--accent-text)', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
                         >
                           {clockLoading ? 'Clocking out...' : 'Confirm clock-out'}
                         </button>
                         <button
                           onClick={() => { setShowClockOutNote(false); setClockOutNote('') }}
                           disabled={clockLoading}
-                          style={{ padding: '9px 16px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.12)', background: '#1e293b', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                          style={{ padding: '9px 16px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.12)', background: 'var(--bg-elevated)', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
                         >
                           Cancel
                         </button>
@@ -841,12 +841,12 @@ export default function PortalPage() {
                           ? `Today: ${fmt(todayShift.start_time)} – ${fmt(todayShift.end_time)}`
                           : 'No shift scheduled today'}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#475569' }}>Ready to start your shift?</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Ready to start your shift?</div>
                     </div>
                     <button
                       onClick={clockIn}
                       disabled={clockLoading || (verification.requireClockinPhoto && !clockInPhotoFile)}
-                      style={{ padding: '11px 28px', borderRadius: '9px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap', opacity: verification.requireClockinPhoto && !clockInPhotoFile ? 0.5 : 1 }}
+                      style={{ padding: '11px 28px', borderRadius: '9px', border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap', opacity: verification.requireClockinPhoto && !clockInPhotoFile ? 0.5 : 1 }}
                     >
                       {clockLoading ? 'Clocking in...' : 'Clock in'}
                     </button>
@@ -858,7 +858,7 @@ export default function PortalPage() {
                   {verification.geofence && (
                     <div style={{ marginTop: '0.75rem', fontSize: '11px', color: 'var(--text-secondary)' }}>
                       {geoStatus === 'idle' && (
-                        <button onClick={requestGeolocation} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', cursor: 'pointer', padding: 0 }}>📍 Verify your location</button>
+                        <button onClick={requestGeolocation} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '11px', cursor: 'pointer', padding: 0 }}>📍 Verify your location</button>
                       )}
                       {geoStatus === 'locating' && '📍 Verifying you\'re on-site…'}
                       {geoStatus === 'ok' && '📍 Location recorded.'}
@@ -892,7 +892,7 @@ export default function PortalPage() {
                         )}
                         <button
                           onClick={() => clockInPhotoInputRef.current?.click()}
-                          style={{ padding: '7px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', background: '#1e293b', color: '#e2e8f0', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
+                          style={{ padding: '7px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', background: 'var(--bg-elevated)', color: 'var(--text)', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
                         >
                           {clockInPhotoFile ? 'Retake photo' : 'Take photo'}
                         </button>
@@ -904,35 +904,35 @@ export default function PortalPage() {
             </div>
 
             {/* Upcoming shifts */}
-            <div style={{ background: '#1e293b', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Schedule</div>
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Schedule</div>
 
               {todayShift && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '9px', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)', marginBottom: '10px' }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', flexShrink: 0 }} />
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#3b82f6' }}>Today</div>
-                    <div style={{ fontSize: '13px', color: '#e2e8f0', marginTop: '1px' }}>{fmt(todayShift.start_time)} – {fmt(todayShift.end_time)}{todayShift.notes ? ` · ${todayShift.notes}` : ''}</div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)' }}>Today</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text)', marginTop: '1px' }}>{fmt(todayShift.start_time)} – {fmt(todayShift.end_time)}{todayShift.notes ? ` · ${todayShift.notes}` : ''}</div>
                   </div>
                 </div>
               )}
 
               {upcomingShifts.length === 0 && !todayShift ? (
-                <div style={{ fontSize: '13px', color: '#475569', padding: '4px 0' }}>No upcoming shifts scheduled.</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', padding: '4px 0' }}>No upcoming shifts scheduled.</div>
               ) : (
                 upcomingShifts.slice(0, 8).map(s => (
                   <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     <div style={{ width: '90px', fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>
                       {fmtDate(s.shift_date)}
                     </div>
-                    <div style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{fmt(s.start_time)} – {fmt(s.end_time)}</div>
-                    {s.notes && <div style={{ fontSize: '11px', color: '#475569', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.notes}</div>}
+                    <div style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: 'var(--text)' }}>{fmt(s.start_time)} – {fmt(s.end_time)}</div>
+                    {s.notes && <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.notes}</div>}
                     {swapShiftId === s.id ? (
                       <button onClick={() => setSwapShiftId(null)} style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>Cancel</button>
                     ) : (
                       <button
                         onClick={() => { setSwapShiftId(s.id); setSwapTargetShiftId(''); setSwapNotes('') }}
-                        style={{ fontSize: '11px', padding: '3px 9px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.12)', background: '#1e293b', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        style={{ fontSize: '11px', padding: '3px 9px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.12)', background: 'var(--bg-elevated)', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0, whiteSpace: 'nowrap' }}>
                         ⇔ Swap
                       </button>
                     )}
@@ -943,13 +943,13 @@ export default function PortalPage() {
               {/* Swap request form */}
               {swapShiftId != null && (
                 <div style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '1rem', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '0.75rem', color: '#e2e8f0' }}>Request shift swap</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--text)' }}>Request shift swap</div>
                   <div style={{ marginBottom: '0.65rem' }}>
                     <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '3px' }}>Swap with (optional)</label>
                     <select
                       value={swapTargetShiftId}
                       onChange={e => setSwapTargetShiftId(e.target.value ? Number(e.target.value) : '')}
-                      style={{ width: '100%', fontSize: '13px', padding: '7px 9px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: '#e2e8f0' }}
+                      style={{ width: '100%', fontSize: '13px', padding: '7px 9px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: 'var(--text)' }}
                     >
                       <option value="">— Let manager find cover —</option>
                       {coworkerShifts.map(cs => (
@@ -962,12 +962,12 @@ export default function PortalPage() {
                   <div style={{ marginBottom: '0.65rem' }}>
                     <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '3px' }}>Reason (optional)</label>
                     <input value={swapNotes} onChange={e => setSwapNotes(e.target.value)} placeholder="e.g. Doctor appointment"
-                      style={{ width: '100%', fontSize: '13px', padding: '7px 9px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: '#e2e8f0' }} />
+                      style={{ width: '100%', fontSize: '13px', padding: '7px 9px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: 'var(--text)' }} />
                   </div>
                   <button
                     onClick={submitSwapRequest}
                     disabled={swapSaving}
-                    style={{ padding: '8px 18px', borderRadius: '7px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                    style={{ padding: '8px 18px', borderRadius: '7px', border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
                     {swapSaving ? 'Sending...' : 'Send swap request'}
                   </button>
                 </div>
@@ -976,19 +976,19 @@ export default function PortalPage() {
 
             {/* Open shifts */}
             {openShifts.length > 0 && (
-              <div style={{ background: '#1e293b', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(74,222,128,0.25)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>
+              <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(74,222,128,0.25)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>
                   Open shifts — available to claim
                 </div>
                 {openShifts.map(s => (
                   <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid rgba(74,222,128,0.15)' }}>
                     <div style={{ width: '90px', fontSize: '12px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{fmtDate(s.shift_date)}</div>
-                    <div style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{fmt(s.start_time)} – {fmt(s.end_time)}</div>
+                    <div style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: 'var(--text)' }}>{fmt(s.start_time)} – {fmt(s.end_time)}</div>
                     {s.notes && <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{s.notes}</div>}
                     <button
                       onClick={() => claimShift(s.id)}
                       disabled={claimingId === s.id}
-                      style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '7px', border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>
+                      style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '7px', border: 'none', background: 'var(--success)', color: 'var(--accent-text)', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>
                       {claimingId === s.id ? '...' : 'Claim'}
                     </button>
                   </div>
@@ -1002,36 +1002,36 @@ export default function PortalPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
             {/* Hours this week */}
-            <div style={{ background: '#1e293b', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>This week</div>
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>This week</div>
               <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem' }}>
                 <div>
-                  <div style={{ fontSize: '28px', fontWeight: 800, color: '#e2e8f0', lineHeight: 1 }}>{weeklyHrs}h{weeklyMinsRem > 0 ? ` ${weeklyMinsRem}m` : ''}</div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{weeklyHrs}h{weeklyMinsRem > 0 ? ` ${weeklyMinsRem}m` : ''}</div>
                   <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Hours worked</div>
                 </div>
                 {currentEntry && (
                   <div>
-                    <div style={{ fontSize: '28px', fontWeight: 800, color: '#4ade80', lineHeight: 1 }}>{elapsed(currentEntry.clock_in)}</div>
+                    <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--success)', lineHeight: 1 }}>{elapsed(currentEntry.clock_in)}</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>This session</div>
                   </div>
                 )}
               </div>
               <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
-                <div style={{ height: '100%', width: `${Math.min((weeklyMins / (40 * 60)) * 100, 100)}%`, background: weeklyMins >= 40 * 60 ? '#f87171' : '#3b82f6', borderRadius: 3, transition: 'width 0.3s' }} />
+                <div style={{ height: '100%', width: `${Math.min((weeklyMins / (40 * 60)) * 100, 100)}%`, background: weeklyMins >= 40 * 60 ? 'var(--error)' : 'var(--accent)', borderRadius: 3, transition: 'width 0.3s' }} />
               </div>
-              <div style={{ fontSize: '11px', color: '#475569', marginTop: '5px' }}>{Math.round((weeklyMins / (40 * 60)) * 100)}% of 40h week</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '5px' }}>{Math.round((weeklyMins / (40 * 60)) * 100)}% of 40h week</div>
             </div>
 
             {/* Announcements */}
             {announcements.length > 0 && (
-              <div style={{ background: '#1e293b', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Announcements</div>
+              <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Announcements</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
                   {announcements.slice(0, 5).map(a => (
                     <div key={a.id} style={{ paddingBottom: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', marginBottom: '3px' }}>{a.title}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginBottom: '3px' }}>{a.title}</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{a.message}</div>
-                      <div style={{ fontSize: '11px', color: '#475569', marginTop: '4px' }}>{fmtDate(a.created_at.slice(0, 10))}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>{fmtDate(a.created_at.slice(0, 10))}</div>
                     </div>
                   ))}
                 </div>
@@ -1039,12 +1039,12 @@ export default function PortalPage() {
             )}
 
             {/* Time off */}
-            <div style={{ background: '#1e293b', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Time off</div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Time off</div>
                 <button
                   onClick={() => setShowTOForm(v => !v)}
-                  style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: showTOForm ? '#334155' : 'rgba(255,255,255,0.05)', color: '#e2e8f0', cursor: 'pointer', fontWeight: 500 }}
+                  style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: showTOForm ? 'var(--border)' : 'rgba(255,255,255,0.05)', color: 'var(--text)', cursor: 'pointer', fontWeight: 500 }}
                 >
                   {showTOForm ? 'Cancel' : '+ Request'}
                 </button>
@@ -1053,7 +1053,7 @@ export default function PortalPage() {
               {ptoBalance && (
                 <div style={{ display: 'flex', gap: '1.25rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   <div>
-                    <div style={{ fontSize: '24px', fontWeight: 800, color: '#e2e8f0' }}>{ptoBalance.remaining}</div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text)' }}>{ptoBalance.remaining}</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Remaining</div>
                   </div>
                   <div>
@@ -1061,7 +1061,7 @@ export default function PortalPage() {
                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Used</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '24px', fontWeight: 800, color: '#475569' }}>{ptoBalance.total}</div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-tertiary)' }}>{ptoBalance.total}</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Total</div>
                   </div>
                 </div>
@@ -1072,11 +1072,11 @@ export default function PortalPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.65rem' }}>
                     <div>
                       <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '3px' }}>From</label>
-                      <input type="date" value={toStart} onChange={e => { setToStart(e.target.value); if (e.target.value !== toEnd) setToPortion('full') }} style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', colorScheme: 'dark' }} />
+                      <input type="date" value={toStart} onChange={e => { setToStart(e.target.value); if (e.target.value !== toEnd) setToPortion('full') }} style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: 'var(--text)', colorScheme: 'dark' }} />
                     </div>
                     <div>
                       <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '3px' }}>To</label>
-                      <input type="date" value={toEnd} onChange={e => { setToEnd(e.target.value); if (e.target.value !== toStart) setToPortion('full') }} min={toStart} style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', colorScheme: 'dark' }} />
+                      <input type="date" value={toEnd} onChange={e => { setToEnd(e.target.value); if (e.target.value !== toStart) setToPortion('full') }} min={toStart} style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: 'var(--text)', colorScheme: 'dark' }} />
                     </div>
                   </div>
                   {/* JAY-9 — half-day portion only makes sense for a single-day request */}
@@ -1085,7 +1085,7 @@ export default function PortalPage() {
                       <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '3px' }}>Portion</label>
                       <div style={{ display: 'flex', gap: '1rem' }}>
                         {([['full', 'Full day'], ['first_half', 'First half'], ['second_half', 'Second half']] as const).map(([val, label]) => (
-                          <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                          <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
                             <input type="radio" name="toPortion" checked={toPortion === val} onChange={() => setToPortion(val)} />
                             {label}
                           </label>
@@ -1095,23 +1095,23 @@ export default function PortalPage() {
                   )}
                   <div style={{ marginBottom: '0.65rem' }}>
                     <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '3px' }}>Type</label>
-                    <select value={toType} onChange={e => setToType(e.target.value)} style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: '#e2e8f0' }}>
+                    <select value={toType} onChange={e => setToType(e.target.value)} style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: 'var(--text)' }}>
                       <option>PTO</option><option>Sick</option><option>Personal</option><option>Unpaid</option>
                     </select>
                   </div>
                   <div style={{ marginBottom: '0.75rem' }}>
                     <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '3px' }}>Reason (optional)</label>
-                    <input value={toReason} onChange={e => setToReason(e.target.value)} placeholder="e.g. Doctor appointment" style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: '#e2e8f0' }} />
+                    <input value={toReason} onChange={e => setToReason(e.target.value)} placeholder="e.g. Doctor appointment" style={{ width: '100%', fontSize: '13px', padding: '7px 8px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', background: 'rgba(255,255,255,0.05)', color: 'var(--text)' }} />
                   </div>
                   {toStart && (new Date(toStart + 'T00:00:00').getTime() - Date.now()) < 48 * 60 * 60 * 1000 && (
-                    <div style={{ fontSize: '12px', color: '#fbbf24', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.35)', borderRadius: '7px', padding: '8px 10px', marginBottom: '0.75rem' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--amber)', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.35)', borderRadius: '7px', padding: '8px 10px', marginBottom: '0.75rem' }}>
                       ⚠ This request starts in under 48 hours. Consider also letting your manager know directly.
                     </div>
                   )}
                   <button
                     onClick={submitTimeOff}
                     disabled={toSaving || !toStart || !toEnd}
-                    style={{ padding: '8px 18px', borderRadius: '7px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                    style={{ padding: '8px 18px', borderRadius: '7px', border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
                   >
                     {toSaving ? 'Submitting...' : 'Submit request'}
                   </button>
@@ -1123,11 +1123,11 @@ export default function PortalPage() {
                   {timeOffRequests.slice(0, 5).map(r => (
                     <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{r.type}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)' }}>{r.type}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '1px' }}>{fmtDate(r.start_date)} – {fmtDate(r.end_date)}{r.start_date === r.end_date && (r.portion === 'first_half' || r.portion === 'second_half') ? ` (${r.portion === 'first_half' ? 'first half' : 'second half'})` : ''}</div>
                         {/* JAY-86 — read-receipt: has the owner seen this request yet? */}
                         {r.status === 'pending' && (
-                          <div style={{ fontSize: '11px', marginTop: '1px', color: r.seen ? '#4ade80' : 'var(--text-tertiary)' }}>
+                          <div style={{ fontSize: '11px', marginTop: '1px', color: r.seen ? 'var(--success)' : 'var(--text-tertiary)' }}>
                             {r.seen && r.seenAt ? `✓ Seen ${timeAgo(r.seenAt)}` : 'Not yet seen'}
                           </div>
                         )}
@@ -1141,11 +1141,11 @@ export default function PortalPage() {
 
             {/* Swap requests */}
             {swapRequests.length > 0 && (
-              <div style={{ background: '#1e293b', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>My swap requests</div>
+              <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>My swap requests</div>
                 {swapRequests.slice(0, 5).map(sr => {
                   const myShift = shifts.find(s => s.id === sr.requester_shift_id)
-                  const swapStatusColor = sr.status === 'approved' ? '#4ade80' : sr.status === 'denied' ? '#f87171' : '#fbbf24'
+                  const swapStatusColor = sr.status === 'approved' ? 'var(--success)' : sr.status === 'denied' ? 'var(--error)' : 'var(--amber)'
                   return (
                     <div key={sr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                       <div>
@@ -1154,7 +1154,7 @@ export default function PortalPage() {
                         </div>
                         {/* JAY-86 — read-receipt: has the owner seen this swap request yet? */}
                         {sr.status === 'pending' && (
-                          <div style={{ fontSize: '11px', marginTop: '1px', color: sr.seen ? '#4ade80' : 'var(--text-tertiary)' }}>
+                          <div style={{ fontSize: '11px', marginTop: '1px', color: sr.seen ? 'var(--success)' : 'var(--text-tertiary)' }}>
                             {sr.seen && sr.seenAt ? `✓ Seen ${timeAgo(sr.seenAt)}` : 'Not yet seen'}
                           </div>
                         )}

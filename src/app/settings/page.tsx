@@ -82,19 +82,19 @@ const TIMEZONES = [
 function toggle(val: boolean, setter: (v: boolean) => void, label: string, saving: boolean, onSave: () => void) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-      <span style={{ fontSize: '14px', color: '#e2e8f0' }}>{label}</span>
+      <span style={{ fontSize: '14px', color: 'var(--text)' }}>{label}</span>
       <button
         onClick={() => { setter(!val); setTimeout(onSave, 100) }}
         disabled={saving}
         style={{
           width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
-          background: val ? '#3b82f6' : 'rgba(255,255,255,0.12)', position: 'relative', transition: 'background 0.2s',
+          background: val ? 'var(--accent)' : 'rgba(255,255,255,0.12)', position: 'relative', transition: 'background 0.2s',
           flexShrink: 0,
         }}
       >
         <span style={{
           position: 'absolute', top: 3, left: val ? 23 : 3,
-          width: 18, height: 18, borderRadius: '50%', background: '#fff',
+          width: 18, height: 18, borderRadius: '50%', background: 'var(--accent-text)',
           transition: 'left 0.2s', display: 'block',
         }} />
       </button>
@@ -560,14 +560,14 @@ function SettingsContent() {
   // the redesign pass every other page went through (Payroll/Reports/etc.);
   // it was still rendering the shared light-mode `.card` class. This matches
   // the palette already established in payroll/page.tsx.
-  const cardStyle: React.CSSProperties = { background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem' }
+  const cardStyle: React.CSSProperties = { background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem' }
   const labelStyle: React.CSSProperties = { fontSize: '12px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '4px' }
   const sectionLabelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 500, color: 'var(--text-tertiary)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.6rem' }
   // Secondary/ghost button — the shared `.btn` class defaults to a white
   // background with no dark-mode override anywhere in globals.css, so every
   // plain `className="btn"` (not `.auth-btn-primary`) needs this inline
   // override here, same treatment Payroll gives its own ghost buttons.
-  const ghostBtnStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.12)' }
+  const ghostBtnStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.05)', color: 'var(--text)', border: '1px solid rgba(255,255,255,0.12)' }
 
   // JAY-55 — grouped into sections (General / Team & Access / Billing /
   // Danger zone) instead of one flat undifferentiated row of 9 tabs, per the
@@ -585,21 +585,21 @@ function SettingsContent() {
     <div className="dash-wrap">
       <Nav active="settings" />
       <div className="dash-content">
-        <div style={{ fontSize: '20px', fontWeight: 700, marginBottom: '1.5rem', color: '#e2e8f0' }}>Settings</div>
+        <div style={{ fontSize: '20px', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--text)' }}>Settings</div>
 
         {/* Tab bar — grouped */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', borderBottom: '1.5px solid rgba(255,255,255,0.08)', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1.5rem', flexWrap: 'wrap' }}>
             {tabGroups.map(group => (
               <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <div style={{ fontSize: '10px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 2px' }}>{group.label}</div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 2px' }}>{group.label}</div>
                 <div style={{ display: 'flex', gap: '0.25rem' }}>
                   {group.tabs.map(t => (
                     <button key={t.key} onClick={() => setTab(t.key)} style={{
                       padding: '8px 14px', fontSize: '13px', fontWeight: tab === t.key ? 700 : 400,
-                      color: tab === t.key ? '#93c5fd' : 'var(--text-tertiary)',
+                      color: tab === t.key ? 'var(--accent)' : 'var(--text-tertiary)',
                       background: 'none', border: 'none', cursor: 'pointer',
-                      borderBottom: tab === t.key ? '2px solid #3b82f6' : '2px solid transparent',
+                      borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
                       marginBottom: '-1.5px', transition: 'all 0.15s', fontFamily: 'inherit',
                     }}>{t.label}</button>
                   ))}
@@ -610,7 +610,7 @@ function SettingsContent() {
           {/* Danger zone — isolated on the far side, red-tinted, own group */}
           <button onClick={() => setTab(dangerTab.key)} style={{
             padding: '8px 14px', fontSize: '13px', fontWeight: tab === dangerTab.key ? 700 : 500,
-            color: tab === dangerTab.key ? '#f87171' : '#b91c1c',
+            color: tab === dangerTab.key ? 'var(--error)' : '#b91c1c',
             background: tab === dangerTab.key ? 'rgba(248,113,113,0.1)' : 'none',
             border: '1px solid rgba(248,113,113,0.25)', borderRadius: '7px', cursor: 'pointer',
             marginBottom: '6px', transition: 'all 0.15s', fontFamily: 'inherit',
@@ -665,9 +665,9 @@ function SettingsContent() {
                   const h = bizHours[day]
                   return (
                     <div key={day} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', borderBottom: i < 6 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-                      <div style={{ width: '96px', fontSize: '13px', fontWeight: 500, color: h.closed ? '#475569' : '#e2e8f0', flexShrink: 0 }}>{DAY_LABELS[day]}</div>
+                      <div style={{ width: '96px', fontSize: '13px', fontWeight: 500, color: h.closed ? 'var(--text-tertiary)' : 'var(--text)', flexShrink: 0 }}>{DAY_LABELS[day]}</div>
                       {h.closed ? (
-                        <div style={{ flex: 1, fontSize: '13px', color: '#475569' }}>Closed</div>
+                        <div style={{ flex: 1, fontSize: '13px', color: 'var(--text-tertiary)' }}>Closed</div>
                       ) : (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <input type="time" value={h.open} onChange={e => setBizHours(prev => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))}
@@ -679,7 +679,7 @@ function SettingsContent() {
                       )}
                       <button
                         onClick={() => setBizHours(prev => ({ ...prev, [day]: { ...prev[day], closed: !prev[day].closed } }))}
-                        style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${h.closed ? 'rgba(255,255,255,0.1)' : 'rgba(248,113,113,0.3)'}`, background: h.closed ? 'rgba(255,255,255,0.04)' : 'rgba(248,113,113,0.1)', color: h.closed ? 'var(--text-secondary)' : '#f87171', cursor: 'pointer', fontWeight: 500, flexShrink: 0 }}
+                        style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${h.closed ? 'rgba(255,255,255,0.1)' : 'rgba(248,113,113,0.3)'}`, background: h.closed ? 'rgba(255,255,255,0.04)' : 'rgba(248,113,113,0.1)', color: h.closed ? 'var(--text-secondary)' : 'var(--error)', cursor: 'pointer', fontWeight: 500, flexShrink: 0 }}
                       >
                         {h.closed ? 'Open' : 'Close'}
                       </button>
@@ -740,7 +740,7 @@ function SettingsContent() {
                 <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '1rem' }}>
                   Tip: search your business address on Google Maps, right-click the pin, and copy the coordinates shown.
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
                   <input type="checkbox" checked={requireClockinPhoto} onChange={e => setRequireClockinPhoto(e.target.checked)} style={{ width: '16px', height: '16px', flexShrink: 0 }} />
                   Require a photo at clock-in
                 </label>
@@ -757,11 +757,11 @@ function SettingsContent() {
                   Flat grants the full annual PTO days on day one. Monthly accrual prorates from each employee&apos;s hire date, adding a set number of days each month up to the annual grant.
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '0.75rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
                     <input type="radio" name="pto-accrual-method" checked={ptoAccrualMethod === 'flat'} onChange={() => setPtoAccrualMethod('flat')} style={{ width: '16px', height: '16px', flexShrink: 0 }} />
                     Flat annual grant (current)
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
                     <input type="radio" name="pto-accrual-method" checked={ptoAccrualMethod === 'monthly'} onChange={() => setPtoAccrualMethod('monthly')} style={{ width: '16px', height: '16px', flexShrink: 0 }} />
                     Monthly accrual
                   </label>
@@ -818,7 +818,7 @@ function SettingsContent() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
                   {[{ label: 'Name' }, { label: 'Role' }, { label: 'Start date' }, { label: 'Phone' }, ...fields.map(f => ({ label: f.label }))].map(({ label }) => (
                     <button key={label} onClick={() => setWelcomePack(prev => prev + `[${label}]`)}
-                      style={{ padding: '4px 10px', borderRadius: '6px', border: '1.5px solid rgba(59,130,246,0.3)', background: 'rgba(59,130,246,0.12)', color: '#93c5fd', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                      style={{ padding: '4px 10px', borderRadius: '6px', border: '1.5px solid rgba(59,130,246,0.3)', background: 'rgba(59,130,246,0.12)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
                       {label}
                     </button>
                   ))}
@@ -860,7 +860,7 @@ function SettingsContent() {
                     <div style={{ ...sectionLabelStyle, marginBottom: '1rem' }}>Current plan</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', marginBottom: '1.25rem' }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: '16px', color: '#93c5fd' }}>{billing.planName}</div>
+                        <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--accent)' }}>{billing.planName}</div>
                         <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
                           ${billing.planPrice}/mo · {billing.employeeLimit ? `up to ${billing.employeeLimit} employees` : 'unlimited employees'}
                         </div>
@@ -868,7 +868,7 @@ function SettingsContent() {
                       <span style={{
                         fontSize: '11px', fontWeight: 700, padding: '4px 12px', borderRadius: '20px', textTransform: 'capitalize',
                         background: billing.status === 'active' ? 'rgba(34,197,94,0.15)' : billing.status === 'trialing' ? 'rgba(217,119,6,0.15)' : billing.status === 'past_due' ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.06)',
-                        color: billing.status === 'active' ? '#4ade80' : billing.status === 'trialing' ? '#fbbf24' : billing.status === 'past_due' ? '#f87171' : 'var(--text-secondary)',
+                        color: billing.status === 'active' ? 'var(--success)' : billing.status === 'trialing' ? 'var(--amber)' : billing.status === 'past_due' ? 'var(--error)' : 'var(--text-secondary)',
                       }}>
                         {billing.status === 'trialing' ? `Trial · ${billing.trialDaysLeft} days left` : billing.status}
                       </span>
@@ -877,15 +877,15 @@ function SettingsContent() {
                     <div style={{ display: 'flex', gap: '24px', marginBottom: '1.25rem' }}>
                       <div>
                         <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active employees</div>
-                        <div style={{ fontSize: '20px', fontWeight: 700, color: '#e2e8f0' }}>
+                        <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)' }}>
                           {billing.employeeCount}
-                          {billing.employeeLimit && <span style={{ fontSize: '13px', color: '#475569', fontWeight: 400 }}> / {billing.employeeLimit}</span>}
+                          {billing.employeeLimit && <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 400 }}> / {billing.employeeLimit}</span>}
                         </div>
                       </div>
                       {billing.currentPeriodEnd && (
                         <div>
                           <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Next billing date</div>
-                          <div style={{ fontSize: '15px', fontWeight: 600, color: '#e2e8f0' }}>
+                          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
                             {new Date(billing.currentPeriodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
                         </div>
@@ -893,7 +893,7 @@ function SettingsContent() {
                       {billing.status === 'trialing' && !billing.hasSubscription && (
                         <div>
                           <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Trial ends</div>
-                          <div style={{ fontSize: '15px', fontWeight: 600, color: '#fbbf24' }}>
+                          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--amber)' }}>
                             {new Date(billing.trialEndsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
                         </div>
@@ -903,7 +903,7 @@ function SettingsContent() {
                     {billing.hasSubscription && (
                       <button
                         className="btn"
-                        style={{ fontSize: '13px', padding: '8px 18px', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)' }}
+                        style={{ fontSize: '13px', padding: '8px 18px', background: 'rgba(255,255,255,0.04)', color: 'var(--text)', border: '1px solid rgba(255,255,255,0.1)' }}
                         disabled={portalLoading}
                         onClick={async () => {
                           setPortalLoading(true)
@@ -937,29 +937,29 @@ function SettingsContent() {
                           const isPopular = p.key === 'growth'
                           return (
                             <div key={p.key} style={{
-                              border: `1.5px solid ${isPopular ? '#3b82f6' : 'rgba(255,255,255,0.1)'}`,
+                              border: `1.5px solid ${isPopular ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}`,
                               borderRadius: '12px', padding: '20px', position: 'relative',
                               background: isPopular ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.02)',
                             }}>
                               {isPopular && (
-                                <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', background: '#1d4ed8', color: '#fff', fontSize: '10px', fontWeight: 700, padding: '2px 10px', borderRadius: '99px', whiteSpace: 'nowrap' }}>
+                                <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: '10px', fontWeight: 700, padding: '2px 10px', borderRadius: '99px', whiteSpace: 'nowrap' }}>
                                   MOST POPULAR
                                 </div>
                               )}
-                              <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '4px', color: '#e2e8f0' }}>{p.name}</div>
-                              <div style={{ fontSize: '22px', fontWeight: 800, color: '#e2e8f0', marginBottom: '2px' }}>${p.price}<span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-tertiary)' }}>/mo</span></div>
+                              <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '4px', color: 'var(--text)' }}>{p.name}</div>
+                              <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text)', marginBottom: '2px' }}>${p.price}<span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-tertiary)' }}>/mo</span></div>
                               <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '14px' }}>{p.limit}</div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
                                 {p.features.map(f => (
                                   <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                     {f}
                                   </div>
                                 ))}
                               </div>
                               <button
                                 className="btn auth-btn-primary"
-                                style={{ width: '100%', fontSize: '13px', padding: '9px', background: isPopular ? '#1d4ed8' : 'rgba(255,255,255,0.08)', opacity: isCurrent ? 0.5 : 1 }}
+                                style={{ width: '100%', fontSize: '13px', padding: '9px', background: isPopular ? 'var(--accent)' : 'rgba(255,255,255,0.08)', opacity: isCurrent ? 0.5 : 1 }}
                                 disabled={isCurrent || checkoutLoading === p.key}
                                 onClick={async () => {
                                   // JAY-45 — an existing live subscription gets a proration preview +
@@ -995,8 +995,8 @@ function SettingsContent() {
                   {/* Plan-switch confirm modal (JAY-45) */}
                   {switchTarget && (
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                      <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '1.5rem', width: '380px', maxWidth: '90vw' }}>
-                        <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '0.5rem', color: '#e2e8f0' }}>Switch to {switchTarget.name}?</div>
+                      <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '1.5rem', width: '380px', maxWidth: '90vw' }}>
+                        <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text)' }}>Switch to {switchTarget.name}?</div>
                         {switchPreviewLoading ? (
                           <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', padding: '1rem 0' }}>Loading preview...</div>
                         ) : switchPreview?.isNewSubscription ? (
@@ -1009,11 +1009,11 @@ function SettingsContent() {
                             <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-tertiary)' }}>Due today (prorated)</span>
-                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>${((switchPreview.dueTodayCents ?? 0) / 100).toFixed(2)}</span>
+                                <span style={{ fontWeight: 600, color: 'var(--text)' }}>${((switchPreview.dueTodayCents ?? 0) / 100).toFixed(2)}</span>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-tertiary)' }}>Next full charge</span>
-                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--text)' }}>
                                   ${((switchPreview.nextChargeCents ?? 0) / 100).toFixed(2)}
                                   {switchPreview.nextChargeDate && ` on ${new Date(switchPreview.nextChargeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
                                 </span>
@@ -1021,7 +1021,7 @@ function SettingsContent() {
                             </div>
                           </div>
                         ) : (
-                          <div style={{ fontSize: '13px', color: '#f87171', marginBottom: '1rem' }}>Could not load a preview. Try again.</div>
+                          <div style={{ fontSize: '13px', color: 'var(--error)', marginBottom: '1rem' }}>Could not load a preview. Try again.</div>
                         )}
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <button
@@ -1057,9 +1057,9 @@ function SettingsContent() {
                 <div style={{ ...sectionLabelStyle, marginBottom: '0.75rem' }}>Access levels</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {[
-                    { label: 'Owner', color: '#93c5fd', bg: 'rgba(59,130,246,0.15)', desc: 'Full access including billing and account settings. Only one per business.' },
+                    { label: 'Owner', color: 'var(--accent)', bg: 'rgba(59,130,246,0.15)', desc: 'Full access including billing and account settings. Only one per business.' },
                     { label: 'Admin', color: '#c4b5fd', bg: 'rgba(139,92,246,0.15)', desc: 'Full dashboard access — employees, shifts, payroll, hiring. Cannot delete the account or change billing.' },
-                    { label: 'Manager', color: '#fbbf24', bg: 'rgba(217,119,6,0.15)', desc: 'Can view employees, manage shifts, approve time off and swap requests. No payroll rates or settings.' },
+                    { label: 'Manager', color: 'var(--amber)', bg: 'rgba(217,119,6,0.15)', desc: 'Can view employees, manage shifts, approve time off and swap requests. No payroll rates or settings.' },
                     { label: 'Employee', color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.06)', desc: 'Portal only — their own schedule, clock in/out, PTO requests, shift swaps.' },
                   ].map(r => (
                     <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1089,12 +1089,12 @@ function SettingsContent() {
                   )}
                 </div>
                 {teamEmployees.filter(e => showTerminated || e.status !== 'terminated').length === 0 && (
-                  <div style={{ fontSize: '13px', color: '#475569', padding: '8px 0' }}>No employees yet.</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', padding: '8px 0' }}>No employees yet.</div>
                 )}
                 {teamEmployees.filter(e => showTerminated || e.status !== 'terminated').map(emp => {
                   const roleColors: Record<string, { bg: string; color: string }> = {
                     admin: { bg: 'rgba(139,92,246,0.15)', color: '#c4b5fd' },
-                    manager: { bg: 'rgba(217,119,6,0.15)', color: '#fbbf24' },
+                    manager: { bg: 'rgba(217,119,6,0.15)', color: 'var(--amber)' },
                     employee: { bg: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)' },
                   }
                   const rc = roleColors[emp.access_role] ?? roleColors.employee
@@ -1107,27 +1107,27 @@ function SettingsContent() {
                         onClick={() => openPermPanel(emp)}
                         style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: isOpen ? 'none' : '1px solid rgba(255,255,255,0.06)', cursor: 'pointer' }}
                       >
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(59,130,246,0.15)', color: '#93c5fd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(59,130,246,0.15)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
                           {emp.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.name}</div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.name}</div>
                           <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.email || emp.role}</div>
                         </div>
                         {isPending && (
                           <>
-                            <span style={{ fontSize: '10px', color: '#fbbf24', background: 'rgba(217,119,6,0.15)', padding: '2px 7px', borderRadius: 10, fontWeight: 600, flexShrink: 0 }}>Not yet accepted</span>
+                            <span style={{ fontSize: '10px', color: 'var(--amber)', background: 'rgba(217,119,6,0.15)', padding: '2px 7px', borderRadius: 10, fontWeight: 600, flexShrink: 0 }}>Not yet accepted</span>
                             <button
                               type="button"
                               onClick={e => { e.stopPropagation(); resendInvite(emp.id) }}
                               disabled={resendingId === emp.id}
-                              style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer', color: '#93c5fd', fontWeight: 500, flexShrink: 0 }}
+                              style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer', color: 'var(--accent)', fontWeight: 500, flexShrink: 0 }}
                             >
                               {resendingId === emp.id ? 'Sending…' : 'Resend invite'}
                             </button>
                           </>
                         )}
-                        {hasCustom && <span style={{ fontSize: '10px', color: '#93c5fd', background: 'rgba(59,130,246,0.15)', padding: '2px 7px', borderRadius: 10, fontWeight: 600, flexShrink: 0 }}>Custom</span>}
+                        {hasCustom && <span style={{ fontSize: '10px', color: 'var(--accent)', background: 'rgba(59,130,246,0.15)', padding: '2px 7px', borderRadius: 10, fontWeight: 600, flexShrink: 0 }}>Custom</span>}
                         <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', background: rc.bg, color: rc.color, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           {emp.access_role}
                         </span>
@@ -1142,7 +1142,7 @@ function SettingsContent() {
                           <option value="manager">Manager</option>
                           <option value="admin">Admin</option>
                         </select>
-                        <span style={{ fontSize: '14px', color: '#475569', flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
+                        <span style={{ fontSize: '14px', color: 'var(--text-tertiary)', flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
                       </div>
 
                       {/* Inline permission panel */}
@@ -1160,15 +1160,15 @@ function SettingsContent() {
                               {PERM_KEYS.filter(k => PERM_META[k].section === section).map(key => (
                                 <div key={key} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', gap: 8 }}>
                                   <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: '12px', fontWeight: 500, color: '#e2e8f0' }}>{PERM_META[key].label}</div>
+                                    <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>{PERM_META[key].label}</div>
                                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{PERM_META[key].sub}</div>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => setPermValues(prev => ({ ...prev, [key]: !prev[key] }))}
-                                    style={{ width: 38, height: 21, borderRadius: 11, border: 'none', cursor: 'pointer', background: permValues[key] ? '#3b82f6' : 'rgba(255,255,255,0.12)', position: 'relative', flexShrink: 0, transition: 'background 0.15s' }}
+                                    style={{ width: 38, height: 21, borderRadius: 11, border: 'none', cursor: 'pointer', background: permValues[key] ? 'var(--accent)' : 'rgba(255,255,255,0.12)', position: 'relative', flexShrink: 0, transition: 'background 0.15s' }}
                                   >
-                                    <span style={{ position: 'absolute', top: 3, left: permValues[key] ? 19 : 3, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left 0.15s', display: 'block' }} />
+                                    <span style={{ position: 'absolute', top: 3, left: permValues[key] ? 19 : 3, width: 15, height: 15, borderRadius: '50%', background: 'var(--accent-text)', transition: 'left 0.15s', display: 'block' }} />
                                   </button>
                                 </div>
                               ))}
@@ -1178,7 +1178,7 @@ function SettingsContent() {
                             <button className="btn auth-btn-primary" onClick={savePermissions} disabled={permSaving} style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }}>
                               {permSaving ? 'Saving...' : 'Save permissions'}
                             </button>
-                            {permSaved && <span style={{ fontSize: '12px', color: '#4ade80' }}>Saved.</span>}
+                            {permSaved && <span style={{ fontSize: '12px', color: 'var(--success)' }}>Saved.</span>}
                           </div>
                         </div>
                       )}
@@ -1238,7 +1238,7 @@ function SettingsContent() {
                   Group your team by department. Assign employees in their profile.
                 </div>
                 {departments.length === 0 && (
-                  <div style={{ fontSize: '13px', color: '#475569', padding: '8px 0', marginBottom: '0.75rem' }}>No departments yet.</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', padding: '8px 0', marginBottom: '0.75rem' }}>No departments yet.</div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
                   {departments.map((dept, i) => (
@@ -1252,9 +1252,9 @@ function SettingsContent() {
                         </>
                       ) : (
                         <>
-                          <span style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{dept.name}</span>
+                          <span style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: 'var(--text)' }}>{dept.name}</span>
                           <button onClick={() => { setEditingDept(dept.id); setEditDeptName(dept.name) }} style={{ fontSize: '12px', color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>Rename</button>
-                          <button onClick={() => deleteDept(dept.id)} style={{ fontSize: '12px', color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>Delete</button>
+                          <button onClick={() => deleteDept(dept.id)} style={{ fontSize: '12px', color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>Delete</button>
                         </>
                       )}
                     </div>
@@ -1285,7 +1285,7 @@ function SettingsContent() {
                       aria-label={`Use color ${c}`}
                       style={{
                         width: 20, height: 20, borderRadius: '50%', background: c, cursor: 'pointer', padding: 0,
-                        border: newDeptColor === c ? '2px solid #e2e8f0' : '1px solid rgba(255,255,255,0.15)',
+                        border: newDeptColor === c ? '2px solid var(--text)' : '1px solid rgba(255,255,255,0.15)',
                       }}
                     />
                   ))}
@@ -1303,7 +1303,7 @@ function SettingsContent() {
           {tab === 'danger' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={cardStyle}>
-                <div style={{ fontWeight: 700, fontSize: '14px', color: '#e2e8f0', marginBottom: '0.5rem' }}>Export your data</div>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)', marginBottom: '0.5rem' }}>Export your data</div>
                 <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
                   Download all your employees, payroll entries, and shifts as a JSON file.
                 </div>
@@ -1315,7 +1315,7 @@ function SettingsContent() {
               {/* JAY-55 — visually isolate the destructive action: red-tinted
                   background/border, distinct from the plain-dark card above. */}
               <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: '12px', padding: '1.25rem' }}>
-                <div style={{ fontWeight: 700, fontSize: '14px', color: '#f87171', marginBottom: '0.5rem' }}>Delete account</div>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--error)', marginBottom: '0.5rem' }}>Delete account</div>
                 <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
                   This permanently deletes your account and all data. Type your email address to confirm.
                 </div>
@@ -1323,15 +1323,15 @@ function SettingsContent() {
                   value={deleteConfirm}
                   onChange={e => setDeleteConfirm(e.target.value)}
                   placeholder={userEmail}
-                  style={{ marginBottom: '0.75rem', borderColor: deleteConfirm && deleteConfirm !== userEmail ? '#f87171' : undefined }}
+                  style={{ marginBottom: '0.75rem', borderColor: deleteConfirm && deleteConfirm !== userEmail ? 'var(--error)' : undefined }}
                 />
                 <button
                   onClick={deleteAccount}
                   disabled={deleteConfirm !== userEmail || deleting}
                   style={{
                     width: 'auto', fontSize: '13px', padding: '7px 16px',
-                    background: deleteConfirm === userEmail ? '#f87171' : 'rgba(255,255,255,0.05)',
-                    color: deleteConfirm === userEmail ? '#1e1e1e' : '#475569',
+                    background: deleteConfirm === userEmail ? 'var(--error)' : 'rgba(255,255,255,0.05)',
+                    color: deleteConfirm === userEmail ? '#1e1e1e' : 'var(--text-tertiary)',
                     border: 'none', borderRadius: '8px', cursor: deleteConfirm === userEmail ? 'pointer' : 'default',
                     fontWeight: 600,
                   }}
@@ -1349,8 +1349,8 @@ function SettingsContent() {
 }
 
 function IntegrationsTab() {
-  const cardStyle: React.CSSProperties = { background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
-  const ghostBtnStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.12)' }
+  const cardStyle: React.CSSProperties = { background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
+  const ghostBtnStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.05)', color: 'var(--text)', border: '1px solid rgba(255,255,255,0.12)' }
   const { showToast } = useToast()
   // JAY-46 — last_synced_at/last_sync_summary persist sync outcome across
   // page loads (previously only a one-time toast, gone on refresh).
@@ -1417,12 +1417,12 @@ function IntegrationsTab() {
     if (!status.last_synced_at || !status.last_sync_summary) return null
     const { count, errors, label } = status.last_sync_summary
     return (
-      <div style={{ fontSize: '12px', color: errors > 0 ? '#f87171' : '#4ade80', background: errors > 0 ? 'rgba(248,113,113,0.1)' : 'rgba(74,222,128,0.1)', padding: '6px 10px', borderRadius: '6px', marginBottom: '0.75rem' }}>
+      <div style={{ fontSize: '12px', color: errors > 0 ? 'var(--error)' : 'var(--success)', background: errors > 0 ? 'rgba(248,113,113,0.1)' : 'rgba(74,222,128,0.1)', padding: '6px 10px', borderRadius: '6px', marginBottom: '0.75rem' }}>
         Last synced {fmtDateTime(status.last_synced_at)} — {count} {label}{errors > 0 ? `, ${errors} error${errors !== 1 ? 's' : ''}` : ''}
       </div>
     )
   }
-  const connectedBadge = <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', background: 'rgba(74,222,128,0.15)', color: '#4ade80' }}>● Connected</span>
+  const connectedBadge = <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', background: 'rgba(74,222,128,0.15)', color: 'var(--success)' }}>● Connected</span>
   const notConnectedBadge = <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-tertiary)' }}>○ Not connected</span>
 
   return (
@@ -1434,7 +1434,7 @@ function IntegrationsTab() {
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
             <div style={{ width: 36, height: 36, borderRadius: '8px', background: 'rgba(192,105,43,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ReceiptIcon size={18} color="#e0925a" /></div>
-            <div><div style={{ fontWeight: 700, fontSize: '14px', color: '#e2e8f0' }}>Gusto</div><div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Payroll &amp; HR</div></div>
+            <div><div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)' }}>Gusto</div><div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Payroll &amp; HR</div></div>
             {!loading && <div style={{ marginLeft: 'auto' }}>{gusto ? connectedBadge : notConnectedBadge}</div>}
           </div>
           {loading ? <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Loading...</div> : gusto ? (
@@ -1445,7 +1445,7 @@ function IntegrationsTab() {
                 <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 14px' }} onClick={() => sync('push_employees', '/api/gusto/sync', { action: 'push_employees' })} disabled={!!syncing}>{syncing === 'push_employees' ? 'Syncing…' : '↑ Push employees'}</button>
                 <button className="btn" style={{ ...ghostBtnStyle, fontSize: '13px', padding: '7px 14px' }} onClick={() => sync('pull_payrolls', '/api/gusto/sync', { action: 'pull_payrolls' })} disabled={!!syncing}>{syncing === 'pull_payrolls' ? 'Importing…' : '↓ Pull payrolls'}</button>
               </div>
-              <button style={{ fontSize: '12px', color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => handleDisconnect('gusto')}>Disconnect</button>
+              <button style={{ fontSize: '12px', color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => handleDisconnect('gusto')}>Disconnect</button>
             </>
           ) : <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }} onClick={() => handleConnect('gusto')}>Connect Gusto</button>}
         </div>
@@ -1453,8 +1453,8 @@ function IntegrationsTab() {
         {/* Google Calendar */}
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
-            <div style={{ width: 36, height: 36, borderRadius: '8px', background: 'rgba(26,115,232,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><CalendarIcon size={18} color="#93c5fd" /></div>
-            <div><div style={{ fontWeight: 700, fontSize: '14px', color: '#e2e8f0' }}>Google Calendar</div><div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Schedule sync</div></div>
+            <div style={{ width: 36, height: 36, borderRadius: '8px', background: 'rgba(26,115,232,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><CalendarIcon size={18} color="var(--accent)" /></div>
+            <div><div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)' }}>Google Calendar</div><div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Schedule sync</div></div>
             {!loading && <div style={{ marginLeft: 'auto' }}>{google ? connectedBadge : notConnectedBadge}</div>}
           </div>
           {loading ? <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Loading...</div> : google ? (
@@ -1464,7 +1464,7 @@ function IntegrationsTab() {
               <div style={{ marginBottom: '0.75rem' }}>
                 <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 14px' }} onClick={() => sync('push_shifts', '/api/google/sync', {})} disabled={!!syncing}>{syncing === 'push_shifts' ? 'Syncing…' : '↑ Push this week\'s shifts'}</button>
               </div>
-              <button style={{ fontSize: '12px', color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => handleDisconnect('google')}>Disconnect</button>
+              <button style={{ fontSize: '12px', color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => handleDisconnect('google')}>Disconnect</button>
             </>
           ) : <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }} onClick={() => handleConnect('google')}>Connect Google Calendar</button>}
         </div>
@@ -1472,8 +1472,8 @@ function IntegrationsTab() {
         {/* QuickBooks */}
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
-            <div style={{ width: 36, height: 36, borderRadius: '8px', background: 'rgba(46,125,50,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><BookOpenIcon size={18} color="#4ade80" /></div>
-            <div><div style={{ fontWeight: 700, fontSize: '14px', color: '#e2e8f0' }}>QuickBooks</div><div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Accounting sync</div></div>
+            <div style={{ width: 36, height: 36, borderRadius: '8px', background: 'rgba(46,125,50,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><BookOpenIcon size={18} color="var(--success)" /></div>
+            <div><div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)' }}>QuickBooks</div><div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Accounting sync</div></div>
             {!loading && <div style={{ marginLeft: 'auto' }}>{qb ? connectedBadge : notConnectedBadge}</div>}
           </div>
           {loading ? <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Loading...</div> : qb ? (
@@ -1483,7 +1483,7 @@ function IntegrationsTab() {
               <div style={{ marginBottom: '0.75rem' }}>
                 <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 14px' }} onClick={() => sync('push_payroll', '/api/quickbooks/sync', {})} disabled={!!syncing}>{syncing === 'push_payroll' ? 'Syncing…' : '↑ Push this month\'s payroll'}</button>
               </div>
-              <button style={{ fontSize: '12px', color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => handleDisconnect('quickbooks')}>Disconnect</button>
+              <button style={{ fontSize: '12px', color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }} onClick={() => handleDisconnect('quickbooks')}>Disconnect</button>
             </>
           ) : <button className="btn auth-btn-primary" style={{ width: 'auto', fontSize: '13px', padding: '7px 16px' }} onClick={() => handleConnect('quickbooks')}>Connect QuickBooks</button>}
         </div>
@@ -1492,10 +1492,10 @@ function IntegrationsTab() {
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.75rem' }}>
             <div style={{ width: 36, height: 36, borderRadius: '8px', background: 'rgba(230,81,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1.5" fill="#fbbf24" stroke="none"/><line x1="12" y1="9" x2="12" y2="20"/><path d="M8 20h8"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1.5" fill="var(--amber)" stroke="none"/><line x1="12" y1="9" x2="12" y2="20"/><path d="M8 20h8"/></svg>
             </div>
-            <div><div style={{ fontWeight: 700, fontSize: '14px', color: '#e2e8f0' }}>Indeed</div><div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Job board publishing</div></div>
-            <div style={{ marginLeft: 'auto' }}><span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>Via Hiring page</span></div>
+            <div><div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)' }}>Indeed</div><div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Job board publishing</div></div>
+            <div style={{ marginLeft: 'auto' }}><span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', background: 'rgba(251,191,36,0.15)', color: 'var(--amber)' }}>Via Hiring page</span></div>
           </div>
           <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: '1.5' }}>Post jobs to Indeed directly from the Hiring page.</div>
           <a href="/hiring" className="btn" style={{ ...ghostBtnStyle, width: 'auto', fontSize: '13px', padding: '7px 16px', display: 'inline-block', textDecoration: 'none' }}>Go to Hiring →</a>

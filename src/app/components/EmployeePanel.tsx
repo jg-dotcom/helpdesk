@@ -148,14 +148,14 @@ function formatKey(k: string) {
 
 // ── Dark-theme style constants (self-contained; this panel doesn't live inside
 // a `.dash-content` wrapper, so global input/select overrides don't reach it) ──
-const cardBg = '#1e293b'
+const cardBg = 'var(--bg-elevated)'
 const border = 'rgba(255,255,255,0.08)'
-const muted = '#64748b'
-const mutedDark = '#475569'
-const text = '#e2e8f0'
-const heading = '#f1f5f9'
-const accent = '#93c5fd'
-const accentFill = '#1d4ed8'
+const muted = 'var(--text-tertiary)'
+const mutedDark = 'var(--text-tertiary)'
+const text = 'var(--text)'
+const heading = 'var(--text)'
+const accent = 'var(--accent)'
+const accentFill = 'var(--accent)'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 10px', fontSize: '13px', borderRadius: '7px',
@@ -167,9 +167,9 @@ const fieldWrap: React.CSSProperties = { marginBottom: '0.85rem' }
 const row2Style: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }
 const sectionLabelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: mutedDark, margin: '1.25rem 0 0.7rem' }
 const emptyStateStyle: React.CSSProperties = { fontSize: '13px', color: mutedDark, padding: '1rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: `1px dashed ${border}` }
-const primaryBtn: React.CSSProperties = { fontSize: '13px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: accentFill, color: '#fff', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
-const ghostBtn: React.CSSProperties = { fontSize: '12px', padding: '6px 12px', borderRadius: '7px', border: `1px solid ${border}`, background: 'rgba(255,255,255,0.04)', color: '#94a3b8', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
-const dangerBtn: React.CSSProperties = { fontSize: '13px', padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', color: '#f87171', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
+const primaryBtn: React.CSSProperties = { fontSize: '13px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: accentFill, color: 'var(--accent-text)', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
+const ghostBtn: React.CSSProperties = { fontSize: '12px', padding: '6px 12px', borderRadius: '7px', border: `1px solid ${border}`, background: 'rgba(255,255,255,0.04)', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
+const dangerBtn: React.CSSProperties = { fontSize: '13px', padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', color: 'var(--error)', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
 const listItemStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 11px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}` }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -524,13 +524,13 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
       events.push({ id: `pay_${p.id}`, label: `Paid ${formatMoney(p.gross_pay)}`, sub: `${formatDate(p.period_start)} – ${formatDate(p.period_end)}`, date: p.paid_at ?? p.period_end, color: accent })
     }
     for (const n of notesData ?? []) {
-      events.push({ id: `note_${n.id}`, label: 'Check-in note added', sub: n.content.length > 60 ? n.content.slice(0, 60) + '…' : n.content, date: n.created_at, color: '#d8b4fe' })
+      events.push({ id: `note_${n.id}`, label: 'Check-in note added', sub: n.content.length > 60 ? n.content.slice(0, 60) + '…' : n.content, date: n.created_at, color: 'var(--accent)' })
     }
     for (const r of pto ?? []) {
-      events.push({ id: `pto_${r.id}`, label: `${r.type} request ${r.status}`, sub: `${formatDate(r.start_date)} – ${formatDate(r.end_date)}`, date: r.created_at, color: r.status === 'approved' ? '#4ade80' : r.status === 'denied' ? '#f87171' : '#fbbf24' })
+      events.push({ id: `pto_${r.id}`, label: `${r.type} request ${r.status}`, sub: `${formatDate(r.start_date)} – ${formatDate(r.end_date)}`, date: r.created_at, color: r.status === 'approved' ? 'var(--success)' : r.status === 'denied' ? 'var(--error)' : 'var(--amber)' })
     }
     for (const c of callouts ?? []) {
-      events.push({ id: `callout_${c.id}`, label: 'Called out', sub: formatDate(c.shift_date), date: c.shift_date, color: '#f87171' })
+      events.push({ id: `callout_${c.id}`, label: 'Called out', sub: formatDate(c.shift_date), date: c.shift_date, color: 'var(--error)' })
     }
 
     events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -728,10 +728,10 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
 
   const primaryDeptInfo = allDepts.find(d => d.id === primaryDept)
   const statusInfo = employee.status === 'terminated'
-    ? { label: 'Terminated', color: '#f87171', bg: 'rgba(239,68,68,0.15)' }
+    ? { label: 'Terminated', color: 'var(--error)', bg: 'rgba(239,68,68,0.15)' }
     : employee.status === 'on_leave'
-    ? { label: 'On leave', color: '#fbbf24', bg: 'rgba(245,158,11,0.15)' }
-    : { label: 'Active', color: '#4ade80', bg: 'rgba(34,197,94,0.15)' }
+    ? { label: 'On leave', color: 'var(--amber)', bg: 'rgba(245,158,11,0.15)' }
+    : { label: 'Active', color: 'var(--success)', bg: 'rgba(34,197,94,0.15)' }
 
   return (
     <div className={`emp-panel-dark${closing ? ' closing' : ''}`} style={{
@@ -750,7 +750,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               <div style={{ fontSize: '17px', fontWeight: 700, color: heading }}>{employee.name}</div>
               <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '99px', background: statusInfo.bg, color: statusInfo.color, letterSpacing: '0.03em' }}>{statusInfo.label.toUpperCase()}</span>
               {employee.access_role === 'manager' && (
-                <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '99px', background: 'rgba(192,132,252,0.15)', color: '#d8b4fe', letterSpacing: '0.04em' }}>MANAGER</span>
+                <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '99px', background: 'rgba(192,132,252,0.15)', color: 'var(--accent)', letterSpacing: '0.04em' }}>MANAGER</span>
               )}
             </div>
             <div style={{ fontSize: '13px', color: muted, marginTop: '2px' }}>{employee.role}</div>
@@ -796,7 +796,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               if (missing.length === 0 && !onboardingIncomplete && !workAuthExpiringSoon) {
                 return (
                   <div style={{ marginTop: '8px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: 'rgba(34,197,94,0.1)', color: '#4ade80' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: 'rgba(34,197,94,0.1)', color: 'var(--success)' }}>
                       ✓ Compliant
                     </span>
                   </div>
@@ -805,7 +805,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               return (
                 <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
                   {missing.map(c => (
-                    <span key={c.label} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: 'rgba(245,158,11,0.15)', color: '#fbbf24' }}>
+                    <span key={c.label} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: 'rgba(245,158,11,0.15)', color: 'var(--amber)' }}>
                       ⚠ {c.label} missing
                     </span>
                   ))}
@@ -815,7 +815,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                     </span>
                   )}
                   {workAuthExpiringSoon && (
-                    <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: 'rgba(220,38,38,0.15)', color: '#f87171' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: 'rgba(220,38,38,0.15)', color: 'var(--error)' }}>
                       ⚠ Work auth {workAuthDays! < 0 ? 'expired' : `expires in ${workAuthDays}d`}
                     </span>
                   )}
@@ -856,7 +856,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             <button
               onClick={saveNote}
               disabled={!noteText.trim() || noteSaving || noteSaved}
-              style={{ ...primaryBtn, fontSize: '12px', padding: '6px 12px', background: noteSaved ? '#16a34a' : accentFill, opacity: (!noteText.trim() || noteSaving) ? 0.5 : 1 }}
+              style={{ ...primaryBtn, fontSize: '12px', padding: '6px 12px', background: noteSaved ? 'var(--success)' : accentFill, opacity: (!noteText.trim() || noteSaving) ? 0.5 : 1 }}
             >
               {noteSaving ? 'Saving...' : noteSaved ? '✓ Saved' : 'Save note'}
             </button>
@@ -1026,7 +1026,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             <span style={{
               fontSize: '11px', fontWeight: 600, padding: '2px 9px', borderRadius: '99px',
               background: documentsSigned ? 'rgba(34,197,94,0.15)' : welcomePackSent ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
-              color: documentsSigned ? '#4ade80' : welcomePackSent ? '#fbbf24' : '#f87171',
+              color: documentsSigned ? 'var(--success)' : welcomePackSent ? 'var(--amber)' : 'var(--error)',
             }}>
               {documentsSigned ? '2/2 done' : welcomePackSent ? '1/2 done' : '0/2 done'}
             </span>
@@ -1039,11 +1039,11 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}` }}>
                 <div style={{
                   width: 18, height: 18, borderRadius: '5px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px',
-                  background: item.done ? 'rgba(34,197,94,0.2)' : 'transparent', border: `1.5px solid ${item.done ? '#4ade80' : border}`, color: '#4ade80',
+                  background: item.done ? 'rgba(34,197,94,0.2)' : 'transparent', border: `1.5px solid ${item.done ? 'var(--success)' : border}`, color: 'var(--success)',
                 }}>
                   {item.done ? '✓' : ''}
                 </div>
-                <div style={{ fontSize: '13px', color: item.done ? '#4ade80' : text }}>{item.label}</div>
+                <div style={{ fontSize: '13px', color: item.done ? 'var(--success)' : text }}>{item.label}</div>
               </div>
             ))}
           </div>
@@ -1062,7 +1062,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             </>
           ) : (
             <>
-              <div style={{ fontSize: '13px', color: '#4ade80', fontWeight: 600, marginBottom: '0.75rem' }}>✓ Setup link sent{empEmail ? ` to ${empEmail}` : ''}.</div>
+              <div style={{ fontSize: '13px', color: 'var(--success)', fontWeight: 600, marginBottom: '0.75rem' }}>✓ Setup link sent{empEmail ? ` to ${empEmail}` : ''}.</div>
               <div style={{ fontSize: '12px', color: muted, marginBottom: '0.5rem' }}>Onboarding link (fallback — share if email didn&apos;t arrive):</div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input readOnly value={linkUrl} onFocus={e => e.target.select()} style={{ ...inputStyle, flex: 1 }} />
@@ -1182,7 +1182,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.25rem' }}>
                     {docSignatures.map(sig => (
                       <div key={sig.id} style={{ ...listItemStyle, background: 'rgba(34,197,94,0.08)', borderColor: 'rgba(34,197,94,0.25)' }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '6px', background: 'rgba(34,197,94,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px', color: '#4ade80', fontWeight: 700 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '6px', background: 'rgba(34,197,94,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '13px', color: 'var(--success)', fontWeight: 700 }}>
                           ✓
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1191,7 +1191,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                             Signed as <span style={{ fontStyle: 'italic', color: muted }}>{sig.signed_name}</span> · {new Date(sig.signed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
                         </div>
-                        <span style={{ fontSize: '11px', fontWeight: 500, color: '#4ade80', flexShrink: 0 }}>Signed</span>
+                        <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--success)', flexShrink: 0 }}>Signed</span>
                       </div>
                     ))}
                   </div>
@@ -1206,7 +1206,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                   {employeeDocs.map(doc => (
                     <div key={doc.id} style={listItemStyle}>
                       <div style={{ width: 28, height: 28, borderRadius: '6px', background: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <PaperclipIcon size={14} color="#4ade80" />
+                        <PaperclipIcon size={14} color="var(--success)" />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '13px', fontWeight: 500, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.file_name}</div>
@@ -1370,7 +1370,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             ) : showInProgress ? (
               <div>
                 <div style={{ textAlign: 'center', padding: '1rem 0 1.25rem' }}>
-                  <div style={{ fontWeight: 600, fontSize: '15px', marginBottom: '0.3rem', color: '#fbbf24' }}>Offboarding in progress — access revoked</div>
+                  <div style={{ fontWeight: 600, fontSize: '15px', marginBottom: '0.3rem', color: 'var(--amber)' }}>Offboarding in progress — access revoked</div>
                   <p style={{ fontSize: '13px', color: muted }}>{employee.name} was terminated. {remainingItems.length} item{remainingItems.length !== 1 ? 's' : ''} still open.</p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1379,7 +1379,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                       <div style={{ fontSize: '13px', color: text }}>{label}</div>
                       <button
                         onClick={() => markOffboardingItemDone(i)}
-                        style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px', border: `1px solid ${border}`, background: 'rgba(34,197,94,0.12)', color: '#4ade80', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+                        style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px', border: `1px solid ${border}`, background: 'rgba(34,197,94,0.12)', color: 'var(--success)', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
                       >
                         Mark done
                       </button>
@@ -1404,7 +1404,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                   <span style={{
                     fontSize: '11px', fontWeight: 600, padding: '2px 9px', borderRadius: '99px',
                     background: checked.filter(Boolean).length === checklistItems.length ? 'rgba(34,197,94,0.15)' : checked.some(Boolean) ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
-                    color: checked.filter(Boolean).length === checklistItems.length ? '#4ade80' : checked.some(Boolean) ? '#fbbf24' : '#f87171',
+                    color: checked.filter(Boolean).length === checklistItems.length ? 'var(--success)' : checked.some(Boolean) ? 'var(--amber)' : 'var(--error)',
                   }}>
                     {checked.filter(Boolean).length}/{checklistItems.length} done
                   </span>
@@ -1419,11 +1419,11 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                     >
                       <div style={{
                         width: 18, height: 18, borderRadius: '5px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px',
-                        background: checked[i] ? 'rgba(34,197,94,0.2)' : 'transparent', border: `1.5px solid ${checked[i] ? '#4ade80' : border}`, color: '#4ade80',
+                        background: checked[i] ? 'rgba(34,197,94,0.2)' : 'transparent', border: `1.5px solid ${checked[i] ? 'var(--success)' : border}`, color: 'var(--success)',
                       }}>
                         {checked[i] ? '✓' : ''}
                       </div>
-                      <div style={{ fontSize: '13px', textDecoration: checked[i] ? 'line-through' : 'none', color: checked[i] ? '#4ade80' : text }}>
+                      <div style={{ fontSize: '13px', textDecoration: checked[i] ? 'line-through' : 'none', color: checked[i] ? 'var(--success)' : text }}>
                         {label}
                       </div>
                     </div>
@@ -1437,14 +1437,14 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                     onClick={terminateNow}
                     disabled={offboardingSaving}
                     title="Terminate immediately and keep tracking the rest of the checklist afterward"
-                    style={{ ...dangerBtn, flex: 1, background: 'rgba(220,38,38,0.12)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.3)' }}
+                    style={{ ...dangerBtn, flex: 1, background: 'rgba(220,38,38,0.12)', color: 'var(--error)', border: '1px solid rgba(220,38,38,0.3)' }}
                   >
                     {offboardingSaving ? 'Saving...' : 'Terminate now'}
                   </button>
                   <button
                     onClick={completeOffboarding}
                     disabled={offboardingSaving}
-                    style={{ ...dangerBtn, flex: 1, background: '#dc2626', color: '#fff', border: 'none' }}
+                    style={{ ...dangerBtn, flex: 1, background: 'var(--error)', color: 'var(--accent-text)', border: 'none' }}
                   >
                     {offboardingSaving ? 'Saving...' : 'Complete & terminate'}
                   </button>
