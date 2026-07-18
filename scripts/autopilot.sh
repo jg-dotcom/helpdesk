@@ -1,18 +1,7 @@
 #!/bin/bash
-# Continuous Todo -> implemented -> pushed -> Done pipeline for Helpdesk.
-# Meant to be run via launchd on YOUR machine (has real git push
+# Unattended Todo -> implemented -> pushed -> Done pipeline for Helpdesk.
+# Meant to be run via cron or launchd on YOUR machine (has real git push
 # credentials) — never run this from a sandboxed/no-network environment.
-#
-# This is a persistent daemon, not a one-shot script: it loops forever,
-# processing one Todo issue per iteration with a short cooldown between
-# issues and a longer idle poll when Todo is empty/all-data-schema. launchd
-# should start this ONCE (RunAtLoad + KeepAlive, no StartInterval) rather
-# than re-invoking it on a timer — re-invoking would just hit the lockfile
-# and no-op since the loop never exits on its own. Converted from a
-# bounded-batch-per-interval design on 2026-07-17 because waiting up to
-# 20 minutes between each of a batch of approved tickets was pure dead time
-# with no benefit — approval already happens at Backlog->Todo, so there's
-# no additional safety gained by rate-limiting how fast Todo gets drained.
 #
 # BEFORE FIRST USE:
 #   1. chmod +x scripts/autopilot.sh
@@ -22,21 +11,10 @@
 #      / a normal session shows you.
 #   3. Do a dry run manually first: `bash scripts/autopilot.sh` and watch
 #      scripts/autopilot.log — don't trust a scheduled job you haven't
-#      watched succeed at least once. Ctrl+C to stop a manual foreground run.
+#      watched succeed at least once.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root
-
-# launchd runs jobs with a minimal PATH (it never sources .zshrc/.bash_profile
-# the way an interactive Terminal shell does), so binaries that work fine when
-# you run this script by hand can silently be "command not found" when the
-# exact same script runs unattended via launchd. Confirmed real bug from runs
-# on 2026-07-17 (`claude: command not found`, exit 127, on every scheduled
-# tick even though `bash scripts/autopilot.sh` worked fine manually).
-# Absolute path confirmed via `which claude` — update this if you ever
-# reinstall/relocate the CLI.
-CLAUDE_BIN="/Users/hansomeGuy/.local/bin/claude"
-export PATH="$(dirname "$CLAUDE_BIN"):/usr/local/bin:/opt/homebrew/bin:$PATH"
 
 LOCKFILE="/tmp/helpdesk-autopilot.lock"
 LOG="$(pwd)/scripts/autopilot.log"
@@ -48,7 +26,7 @@ fi
 touch "$LOCKFILE"
 trap 'rm -f "$LOCKFILE"' EXIT
 
-echo "=== Daemon started $(date) ===" >> "$LOG"
+echo "=== Run started $(date) ===" >> "$LOG"
 
 # Restrict exactly what this unattended run is allowed to touch. This is
 # deliberately narrower than --dangerously-skip-permissions: git push and
@@ -79,6 +57,14 @@ if [ -f "$(pwd)/scripts/.env.autopilot" ]; then
   export VERCEL_TOKEN VERCEL_PROJECT_ID
 fi
 
+# Safety cap — process at most this many issues in one invocation, even if
+# more are sitting in Todo. Each issue still gets its own isolated
+# implement -> test -> push -> verify cycle (separate claude -p call), but
+# an unattended run can't silently push an unbounded pile of commits just
+# because a big batch got approved to Todo at once. Raise this once you've
+# watched a handful of runs succeed cleanly.
+MAX_ISSUES_PER_RUN=5
+
 # Timeout for a single issue attempt. Confirmed real bug from a run on
 # 2026-07-17: a claude -p call sat at 0% CPU, "sleeping", for 10+ minutes
 # with no progress and no error — a true hang, not just slow work. Without
@@ -86,40 +72,24 @@ fi
 # lockfile) with nobody watching to notice or Ctrl+C it manually.
 TIMEOUT_SECS=600
 
-# Brief pause between successive issue attempts (even on success) so this
-# doesn't hammer the Linear/Vercel/GitHub APIs back-to-back with zero
-# breathing room, and gives you a moment to Ctrl+C between tickets if
-# something looks off while watching the log live.
-COOLDOWN_SECS=20
-
-# How long to sleep before re-checking Todo when there's nothing eligible
-# to work on (empty, or only tier:data-schema left). No point polling
-# every few seconds when there's confirmed nothing to do.
-IDLE_SLEEP_SECS=120
-
-# Tracks issue IDs already attempted (and failed) since the last time Todo
-# was found empty/all-data-schema, so a ticket left in Todo after a failed
-# attempt doesn't get immediately re-picked on the very next iteration —
-# confirmed real bug from a run on 2026-07-17 where a failed issue got
-# re-picked right after being discarded. Cleared automatically whenever the
-# routine reports Todo is drained, so a previously-failed ticket does get
-# retried eventually (e.g. once a blocking dependency or env issue is
-# fixed), instead of being permanently skipped for this daemon's lifetime.
+# Tracks issue IDs already attempted (and failed) THIS script run, so a
+# ticket that gets left in Todo after a failed attempt doesn't just get
+# picked again on the next loop iteration — confirmed real bug from the
+# same run: "Issue attempt 2/3" almost certainly re-picked JAY-79 right
+# after attempt 1 had already discarded and failed on it.
 ALREADY_ATTEMPTED=()
-ITER=0
 
-while true; do
-  ITER=$((ITER + 1))
-  echo "--- Issue attempt #$ITER ($(date)) ---" >> "$LOG"
+for i in $(seq 1 "$MAX_ISSUES_PER_RUN"); do
+  echo "--- Issue attempt $i/$MAX_ISSUES_PER_RUN ($(date)) ---" >> "$LOG"
 
   PROMPT_TEXT="$(cat scripts/autopilot-prompt.md)"
   if [ "${#ALREADY_ATTEMPTED[@]}" -gt 0 ]; then
     PROMPT_TEXT="$PROMPT_TEXT
 
-ADDITIONAL CONSTRAINT: do not pick any of these issue IDs, even if they are
-still in Todo — they were already attempted and failed earlier this cycle:
-${ALREADY_ATTEMPTED[*]}. If every remaining Todo issue is in this list,
-treat it the same as an empty Todo list and stop."
+ADDITIONAL CONSTRAINT FOR THIS RUN: do not pick any of these issue IDs, even
+if they are still in Todo — they were already attempted and failed earlier
+in this same run: ${ALREADY_ATTEMPTED[*]}. If every remaining Todo issue is
+in this list, treat it the same as an empty Todo list and stop."
   fi
 
   # set -e will kill the whole script the instant `claude` exits non-zero,
@@ -129,7 +99,7 @@ treat it the same as an empty Todo list and stop."
   set +e
 
   TMPOUT="$(mktemp)"
-  "$CLAUDE_BIN" -p "$PROMPT_TEXT" \
+  claude -p "$PROMPT_TEXT" \
     --allowedTools "${ALLOWED_TOOLS[@]}" \
     --permission-mode acceptEdits \
     --output-format text > "$TMPOUT" 2>&1 &
@@ -156,41 +126,34 @@ treat it the same as an empty Todo list and stop."
   echo "$OUTPUT" >> "$LOG"
 
   if [ "$TIMED_OUT" -eq 1 ]; then
-    echo "(TIMED OUT after ${TIMEOUT_SECS}s — killed. Any uncommitted changes were left as-is; run 'git status'/'git checkout -- .' manually before trusting the next attempt.)" >> "$LOG"
-    echo "Sleeping ${IDLE_SLEEP_SECS}s before the next attempt." >> "$LOG"
-    sleep "$IDLE_SLEEP_SECS"
-    continue
+    echo "(TIMED OUT after ${TIMEOUT_SECS}s — killed. Any uncommitted changes were left as-is; run 'git status'/'git checkout -- .' manually before trusting the next run.)" >> "$LOG"
+    echo "Stopping this run after a timeout rather than continuing to the next issue attempt." >> "$LOG"
+    break
   fi
 
   echo "(claude exited with status $CLAUDE_EXIT)" >> "$LOG"
 
   if [ "$CLAUDE_EXIT" -ne 0 ]; then
-    echo "Non-zero exit — sleeping ${IDLE_SLEEP_SECS}s before the next attempt rather than hammering a possibly-broken state." >> "$LOG"
-    sleep "$IDLE_SLEEP_SECS"
-    continue
+    echo "Non-zero exit — stopping this run rather than continuing to the next issue attempt." >> "$LOG"
+    break
   fi
 
   if echo "$OUTPUT" | grep -qi "No Todo issues, nothing to do"; then
-    echo "Todo is empty — clearing attempted-list and sleeping ${IDLE_SLEEP_SECS}s before re-checking." >> "$LOG"
-    ALREADY_ATTEMPTED=()
-    sleep "$IDLE_SLEEP_SECS"
-    continue
+    echo "Todo is empty — stopping after $((i - 1)) issue(s) processed." >> "$LOG"
+    break
   fi
 
   if echo "$OUTPUT" | grep -qi "Only data-schema issues in Todo"; then
-    echo "Remaining Todo issues are all data-schema — clearing attempted-list and sleeping ${IDLE_SLEEP_SECS}s before re-checking." >> "$LOG"
-    ALREADY_ATTEMPTED=()
-    sleep "$IDLE_SLEEP_SECS"
-    continue
+    echo "Remaining Todo issues are all data-schema — stopping after $((i - 1)) issue(s) processed." >> "$LOG"
+    break
   fi
 
   # Pull out whichever issue ID this attempt actually picked (if any) so a
-  # failed one doesn't get immediately retried on the very next iteration.
+  # failed one doesn't get retried on the next loop iteration.
   PICKED_ID="$(echo "$OUTPUT" | grep -oE 'JAY-[0-9]+' | head -1 || true)"
   if [ -n "$PICKED_ID" ] && ! echo "$OUTPUT" | grep -qi "moved to \"Done\"\|status.*Done"; then
     ALREADY_ATTEMPTED+=("$PICKED_ID")
   fi
-
-  echo "Cooling down ${COOLDOWN_SECS}s before the next issue." >> "$LOG"
-  sleep "$COOLDOWN_SECS"
 done
+
+echo "=== Run finished $(date) ===" >> "$LOG"
