@@ -556,11 +556,10 @@ function SettingsContent() {
     window.location.href = '/login'
   }
 
-  // JAY-55 — dark-theme conversion. Settings was the one page that never got
-  // the redesign pass every other page went through (Payroll/Reports/etc.);
-  // it was still rendering the shared light-mode `.card` class. This matches
-  // the palette already established in payroll/page.tsx.
-  const cardStyle: React.CSSProperties = { background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem' }
+  // JAY-132 — de-boxed per design_handoff_helpdesk_redesign/Settings.dc.html:
+  // "divider-separated rows... max one level of container nesting" instead
+  // of the bordered `.card` box every tab panel used to sit in.
+  const cardStyle: React.CSSProperties = { borderTop: '1px solid var(--border)', paddingTop: '1.25rem', marginBottom: '1rem' }
   const labelStyle: React.CSSProperties = { fontSize: '12px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '4px' }
   const sectionLabelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 500, color: 'var(--text-tertiary)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.6rem' }
   // Secondary/ghost button — the shared `.btn` class defaults to a white
@@ -1349,7 +1348,7 @@ function SettingsContent() {
 }
 
 function IntegrationsTab() {
-  const cardStyle: React.CSSProperties = { background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
+  const cardStyle: React.CSSProperties = { borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }
   const ghostBtnStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.05)', color: 'var(--text)', border: '1px solid rgba(255,255,255,0.12)' }
   const { showToast } = useToast()
   // JAY-46 — last_synced_at/last_sync_summary persist sync outcome across

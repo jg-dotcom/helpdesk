@@ -493,31 +493,37 @@ export default function PayrollPage() {
           </div>
         </div>
 
-        {/* Stats — JAY-56: before any payment has ever been logged, both cards
-            read $0.00 and burn the most valuable above-the-fold space showing
-            nothing. Collapse to a single "get started" banner in that case. */}
+        {/* Stats — JAY-132: divider + tick-bar style per Payroll.dc.html,
+            replacing the bordered card pair. JAY-56: before any payment has
+            ever been logged, both stats read $0.00 and burn the most
+            valuable above-the-fold space showing nothing, so collapse to a
+            single "get started" banner in that case. */}
         {entries.length === 0 ? (
           <div style={{ ...cardStyle, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
             <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>No pay runs yet.</span>
             <button style={primaryBtn} onClick={() => setShowForm(v => !v)}>+ Log payment</button>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '1.25rem' }}>
-            <div style={cardStyle}>
-              <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>This period</div>
-              <div style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text)' }}>{formatMoney(totalThisPeriod)}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 0, marginBottom: '2rem' }}>
+            <div style={{ padding: '0 20px 0 0' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-tertiary)', marginBottom: '10px' }}>This period</div>
+              <div style={{ width: 18, height: 3, borderRadius: '2px', background: 'var(--accent)', marginBottom: '10px' }} />
+              <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>{formatMoney(totalThisPeriod)}</div>
             </div>
-            <div style={cardStyle}>
-              <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Total paid (all time)</div>
-              <div style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text)' }}>{formatMoney(totalAllTime)}</div>
+            <div style={{ padding: '0 20px', borderLeft: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-tertiary)', marginBottom: '10px' }}>Total paid (all time)</div>
+              <div style={{ width: 18, height: 3, borderRadius: '2px', background: 'var(--accent)', marginBottom: '10px' }} />
+              <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>{formatMoney(totalAllTime)}</div>
             </div>
           </div>
         )}
 
-        {/* Needs attention */}
+        {/* Needs attention — de-boxed to a plain divider list (amber tone
+            kept via the dot markers and the "Before you run" eyebrow, not a
+            bordered card) matching Dashboard's "Needs your attention". */}
         {!loading && hasAttentionItems && (
-          <div style={{ ...cardStyle, marginBottom: '1.25rem', border: '1px solid rgba(245,158,11,0.25)' }}>
-            <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.75rem' }}>Needs attention</div>
+          <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ fontSize: '17px', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text)', marginBottom: '14px' }}>Needs attention</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {missingPayRate.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text)' }}>

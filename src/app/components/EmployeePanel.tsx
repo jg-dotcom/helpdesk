@@ -190,6 +190,13 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [documentsSigned, setDocumentsSigned] = useState(false)
   const [closing, setClosing] = useState(false)
 
+  // JAY-125 — "Remove employee" used to be a one-click browser confirm()
+  // sitting right next to Save. Now it opens a modal requiring the admin to
+  // type the employee's name before the destructive button enables, same
+  // type-to-confirm pattern as Settings' delete-account flow.
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
+  const [removeConfirmText, setRemoveConfirmText] = useState('')
+
   // Onboarding tab state
   const [empEmail, setEmpEmail] = useState(employee.email || '')
   const [sending, setSending] = useState(false)
@@ -734,6 +741,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     : { label: 'Active', color: 'var(--success)', bg: 'rgba(34,197,94,0.15)' }
 
   return (
+    <>
     <div className={`emp-panel-dark${closing ? ' closing' : ''}`} style={{
       background: cardBg, border: `1px solid ${border}`, borderRadius: '12px',
       padding: '1.5rem', transition: 'opacity 0.4s ease, transform 0.4s ease',
@@ -1008,7 +1016,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             <button onClick={save} disabled={saving} style={primaryBtn}>
               {saving ? 'Saving...' : 'Save changes'}
             </button>
-            <button style={dangerBtn} onClick={() => { if (!confirm(`Remove ${employee.name}? This cannot be undone.`)) return; onDelete(employee.id) }}>
+            <button style={dangerBtn} onClick={() => { setRemoveConfirmText(''); setShowRemoveConfirm(true) }}>
               Remove employee
             </button>
           </div>
@@ -1455,5 +1463,39 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
         )
       })()}
     </div>
+
+    {/* JAY-125 — type-to-confirm before the destructive delete fires. */}
+    {showRemoveConfirm && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowRemoveConfirm(false)}>
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', padding: '1.5rem', width: '420px', maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '0.6rem' }}>Remove {employee.name}?</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1rem' }}>
+            This can&apos;t be undone. Type <strong style={{ color: 'var(--text)' }}>{employee.name}</strong> to confirm.
+          </div>
+          <input
+            autoFocus
+            value={removeConfirmText}
+            onChange={e => setRemoveConfirmText(e.target.value)}
+            placeholder={employee.name}
+            style={{ width: '100%', boxSizing: 'border-box', marginBottom: '1rem', borderColor: removeConfirmText && removeConfirmText !== employee.name ? 'var(--error)' : undefined }}
+          />
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button onClick={() => setShowRemoveConfirm(false)} style={ghostBtn}>Cancel</button>
+            <button
+              onClick={() => { setShowRemoveConfirm(false); onDelete(employee.id) }}
+              disabled={removeConfirmText !== employee.name}
+              style={{
+                ...dangerBtn,
+                opacity: removeConfirmText === employee.name ? 1 : 0.5,
+                cursor: removeConfirmText === employee.name ? 'pointer' : 'default',
+              }}
+            >
+              Remove employee
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
