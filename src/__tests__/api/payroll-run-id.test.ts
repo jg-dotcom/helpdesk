@@ -20,6 +20,7 @@ describe('PATCH /api/payroll/run/[id] — deductions branch (JAY-76)', () => {
       { data: { gross_pay: 500, run_id: 'run-1' }, error: null }, // payroll_run_items lookup
       { data: { id: 'run-1' }, error: null },                     // payroll_runs ownership check
       { data: null, error: null },                                 // update
+      { data: null, error: null },                                 // JAY-118 audit insert
     ])
     const res = await PATCH(
       mockRequest({ token: 'good', body: { itemId: 42, deductions: { federal: 50 } } }) as never,
@@ -31,6 +32,37 @@ describe('PATCH /api/payroll/run/[id] — deductions branch (JAY-76)', () => {
     // The item lookup must be scoped to this run, not just the raw item id.
     const itemLookupCall = fromMock.mock.results[0].value
     expect(itemLookupCall.eq).toHaveBeenCalledWith('run_id', 'run-1')
+  })
+
+  // JAY-118 — deduction edits now write an audit row capturing who changed
+  // what, so a disputed net-pay figure can be traced back to an edit.
+  it('writes an audit row with old/new deductions and net pay on a successful edit', async () => {
+    mockOwner({ id: 'owner-1' })
+    const fromMock = queueFromResponses(supabaseAdmin, [
+      { data: { gross_pay: 500, run_id: 'run-1', deductions: { federal: 20 }, net_pay: 480 }, error: null },
+      { data: { id: 'run-1' }, error: null },
+      { data: null, error: null }, // update
+      { data: null, error: null }, // audit insert
+    ])
+    const res = await PATCH(
+      mockRequest({ token: 'good', body: { itemId: 42, deductions: { federal: 50 } } }) as never,
+      { params: { id: 'run-1' } }
+    )
+    expect(res.status).toBe(200)
+    expect(fromMock).toHaveBeenCalledWith('payroll_deduction_audit')
+    const auditCallIndex = fromMock.mock.calls.findIndex((c: unknown[]) => c[0] === 'payroll_deduction_audit')
+    const auditResult = fromMock.mock.results[auditCallIndex].value
+    expect(auditResult.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payroll_run_item_id: 42,
+        user_id: 'owner-1',
+        edited_by: 'owner-1',
+        old_deductions: { federal: 20 },
+        new_deductions: { federal: 50 },
+        old_net_pay: 480,
+        new_net_pay: 450,
+      })
+    )
   })
 
   it('returns 404 when the item does not belong to the run named in the URL (cross-tenant attempt)', async () => {

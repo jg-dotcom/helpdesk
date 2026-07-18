@@ -52,7 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // and that run belongs to the caller, before touching it.
     const { data: item } = await supabaseAdmin
       .from('payroll_run_items')
-      .select('gross_pay, run_id')
+      .select('gross_pay, run_id, deductions, net_pay')
       .eq('id', body.itemId)
       .eq('run_id', params.id)
       .single()
@@ -75,6 +75,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       .from('payroll_run_items')
       .update({ deductions: body.deductions, net_pay: netPay })
       .eq('id', body.itemId)
+
+    // JAY-118 — audit trail for manual deduction edits. Best-effort: an audit
+    // insert failure shouldn't roll back or block the actual payroll update.
+    await supabaseAdmin.from('payroll_deduction_audit').insert({
+      payroll_run_item_id: body.itemId,
+      user_id: user.id,
+      edited_by: user.id,
+      old_deductions: item.deductions ?? null,
+      new_deductions: body.deductions,
+      old_net_pay: item.net_pay ?? null,
+      new_net_pay: netPay,
+    })
 
     return NextResponse.json({ ok: true, netPay })
   }
