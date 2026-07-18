@@ -54,6 +54,12 @@ export PATH="$(dirname "$CLAUDE_BIN"):/usr/local/bin:/opt/homebrew/bin:$PATH"
 
 LOCKFILE="/tmp/helpdesk-autopilot.lock"
 LOG="$(pwd)/scripts/autopilot.log"
+# Tracks which ticket/stage is currently mid-flight, so a daemon restart
+# (planned or crash) leaves a visible trail instead of silently losing track
+# — confirmed as a real gap on 2026-07-18, when a mid-session restart
+# interrupted JAY-128's QA stage and left it as an unremarked uncommitted
+# diff in the working tree, only noticed by chance an hour later.
+STATEFILE="/tmp/helpdesk-autopilot-inflight.state"
 
 if [ -e "$LOCKFILE" ]; then
   echo "$(date): already running (lockfile present), exiting." >> "$LOG"
@@ -63,6 +69,20 @@ touch "$LOCKFILE"
 trap 'rm -f "$LOCKFILE"' EXIT
 
 echo "=== Daemon started (4-stage pipeline) $(date) ===" >> "$LOG"
+
+# Startup check: did the PREVIOUS run leave something mid-flight? Best-effort
+# diagnostic only — deliberately does not try to auto-resume or auto-commit
+# anything (that needs the same judgment call a human made manually last
+# time: is the diff real, does it match the ticket, do tests still pass).
+# Just makes the gap loud instead of silent.
+if [ -f "$STATEFILE" ]; then
+  echo "!!! Previous run left an in-flight marker — it did not shut down cleanly at a safe boundary:" >> "$LOG"
+  cat "$STATEFILE" >> "$LOG"
+  echo "    Current working tree status (excluding this script's own files):" >> "$LOG"
+  git status --porcelain -- ':!scripts/autopilot*' ':!.tsc_before.txt' >> "$LOG" 2>&1 || true
+  echo "    ^ if that shows uncommitted changes matching the ticket above, it was likely implemented/QA'd but never deployed — same pattern as JAY-126/127/128 on 2026-07-18. Needs a human look, not auto-resume." >> "$LOG"
+  rm -f "$STATEFILE"
+fi
 
 # Per-stage tool scoping — deliberately narrower than one shared list.
 # Each entry MUST stay a single array element (space-containing entries like
@@ -245,6 +265,9 @@ treat it the same as an empty Todo list and stop."
   # "In Progress" would have been actively misleading.
   if [ -n "$PICKED_ID" ] && echo "$TECHLEAD_OUTPUT" | grep -qi "proceed to implementation"; then
     set_issue_state "$PICKED_ID" "In Progress"
+    echo "ISSUE=${PICKED_ID}
+STAGE=engineer
+STARTED=$(date)" > "$STATEFILE"
   fi
 
   # --- STAGE 2: ENGINEER ---
@@ -258,10 +281,14 @@ ${TECHLEAD_OUTPUT}"
     echo "Engineer stage failed/timed out on ${PICKED_ID:-unknown} — leaving any partial changes as-is, sleeping ${IDLE_SLEEP_SECS}s." >> "$LOG"
     [ -n "$PICKED_ID" ] && ALREADY_ATTEMPTED+=("$PICKED_ID")
     [ -n "$PICKED_ID" ] && set_issue_state "$PICKED_ID" "Todo"
+    rm -f "$STATEFILE"
     sleep "$IDLE_SLEEP_SECS"
     continue
   fi
   ENGINEER_OUTPUT="$OUTPUT"
+  [ -n "$PICKED_ID" ] && echo "ISSUE=${PICKED_ID}
+STAGE=qa
+STARTED=$(date)" > "$STATEFILE"
 
   # --- STAGE 3: QA ---
   QA_PROMPT="$(cat scripts/autopilot-prompt-3-qa.md)
@@ -277,10 +304,14 @@ ${ENGINEER_OUTPUT}"
     echo "QA stage failed/timed out on ${PICKED_ID:-unknown} — sleeping ${IDLE_SLEEP_SECS}s." >> "$LOG"
     [ -n "$PICKED_ID" ] && ALREADY_ATTEMPTED+=("$PICKED_ID")
     [ -n "$PICKED_ID" ] && set_issue_state "$PICKED_ID" "Todo"
+    rm -f "$STATEFILE"
     sleep "$IDLE_SLEEP_SECS"
     continue
   fi
   QA_OUTPUT="$OUTPUT"
+  [ -n "$PICKED_ID" ] && echo "ISSUE=${PICKED_ID}
+STAGE=deploy
+STARTED=$(date)" > "$STATEFILE"
 
   # --- STAGE 4: DEPLOY & FINALIZE ---
   DEPLOY_PROMPT="$(cat scripts/autopilot-prompt-4-deploy.md)
@@ -298,12 +329,36 @@ ${QA_OUTPUT}"
   if [ "$TIMED_OUT" -eq 1 ] || [ "$CLAUDE_EXIT" -ne 0 ]; then
     echo "Deploy stage failed/timed out on ${PICKED_ID:-unknown} — this may leave the ticket in an inconsistent state (implemented but not committed/closed). Deliberately NOT reverting Linear state to Todo here, unlike the Engineer/QA failure branches: unlike those, the code change may already be sitting in the working tree uncommitted (real work, not nothing), and a human should look at git status before this gets silently re-picked as if nothing happened. Check manually. Sleeping ${IDLE_SLEEP_SECS}s." >> "$LOG"
     [ -n "$PICKED_ID" ] && ALREADY_ATTEMPTED+=("$PICKED_ID")
+    # Deliberately NOT clearing STATEFILE here either — this is exactly the
+    # case it exists for. Leaving it in place means a restart before this
+    # gets manually resolved will surface it loudly on next startup instead
+    # of the gap going unnoticed again.
+    echo "ISSUE=${PICKED_ID:-unknown}
+STAGE=deploy (failed/timed out mid-stage — likely uncommitted work sitting in working tree)
+STARTED=$(date)" > "$STATEFILE"
     sleep "$IDLE_SLEEP_SECS"
     continue
   fi
 
   if [ -n "$PICKED_ID" ] && ! echo "$OUTPUT" | grep -qi "moved to \"Done\"\|status.*Done"; then
     ALREADY_ATTEMPTED+=("$PICKED_ID")
+  fi
+
+  # Deploy can exit=0 (the claude -p call itself didn't crash) while still
+  # having failed to actually commit — e.g. the recurring stale git-lock
+  # issue, which the stage handles by reporting a blocker rather than
+  # crashing (confirmed real on JAY-126/127, 2026-07-18). Only clear the
+  # in-flight marker on an unambiguous clean outcome: either it shipped
+  # ("moved to Done") or it explicitly says nothing was committed/left
+  # uncommitted. Anything mentioning "blocked" gets treated like a hard
+  # failure — leave the marker so a restart surfaces it instead of silently
+  # losing track of real, uncommitted work again.
+  if echo "$OUTPUT" | grep -qi "blocked"; then
+    echo "ISSUE=${PICKED_ID:-unknown}
+STAGE=deploy (reported a blocker — see DEPLOY output above for this cycle, not a script-level crash)
+STARTED=$(date)" > "$STATEFILE"
+  else
+    rm -f "$STATEFILE"
   fi
 
   echo "Cooling down ${COOLDOWN_SECS}s before the next issue." >> "$LOG"

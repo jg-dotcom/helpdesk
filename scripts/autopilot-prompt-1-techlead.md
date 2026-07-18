@@ -17,4 +17,8 @@ STEP 4 — Produce a concrete implementation plan. Output, clearly labeled:
 
 STEP 5 — Verdict. End with either "GO — proceed to implementation" or "NO-GO — <reason>". If NO-GO, also draft the exact comment text that should be posted to the issue explaining why, and note the issue should stay in Todo.
 
+If the NO-GO reason is specifically that the ticket is mislabeled (its tier label says it's safe to auto-implement but its real content needs `tier:data-schema`-level manual review — e.g. it needs a schema change, touches auth/permissions, or involves money-correctness logic), also output a line in EXACTLY this format so the next stage can act on it:
+RELABEL: <issue ID> -> tier:data-schema
+This is what actually stops the ticket from being picked up and re-diagnosed from scratch every future cycle — a NO-GO comment alone does not change the label, and an unrelabeled ticket will keep coming back. Only output this line when the fix is genuinely "this needs the data-schema tier," not for other NO-GO reasons (ambiguous scope, already-implemented/stale, etc.) — those don't call for a relabel.
+
 Output this plan as plain text — it will be read by the next stage (Engineer), which has no memory of this conversation, so be complete and unambiguous.
