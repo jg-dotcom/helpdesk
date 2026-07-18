@@ -29,6 +29,7 @@ export default function DocumentUpload({ employeeId, employeeName, userId }: Pro
   const { showToast } = useToast()
   const [docs, setDocs] = useState<EmployeeDoc[]>([])
   const [uploading, setUploading] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   useEffect(() => {
     loadDocs()
@@ -85,9 +86,17 @@ export default function DocumentUpload({ employeeId, employeeName, userId }: Pro
   }
 
   async function handleDelete(doc: EmployeeDoc) {
-    await supabase.storage.from('documents').remove([doc.file_path])
-    await supabase.from('employee_documents').delete().eq('id', doc.id)
-    setDocs(prev => prev.filter(d => d.id !== doc.id))
+    if (!confirm(`Delete ${doc.file_name}? This cannot be undone.`)) return
+    setDeletingId(doc.id)
+    try {
+      await supabase.storage.from('documents').remove([doc.file_path])
+      await supabase.from('employee_documents').delete().eq('id', doc.id)
+      setDocs(prev => prev.filter(d => d.id !== doc.id))
+    } catch {
+      showToast('Delete failed. Try again.', 'error')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
@@ -119,7 +128,14 @@ export default function DocumentUpload({ employeeId, employeeName, userId }: Pro
                 <div className="upload-meta">{formatSize(doc.file_size)}</div>
               </div>
               <button className="doc-btn" onClick={() => handleDownload(doc)}>Download</button>
-              <button className="doc-btn" style={{ color: '#c0392b' }} onClick={() => handleDelete(doc)}>Remove</button>
+              <button
+                className="doc-btn"
+                style={{ color: '#c0392b' }}
+                onClick={() => handleDelete(doc)}
+                disabled={deletingId === doc.id}
+              >
+                {deletingId === doc.id ? 'Removing...' : 'Remove'}
+              </button>
             </div>
           ))}
         </div>

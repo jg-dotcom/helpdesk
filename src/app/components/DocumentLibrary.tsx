@@ -24,6 +24,7 @@ export default function DocumentLibrary({ userId }: { userId: string }) {
   const [docs, setDocs] = useState<Doc[]>([])
   const [uploading, setUploading] = useState(false)
   const [search, setSearch] = useState('')
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   useEffect(() => {
     loadDocs()
@@ -75,9 +76,17 @@ export default function DocumentLibrary({ userId }: { userId: string }) {
   }
 
   async function handleDelete(doc: Doc) {
-    await supabase.storage.from('documents').remove([doc.file_path])
-    await supabase.from('document_templates').delete().eq('id', doc.id)
-    setDocs(prev => prev.filter(d => d.id !== doc.id))
+    if (!confirm(`Delete ${doc.file_name}? This cannot be undone.`)) return
+    setDeletingId(doc.id)
+    try {
+      await supabase.storage.from('documents').remove([doc.file_path])
+      await supabase.from('document_templates').delete().eq('id', doc.id)
+      setDocs(prev => prev.filter(d => d.id !== doc.id))
+    } catch {
+      showToast('Delete failed. Try again.', 'error')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const filteredDocs = search.trim()
@@ -130,8 +139,9 @@ export default function DocumentLibrary({ userId }: { userId: string }) {
                 className="doc-btn"
                 style={{ color: '#c0392b' }}
                 onClick={() => handleDelete(doc)}
+                disabled={deletingId === doc.id}
               >
-                Remove
+                {deletingId === doc.id ? 'Removing...' : 'Remove'}
               </button>
             </div>
           ))}
