@@ -103,6 +103,49 @@ describe('POST /api/applications (public)', () => {
     expect(sendMock.mock.calls[0][0].html).toContain('/applications/42')
   })
 
+  // JAY-133 — resume_path/resume_file_name are set by a prior upload-resume
+  // call and just passed through to the insert.
+  it('persists resume_path and resume_file_name when provided', async () => {
+    const fromMock = queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'owner-1', status: 'open' }, error: null },
+      { data: null, error: null },
+      { data: { id: 42 }, error: null },
+      { data: { title: 'Cashier' }, error: null },
+      { data: { business_name: 'Joe\'s Diner' }, error: null },
+      { data: null, error: null },
+    ])
+    const res = await POST(mockRequest({
+      body: {
+        job_posting_id: 1, owner_id: 'owner-1', name: 'Jane', email: 'jane@example.com',
+        resume_path: '1/12345-abc.pdf', resume_file_name: 'jane-resume.pdf',
+      },
+    }) as never)
+    expect(res.status).toBe(200)
+    const insertCall = fromMock.mock.results[2].value
+    expect(insertCall.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ resume_path: '1/12345-abc.pdf', resume_file_name: 'jane-resume.pdf' })
+    )
+  })
+
+  it('stores null resume fields when no resume was uploaded', async () => {
+    const fromMock = queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'owner-1', status: 'open' }, error: null },
+      { data: null, error: null },
+      { data: { id: 43 }, error: null },
+      { data: { title: 'Cashier' }, error: null },
+      { data: { business_name: 'Joe\'s Diner' }, error: null },
+      { data: null, error: null },
+    ])
+    const res = await POST(mockRequest({
+      body: { job_posting_id: 1, owner_id: 'owner-1', name: 'Jane', email: 'jane@example.com' },
+    }) as never)
+    expect(res.status).toBe(200)
+    const insertCall = fromMock.mock.results[2].value
+    expect(insertCall.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ resume_path: null, resume_file_name: null })
+    )
+  })
+
   it('still succeeds if the confirmation email fails to send', async () => {
     sendMock.mockRejectedValueOnce(new Error('resend down'))
     queueFromResponses(supabaseAdmin, [

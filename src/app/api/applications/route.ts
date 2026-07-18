@@ -8,7 +8,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // Public: submit an application
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { job_posting_id, owner_id, name, email, phone, cover_letter, source } = body
+  const { job_posting_id, owner_id, name, email, phone, cover_letter, source, resume_path, resume_file_name } = body
 
   if (!job_posting_id || !owner_id || !name || !email) {
     return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
@@ -58,6 +58,10 @@ export async function POST(req: NextRequest) {
     cover_letter: cover_letter || null,
     source: source || null,
     status: 'applied',
+    // JAY-133 — set by a prior POST /api/applications/upload-resume call;
+    // resume_path is a private-bucket storage path, never a public URL.
+    resume_path: resume_path || null,
+    resume_file_name: resume_file_name || null,
   }).select('id').single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -9,7 +9,32 @@ a {
   color: inherit;
 }
 
-:root {
+/* JAY-136 — design tokens for the light/dark theme toggle. These are
+   currently additive only: no existing rule in this file consumes
+   var(--...) yet, so switching [data-theme] has no visual effect until
+   pages are migrated to reference these tokens. Default (:root, no
+   attribute set yet) mirrors [data-theme="dark"] since that's the look
+   every existing user already sees (hardcoded dark sidebar/dashboard hex
+   elsewhere in this file) — this avoids a flash/regression for anyone
+   whose ThemeProvider hasn't run yet. */
+:root,
+[data-theme="dark"] {
+  --bg: #0d111e;
+  --bg-secondary: #131a2c;
+  --bg-info: rgba(37, 99, 235, 0.15);
+  --bg-success: rgba(34, 197, 94, 0.15);
+  --text: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-info: #60a5fa;
+  --text-success: #4ade80;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-md: rgba(255, 255, 255, 0.12);
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+[data-theme="light"] {
   --bg: #ffffff;
   --bg-secondary: #f7f7f5;
   --bg-info: #e6f1fb;

@@ -25,6 +25,7 @@ type Application = {
   phone: string | null
   cover_letter: string | null
   source?: string | null
+  resume_file_name?: string | null
   status: 'applied' | 'interviewing' | 'offer' | 'hired' | 'rejected'
   created_at: string
   updated_at?: string
@@ -192,6 +193,24 @@ export default function JobsPage() {
     setSelected(prev => prev?.id === appId ? { ...prev, interview_at: iso } : prev)
     if (iso) showToast(body.calendarSynced ? 'Interview scheduled and added to your calendar.' : 'Interview time saved.', 'success')
     else showToast('Interview time cleared.', 'success')
+  }
+
+  // JAY-133 — resumes live in a private storage bucket; this fetches a
+  // short-lived signed URL through the authenticated, ownership-checked
+  // route rather than the browser talking to Supabase Storage directly.
+  const [resumeLoading, setResumeLoading] = useState(false)
+  async function viewResume(appId: string) {
+    setResumeLoading(true)
+    try {
+      const res = await fetch(`/api/applications/${appId}/resume`, { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      if (!res.ok) { showToast(data.error || 'Could not open resume.', 'error'); return }
+      window.open(data.url, '_blank')
+    } catch {
+      showToast('Could not open resume.', 'error')
+    } finally {
+      setResumeLoading(false)
+    }
   }
 
   async function deleteApp(appId: string) {
@@ -550,6 +569,19 @@ export default function JobsPage() {
                 <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}><TagIcon size={13} />{jobs.find(j => j.id === selected.job_posting_id)?.title ?? 'Unknown role'}</div>
                 {selected.source && <div style={{ fontSize: '12px', color: '#64748b' }}>Source: <span style={{ color: '#c084fc' }}>{selected.source}</span></div>}
               </div>
+
+              {selected.resume_file_name && (
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={sectionLabel}>Resume</div>
+                  <button onClick={() => viewResume(selected.id)} disabled={resumeLoading} style={{
+                    display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#93c5fd',
+                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px',
+                    padding: '0.6rem 0.75rem', cursor: 'pointer', width: '100%', textAlign: 'left',
+                  }}>
+                    {resumeLoading ? 'Opening...' : selected.resume_file_name}
+                  </button>
+                </div>
+              )}
 
               {selected.cover_letter && (
                 <div style={{ marginBottom: '1.25rem' }}>
