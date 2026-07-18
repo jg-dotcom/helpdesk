@@ -478,6 +478,7 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
             </div>
           )
         ))}
+        <a href="/notifications" className="notif-footer">View all notifications →</a>
       </div>
     )}
 

@@ -1444,6 +1444,22 @@ body:has(.dash-wrap) {
   margin-top: 2px;
 }
 
+.notif-footer {
+  display: block;
+  padding: 0.65rem 1rem;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  color: #93c5fd;
+  text-decoration: none;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.notif-footer:hover {
+  background: rgba(255,255,255,0.03);
+  color: #bfdbfe;
+}
+
 /* Employee profile page */
 .profile-header {
   display: flex;
