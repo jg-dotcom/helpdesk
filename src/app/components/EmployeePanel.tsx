@@ -1008,7 +1008,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             <button onClick={save} disabled={saving} style={primaryBtn}>
               {saving ? 'Saving...' : 'Save changes'}
             </button>
-            <button style={dangerBtn} onClick={() => onDelete(employee.id)}>
+            <button style={dangerBtn} onClick={() => { if (!confirm(`Remove ${employee.name}? This cannot be undone.`)) return; onDelete(employee.id) }}>
               Remove employee
             </button>
           </div>
