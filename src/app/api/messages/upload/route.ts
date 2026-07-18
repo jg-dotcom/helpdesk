@@ -11,9 +11,30 @@ export async function POST(req: NextRequest) {
 
   const formData = await req.formData()
   const file = formData.get('file') as File | null
-  const businessId = formData.get('businessId') as string | null
 
-  if (!file || !businessId) return NextResponse.json({ error: 'Missing file or businessId' }, { status: 400 })
+  if (!file) return NextResponse.json({ error: 'Missing file' }, { status: 400 })
+
+  // JAY-112 — derive businessId server-side (same pattern as channels/route.ts)
+  // instead of trusting the client-supplied value, which let a caller upload
+  // into another business's storage prefix.
+  const { data: biz } = await supabaseAdmin
+    .from('business_profiles')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  let businessId: string
+  if (biz) {
+    businessId = user.id
+  } else {
+    const { data: emp } = await supabaseAdmin
+      .from('employees')
+      .select('user_id')
+      .eq('email', user.email ?? '')
+      .single()
+    if (!emp) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    businessId = emp.user_id
+  }
 
   const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
   if (file.size > MAX_SIZE) return NextResponse.json({ error: 'File too large (max 10 MB)' }, { status: 400 })
