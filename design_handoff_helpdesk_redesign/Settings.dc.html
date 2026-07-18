@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+</helmet>
+
+<div style="min-height:100vh; box-sizing:border-box; display:flex; background:{{ cBg }}; color:{{ cText }}; font-family:'Inter',sans-serif;">
+
+  <nav style="width:224px; flex-shrink:0; padding:24px 16px; display:flex; flex-direction:column; gap:2px;">
+    <div style="display:flex; align-items:center; gap:9px; padding:8px 12px 20px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <rect x="2" y="2" width="20" height="20" rx="7" fill="{{ cAccent }}"/>
+        <path d="M8 16V8m0 4h8m0-4v8" stroke="{{ cAccentText }}" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span style="font-size:15px; font-weight:800; letter-spacing:-0.01em;">Helpdesk</span>
+    </div>
+    <sc-for list="{{ sections }}" as="s" hint-placeholder-count="5">
+      <div onClick="{{ s.onClick }}" style="display:flex; align-items:center; gap:11px; padding:8px 10px; border-radius:7px; font-size:13.5px; font-weight:{{ s.weight }}; color:{{ s.color }}; background:{{ s.bg }}; cursor:pointer;">
+        <span style="width:16px; height:16px; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+          <sc-if value="{{ s.isGeneral }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2.5M12 18.5V21M4.2 4.2l1.8 1.8M18 18l1.8 1.8M3 12h2.5M18.5 12H21M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+          <sc-if value="{{ s.isBilling }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="1.6" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18" stroke="currentColor" stroke-width="1.6"/></svg></sc-if>
+          <sc-if value="{{ s.isIntegrations }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 3v5M15 3v5M6 8h12v4a6 6 0 0 1-12 0V8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+          <sc-if value="{{ s.isTeam }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="8" r="2.4" stroke="currentColor" stroke-width="1.6"/></svg></sc-if>
+          <sc-if value="{{ s.isDanger }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3l9 16H3L12 3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v4M12 17v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+        </span>
+        {{ s.label }}
+      </div>
+    </sc-for>
+  </nav>
+
+  <div style="flex:1; min-width:0; max-width:760px;">
+    <header style="display:flex; align-items:center; justify-content:space-between; padding:24px 40px 0;">
+      <h1 style="font-size:26px; font-weight:800; letter-spacing:-0.02em; margin:0;">{{ activeSectionLabel }}</h1>
+      <button onClick="{{ toggleTheme }}" aria-label="Toggle color theme" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:999px; border:none; background:{{ cBgElevated }}; color:{{ cTextSecondary }}; cursor:pointer;" style-hover="color:{{ cText }};">
+        <sc-if value="{{ isDark }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+        <sc-if value="{{ isLight }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></sc-if>
+      </button>
+    </header>
+
+    <sc-if value="{{ isGeneral }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:32px 40px 80px; display:flex; flex-direction:column; gap:40px;">
+
+        <div>
+          <h2 style="font-size:15px; font-weight:700; color:{{ cTextSecondary }}; margin:0 0 20px;">Company</h2>
+          <div style="display:flex; flex-direction:column; gap:20px; max-width:460px;">
+            <div>
+              <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Company name</label>
+              <input value="{{ companyNameInput }}" onChange="{{ onCompanyNameChange }}" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ cBorder }}; border-radius:8px; padding:11px 14px; font-size:14.5px; color:{{ cText }}; font-family:inherit;"/>
+            </div>
+            <div>
+              <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Time zone</label>
+              <input value="{{ timezoneInput }}" onChange="{{ onTimezoneChange }}" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ cBorder }}; border-radius:8px; padding:11px 14px; font-size:14.5px; color:{{ cText }}; font-family:inherit;"/>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding-top:8px; border-top:1px solid {{ cBorder }};">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding-top:24px;">
+            <div>
+              <div style="font-size:15px; font-weight:600; border-left:2px solid {{ cAmber }}; padding-left:10px;">Appearance</div>
+              <div style="font-size:13.5px; color:{{ cTextSecondary }}; margin-top:2px;">Match your system, or pick a theme for everyone signed in.</div>
+            </div>
+            <div style="display:flex; gap:4px; background:{{ cBgElevated }}; border-radius:9px; padding:3px;">
+              <sc-for list="{{ appearanceOptions }}" as="opt" hint-placeholder-count="2">
+                <button onClick="{{ opt.onClick }}" style="background:{{ opt.bg }}; color:{{ opt.color }}; border:none; border-radius:7px; padding:7px 14px; font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit;">{{ opt.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding-top:8px; border-top:1px solid {{ cBorder }};">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding-top:24px;">
+            <div>
+              <div style="font-size:15px; font-weight:600;">Email notifications</div>
+              <div style="font-size:13.5px; color:{{ cTextSecondary }}; margin-top:2px;">Time-off requests, new applications, and payroll reminders.</div>
+            </div>
+            <button onClick="{{ onToggleNotifs }}" style="width:44px; height:26px; border-radius:999px; border:none; background:{{ notifTrackColor }}; cursor:pointer; position:relative; flex-shrink:0;">
+              <span style="position:absolute; top:3px; left:{{ notifKnobLeft }}; width:20px; height:20px; border-radius:999px; background:oklch(99% 0 0); transition:left 0.15s ease;"></span>
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:16px; padding-top:8px; border-top:1px solid {{ cBorder }}; padding-top:24px;">
+          <button onClick="{{ onSave }}" style="background:{{ cAccent }}; color:{{ cAccentText }}; border:none; border-radius:9px; padding:11px 22px; font-size:14.5px; font-weight:600; cursor:pointer; font-family:inherit;" style-hover="opacity:0.9;">{{ saveLabel }}</button>
+          <sc-if value="{{ savedFlash }}" hint-placeholder-val="{{ false }}">
+            <span style="font-size:13.5px; color:{{ cSuccess }};">Saved</span>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isDangerZone }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:32px 40px 80px;">
+        <h2 style="font-size:16px; font-weight:700; color:{{ cError }}; margin:0 0 6px;">Delete account</h2>
+        <p style="font-size:14px; color:{{ cTextSecondary }}; line-height:1.6; margin:0 0 16px; max-width:460px;">Permanently deletes {{ companyNameInput }} — all employees, payroll history, and documents. This cannot be undone.</p>
+        <button style="background:none; color:{{ cError }}; border:1px solid {{ cError }}; border-radius:9px; padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;">Delete this account</button>
+      </div>
+    </sc-if>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    theme: 'dark', activeSection: 'general',
+    companyNameInput: 'Harbor Lane Veterinary Clinic', timezoneInput: 'Central Time (US)',
+    notifsOn: true, isSaving: false, savedFlash: false,
+  };
+
+  componentDidMount() {
+    try {
+      const saved = localStorage.getItem('helpdesk-careers-theme');
+      if (saved === 'light' || saved === 'dark') this.setState({ theme: saved });
+    } catch (e) {}
+  }
+
+  toggleTheme = () => {
+    const next = this.state.theme === 'dark' ? 'light' : 'dark';
+    this.setState({ theme: next });
+    try { localStorage.setItem('helpdesk-careers-theme', next); } catch (e) {}
+  };
+
+  setSection = (s) => this.setState({ activeSection: s });
+  onCompanyNameChange = (e) => this.setState({ companyNameInput: e.target.value });
+  onTimezoneChange = (e) => this.setState({ timezoneInput: e.target.value });
+  onToggleNotifs = () => this.setState(s => ({ notifsOn: !s.notifsOn }));
+  setThemeChoice = (val) => { this.setState({ theme: val }); try { localStorage.setItem('helpdesk-careers-theme', val); } catch (e) {} };
+
+  onSave = () => {
+    this.setState({ isSaving: true, savedFlash: false });
+    setTimeout(() => {
+      this.setState({ isSaving: false, savedFlash: true });
+      setTimeout(() => this.setState({ savedFlash: false }), 2000);
+    }, 600);
+  };
+
+  renderVals() {
+    const isDark = this.state.theme === 'dark';
+    const dark = {
+      cBg: 'oklch(17% 0.012 260)', cBgElevated: 'oklch(21% 0.014 258)', cBgInput: 'oklch(25% 0.015 258)',
+      cBorder: 'oklch(28% 0.018 258)', cText: 'oklch(95% 0.006 90)', cTextSecondary: 'oklch(72% 0.02 250)',
+      cTextTertiary: 'oklch(52% 0.02 250)', cAccent: 'oklch(64% 0.15 250)', cAccentText: 'oklch(99% 0 0)', cAmber: 'oklch(70% 0.15 55)',
+      cError: 'oklch(72% 0.16 25)', cSuccess: 'oklch(68% 0.15 145)',
+    };
+    const light = {
+      cBg: 'oklch(98% 0.004 90)', cBgElevated: 'oklch(95% 0.006 85)', cBgInput: 'oklch(91% 0.008 85)',
+      cBorder: 'oklch(88% 0.01 90)', cText: 'oklch(22% 0.01 260)', cTextSecondary: 'oklch(42% 0.015 255)',
+      cTextTertiary: 'oklch(58% 0.015 255)', cAccent: 'oklch(48% 0.14 250)', cAccentText: 'oklch(99% 0 0)', cAmber: 'oklch(58% 0.16 55)',
+      cError: 'oklch(50% 0.19 25)', cSuccess: 'oklch(45% 0.13 145)',
+    };
+    const c = isDark ? dark : light;
+
+    const sectionDefs = [
+      { key: 'general', label: 'General' }, { key: 'billing', label: 'Billing' },
+      { key: 'integrations', label: 'Integrations' }, { key: 'team', label: 'Team & permissions' },
+      { key: 'danger', label: 'Danger zone' },
+    ];
+    const sections = sectionDefs.map(s => ({
+      label: s.label, onClick: () => this.setSection(s.key),
+      weight: this.state.activeSection === s.key ? 700 : 500,
+      color: this.state.activeSection === s.key ? (s.key === 'danger' ? c.cError : c.cText) : c.cTextSecondary,
+      bg: this.state.activeSection === s.key ? c.cBgElevated : 'transparent',
+      isGeneral: s.key === 'general', isBilling: s.key === 'billing', isIntegrations: s.key === 'integrations',
+      isTeam: s.key === 'team', isDanger: s.key === 'danger',
+    }));
+
+    const appearanceDefs = [
+      { key: 'dark', label: 'Dark' }, { key: 'light', label: 'Light' },
+    ];
+    const appearanceOptions = appearanceDefs.map(a => ({
+      label: a.label, onClick: () => this.setThemeChoice(a.key),
+      bg: this.state.theme === a.key ? c.cAccent : 'transparent',
+      color: this.state.theme === a.key ? c.cAccentText : c.cTextSecondary,
+    }));
+
+    return {
+      isDark, isLight: !isDark, toggleTheme: this.toggleTheme, ...c,
+      sections, activeSectionLabel: sectionDefs.find(s => s.key === this.state.activeSection).label,
+      isGeneral: this.state.activeSection === 'general', isDangerZone: this.state.activeSection === 'danger',
+      companyNameInput: this.state.companyNameInput, timezoneInput: this.state.timezoneInput,
+      onCompanyNameChange: this.onCompanyNameChange, onTimezoneChange: this.onTimezoneChange,
+      appearanceOptions,
+      onToggleNotifs: this.onToggleNotifs,
+      notifTrackColor: this.state.notifsOn ? c.cAccent : c.cBgInput,
+      notifKnobLeft: this.state.notifsOn ? '21px' : '3px',
+      onSave: this.onSave, saveLabel: this.state.isSaving ? 'Saving…' : 'Save changes', savedFlash: this.state.savedFlash,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

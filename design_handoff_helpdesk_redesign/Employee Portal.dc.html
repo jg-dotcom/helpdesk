@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+</helmet>
+
+<div style="min-height:100vh; box-sizing:border-box; background:{{ cBg }}; color:{{ cText }}; font-family:'Inter',sans-serif;">
+
+  <sc-if value="{{ isVerifying }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="animation:spin 0.8s linear infinite;"><circle cx="12" cy="12" r="9" stroke="{{ cBorder }}" stroke-width="2.5"/><path d="M21 12a9 9 0 0 0-9-9" stroke="{{ cAccent }}" stroke-width="2.5" stroke-linecap="round"/></svg>
+      <div style="font-size:15px; color:{{ cTextSecondary }};">Signing you in…</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isLinkExpired }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:20px; padding:24px;">
+      <div style="width:48px; height:48px; border-radius:12px; background:{{ cErrorBg }}; display:flex; align-items:center; justify-content:center;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="{{ cError }}" stroke-width="1.8"/><path d="M12 8v5M12 16.2v.1" stroke="{{ cError }}" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div style="font-size:20px; font-weight:700; margin-bottom:8px;">This sign-in link expired</div>
+        <div style="font-size:14.5px; color:{{ cTextSecondary }}; max-width:360px;">Magic links only work for 15 minutes. Request a new one and it'll land in your inbox in a few seconds.</div>
+      </div>
+      <button onClick="{{ onResendLink }}" style="background:{{ cAccent }}; color:{{ cAccentText }}; border:none; border-radius:10px; padding:12px 22px; font-size:14.5px; font-weight:600; cursor:pointer; font-family:inherit;" style-hover="opacity:0.9;">Send a new link</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isSignedIn }}" hint-placeholder-val="{{ true }}">
+    <header style="display:flex; align-items:center; justify-content:space-between; padding:20px 32px;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div style="width:34px; height:34px; border-radius:999px; background:{{ cAccent }}; color:{{ cAccentText }}; display:flex; align-items:center; justify-content:center; font-size:13.5px; font-weight:700;">{{ initials }}</div>
+        <div>
+          <div style="font-size:14.5px; font-weight:700;">{{ employeeName }}</div>
+          <div style="font-size:12.5px; color:{{ cTextTertiary }};">{{ companyName }}</div>
+        </div>
+      </div>
+      <button onClick="{{ toggleTheme }}" aria-label="Toggle color theme" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:999px; border:none; background:{{ cBgElevated }}; color:{{ cTextSecondary }}; cursor:pointer;" style-hover="color:{{ cText }};">
+        <sc-if value="{{ isDark }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </sc-if>
+        <sc-if value="{{ isLight }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </sc-if>
+      </button>
+    </header>
+
+    <div style="max-width:880px; margin:0 auto; padding:12px 24px 80px; display:flex; flex-direction:column; gap:48px;">
+
+      <div style="background:{{ cBgElevated }}; border-radius:16px; padding:28px 28px 24px; display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap;">
+        <div>
+          <div style="font-size:13px; font-weight:600; color:{{ cAmber }}; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px;">This pay period</div>
+          <div style="font-size:28px; font-weight:800; letter-spacing:-0.02em;">{{ hoursThisPeriod }} hrs logged</div>
+          <div style="font-size:14px; color:{{ cTextSecondary }}; margin-top:4px;">Pay date {{ payDate }} · next timesheet due {{ timesheetDue }}</div>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button onClick="{{ onClockAction }}" style="background:{{ cAccent }}; color:{{ cAccentText }}; border:none; border-radius:10px; padding:12px 20px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;" style-hover="opacity:0.9;">{{ clockLabel }}</button>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:18px;">
+          <h2 style="font-size:20px; font-weight:700; letter-spacing:-0.01em; margin:0;">Time off</h2>
+          <span style="font-size:14px; color:{{ cTextSecondary }};">{{ ptoBalance }} days available</span>
+        </div>
+
+        <sc-if value="{{ isPtoFormOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:18px; padding:24px 0 8px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+              <div>
+                <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Start date</label>
+                <input type="date" value="{{ ptoStart }}" onChange="{{ onPtoStartChange }}" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ cBorder }}; border-radius:8px; padding:11px 14px; font-size:15px; color:{{ cText }}; font-family:inherit;"/>
+              </div>
+              <div>
+                <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">End date</label>
+                <input type="date" value="{{ ptoEnd }}" onChange="{{ onPtoEndChange }}" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ cBorder }}; border-radius:8px; padding:11px 14px; font-size:15px; color:{{ cText }}; font-family:inherit;"/>
+              </div>
+            </div>
+            <div>
+              <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Length</label>
+              <div style="display:flex; gap:8px;">
+                <sc-for list="{{ dayLengthOptions }}" as="opt" hint-placeholder-count="3">
+                  <button onClick="{{ opt.onClick }}" style="background:{{ opt.bg }}; color:{{ opt.color }}; border:none; border-radius:8px; padding:10px 16px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;">{{ opt.label }}</button>
+                </sc-for>
+              </div>
+              <div style="font-size:13px; color:{{ cTextTertiary }}; margin-top:8px;">Half-day requests deduct 0.5 days from your balance.</div>
+            </div>
+            <div>
+              <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Note for your manager (optional)</label>
+              <textarea value="{{ ptoNote }}" onChange="{{ onPtoNoteChange }}" rows="3" placeholder="Anything they should know" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ cBorder }}; border-radius:8px; padding:11px 14px; font-size:14.5px; color:{{ cText }}; font-family:inherit; resize:vertical;"></textarea>
+            </div>
+            <sc-if value="{{ ptoError }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:13px; color:{{ cError }};">{{ ptoError }}</div>
+            </sc-if>
+            <div style="display:flex; gap:10px;">
+              <button onClick="{{ onSubmitPto }}" style="background:{{ cAccent }}; color:{{ cAccentText }}; border:none; border-radius:9px; padding:11px 20px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;" style-hover="opacity:0.9;">Submit request</button>
+              <button onClick="{{ onClosePtoForm }}" style="background:none; color:{{ cTextSecondary }}; border:none; padding:11px 8px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;">Cancel</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isPtoFormClosed }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ onOpenPtoForm }}" style="display:flex; align-items:center; gap:8px; background:{{ cBgElevated }}; color:{{ cText }}; border:none; border-radius:10px; padding:13px 18px; font-size:14.5px; font-weight:600; cursor:pointer; font-family:inherit; margin-bottom:20px;" style-hover="background:{{ cBgInput }};">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Request time off
+          </button>
+        </sc-if>
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <sc-for list="{{ ptoRequests }}" as="req" hint-placeholder-count="2">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-top:1px solid {{ cBorder }};">
+              <div>
+                <div style="font-size:14.5px; color:{{ cText }};">{{ req.range }}</div>
+                <div style="font-size:13px; color:{{ cTextTertiary }}; margin-top:2px;">{{ req.length }}</div>
+              </div>
+              <span style="font-size:13px; font-weight:600; color:{{ req.statusColor }}; background:{{ req.statusBg }}; padding:5px 12px; border-radius:999px;">{{ req.status }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div>
+        <h2 style="font-size:20px; font-weight:700; letter-spacing:-0.01em; margin:0 0 18px;">Documents</h2>
+        <sc-if value="{{ hasDocuments }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; flex-direction:column;">
+            <sc-for list="{{ documents }}" as="doc" hint-placeholder-count="3">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-top:1px solid {{ cBorder }};">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" stroke="{{ cTextTertiary }}" stroke-width="1.6"/></svg>
+                  <div>
+                    <div style="font-size:14.5px; color:{{ cText }};">{{ doc.name }}</div>
+                    <div style="font-size:12.5px; color:{{ cTextTertiary }}; margin-top:2px;">{{ doc.meta }}</div>
+                  </div>
+                </div>
+                <button onClick="{{ doc.onDeleteClick }}" disabled="{{ doc.isDeleting }}" style="background:none; border:none; color:{{ cTextSecondary }}; cursor:pointer; font-size:13px; font-weight:600; padding:6px 10px;" style-hover="color:{{ cError }};">{{ doc.deleteLabel }}</button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+    </div>
+
+    <sc-if value="{{ isDeleteConfirmOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:fixed; inset:0; background:oklch(10% 0 0 / 0.5); display:flex; align-items:center; justify-content:center; padding:24px;">
+        <div style="background:{{ cBgElevated }}; border-radius:16px; padding:28px; max-width:400px; width:100%;">
+          <div style="font-size:17px; font-weight:700; margin-bottom:10px;">Delete {{ pendingDeleteName }}?</div>
+          <div style="font-size:14.5px; color:{{ cTextSecondary }}; line-height:1.6; margin-bottom:24px;">This removes the file permanently — your manager won't have access to it either. This can't be undone.</div>
+          <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button onClick="{{ onCancelDelete }}" style="background:none; color:{{ cTextSecondary }}; border:none; padding:10px 16px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;">Cancel</button>
+            <button onClick="{{ onConfirmDelete }}" style="background:{{ cError }}; color:oklch(99% 0 0); border:none; border-radius:9px; padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit;">Delete document</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    theme: 'dark',
+    authPhase: 'signedIn', // verifying | expired | signedIn
+    clockedIn: false,
+    isPtoFormOpen: false,
+    ptoStart: '', ptoEnd: '', ptoLength: 'full', ptoNote: '', ptoError: '',
+    ptoRequests: [
+      { range: 'Jul 22 – Jul 24', length: '3 full days', status: 'Pending', statusKind: 'pending' },
+      { range: 'Jun 2', length: 'Half day (afternoon)', status: 'Approved', statusKind: 'approved' },
+    ],
+    documents: [
+      { name: 'W-4 (2026)', meta: 'Signed Jan 8, 2026', deleting: false },
+      { name: 'Direct deposit form', meta: 'Signed Jan 8, 2026', deleting: false },
+      { name: 'Employee handbook acknowledgment', meta: 'Signed Jan 9, 2026', deleting: false },
+    ],
+    pendingDeleteIndex: null,
+  };
+
+  componentDidMount() {
+    try {
+      const saved = localStorage.getItem('helpdesk-careers-theme');
+      if (saved === 'light' || saved === 'dark') this.setState({ theme: saved });
+    } catch (e) {}
+  }
+
+  toggleTheme = () => {
+    const next = this.state.theme === 'dark' ? 'light' : 'dark';
+    this.setState({ theme: next });
+    try { localStorage.setItem('helpdesk-careers-theme', next); } catch (e) {}
+  };
+
+  onResendLink = () => this.setState({ authPhase: 'verifying' }, () => {
+    setTimeout(() => this.setState({ authPhase: 'signedIn' }), 1200);
+  });
+
+  onClockAction = () => this.setState(s => ({ clockedIn: !s.clockedIn }));
+
+  onOpenPtoForm = () => this.setState({ isPtoFormOpen: true, ptoError: '' });
+  onClosePtoForm = () => this.setState({ isPtoFormOpen: false, ptoStart: '', ptoEnd: '', ptoLength: 'full', ptoNote: '', ptoError: '' });
+  onPtoStartChange = (e) => this.setState({ ptoStart: e.target.value });
+  onPtoEndChange = (e) => this.setState({ ptoEnd: e.target.value });
+  onPtoNoteChange = (e) => this.setState({ ptoNote: e.target.value });
+  setPtoLength = (val) => this.setState({ ptoLength: val });
+
+  onSubmitPto = () => {
+    if (!this.state.ptoStart) {
+      this.setState({ ptoError: 'Pick a start date before submitting.' });
+      return;
+    }
+    const lengthLabel = this.state.ptoLength === 'half-am' ? 'Half day (morning)' : this.state.ptoLength === 'half-pm' ? 'Half day (afternoon)' : (this.state.ptoEnd && this.state.ptoEnd !== this.state.ptoStart ? 'Full days' : 'Full day');
+    const range = this.state.ptoEnd && this.state.ptoEnd !== this.state.ptoStart ? `${this.state.ptoStart} – ${this.state.ptoEnd}` : this.state.ptoStart;
+    this.setState(s => ({
+      ptoRequests: [{ range, length: lengthLabel, status: 'Pending', statusKind: 'pending' }, ...s.ptoRequests],
+      isPtoFormOpen: false, ptoStart: '', ptoEnd: '', ptoLength: 'full', ptoNote: '', ptoError: '',
+    }));
+  };
+
+  onDeleteClick = (idx) => this.setState({ pendingDeleteIndex: idx });
+  onCancelDelete = () => this.setState({ pendingDeleteIndex: null });
+  onConfirmDelete = () => {
+    const idx = this.state.pendingDeleteIndex;
+    const docs = [...this.state.documents];
+    docs[idx] = { ...docs[idx], deleting: true };
+    this.setState({ documents: docs, pendingDeleteIndex: null });
+    setTimeout(() => {
+      this.setState(s => ({ documents: s.documents.filter((_, i) => i !== idx) }));
+    }, 700);
+  };
+
+  renderVals() {
+    const isDark = this.state.theme === 'dark';
+    const dark = {
+      cBg: 'oklch(17% 0.012 260)', cBgElevated: 'oklch(21% 0.014 258)', cBgInput: 'oklch(25% 0.015 258)',
+      cBorder: 'oklch(30% 0.02 258)', cText: 'oklch(95% 0.006 90)', cTextSecondary: 'oklch(72% 0.02 250)',
+      cTextTertiary: 'oklch(52% 0.02 250)', cAccent: 'oklch(64% 0.15 250)', cAccentText: 'oklch(99% 0 0)',
+      cAmber: 'oklch(70% 0.15 55)',
+      cError: 'oklch(72% 0.16 25)', cErrorBg: 'oklch(27% 0.05 25)',
+      pendingBg: 'oklch(30% 0.06 85)', pendingColor: 'oklch(80% 0.12 85)',
+      approvedBg: 'oklch(28% 0.06 145)', approvedColor: 'oklch(75% 0.14 145)',
+    };
+    const light = {
+      cBg: 'oklch(98% 0.004 90)', cBgElevated: 'oklch(95% 0.006 85)', cBgInput: 'oklch(91% 0.008 85)',
+      cBorder: 'oklch(88% 0.01 90)', cText: 'oklch(22% 0.01 260)', cTextSecondary: 'oklch(42% 0.015 255)',
+      cTextTertiary: 'oklch(58% 0.015 255)', cAccent: 'oklch(48% 0.14 250)', cAccentText: 'oklch(99% 0 0)',
+      cAmber: 'oklch(58% 0.16 55)',
+      cError: 'oklch(50% 0.19 25)', cErrorBg: 'oklch(93% 0.05 25)',
+      pendingBg: 'oklch(92% 0.06 85)', pendingColor: 'oklch(45% 0.12 85)',
+      approvedBg: 'oklch(92% 0.06 145)', approvedColor: 'oklch(42% 0.12 145)',
+    };
+    const c = isDark ? dark : light;
+
+    const ptoRequests = this.state.ptoRequests.map(r => ({
+      range: r.range, length: r.length, status: r.status,
+      statusColor: r.statusKind === 'approved' ? c.approvedColor : c.pendingColor,
+      statusBg: r.statusKind === 'approved' ? c.approvedBg : c.pendingBg,
+    }));
+
+    const documents = this.state.documents.map((d, i) => ({
+      name: d.name, meta: d.meta, isDeleting: d.deleting,
+      deleteLabel: d.deleting ? 'Deleting…' : 'Delete',
+      onDeleteClick: () => this.onDeleteClick(i),
+    }));
+
+    const lengthDefs = [
+      { key: 'full', label: 'Full day(s)' },
+      { key: 'half-am', label: 'Half day — AM' },
+      { key: 'half-pm', label: 'Half day — PM' },
+    ];
+    const dayLengthOptions = lengthDefs.map(d => ({
+      label: d.label,
+      onClick: () => this.setPtoLength(d.key),
+      bg: this.state.ptoLength === d.key ? c.cAccent : c.cBgElevated,
+      color: this.state.ptoLength === d.key ? c.cAccentText : c.cText,
+    }));
+
+    return {
+      isDark, isLight: !isDark, toggleTheme: this.toggleTheme,
+      ...c,
+      isVerifying: this.state.authPhase === 'verifying',
+      isLinkExpired: this.state.authPhase === 'expired',
+      isSignedIn: this.state.authPhase === 'signedIn',
+      onResendLink: this.onResendLink,
+
+      employeeName: 'Sam Torres', initials: 'ST', companyName: 'Harbor Lane Veterinary Clinic',
+      hoursThisPeriod: '31.5', payDate: 'Jul 25', timesheetDue: 'Fri 5pm',
+      clockLabel: this.state.clockedIn ? 'Clock out' : 'Clock in',
+      onClockAction: this.onClockAction,
+
+      ptoBalance: '8.5',
+      isPtoFormOpen: this.state.isPtoFormOpen, isPtoFormClosed: !this.state.isPtoFormOpen,
+      onOpenPtoForm: this.onOpenPtoForm, onClosePtoForm: this.onClosePtoForm,
+      ptoStart: this.state.ptoStart, ptoEnd: this.state.ptoEnd, ptoNote: this.state.ptoNote,
+      onPtoStartChange: this.onPtoStartChange, onPtoEndChange: this.onPtoEndChange, onPtoNoteChange: this.onPtoNoteChange,
+      dayLengthOptions, ptoError: this.state.ptoError, onSubmitPto: this.onSubmitPto,
+      ptoRequests,
+
+      hasDocuments: documents.length > 0, documents,
+      isDeleteConfirmOpen: this.state.pendingDeleteIndex !== null,
+      pendingDeleteName: this.state.pendingDeleteIndex !== null ? this.state.documents[this.state.pendingDeleteIndex].name : '',
+      onCancelDelete: this.onCancelDelete, onConfirmDelete: this.onConfirmDelete,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

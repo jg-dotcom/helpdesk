@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+</helmet>
+
+<div style="min-height:100vh; box-sizing:border-box; display:flex; background:{{ cBg }}; color:{{ cText }}; font-family:'Inter',sans-serif;">
+
+  <nav style="width:224px; flex-shrink:0; padding:24px 16px; display:flex; flex-direction:column; gap:2px;">
+    <div style="display:flex; align-items:center; gap:9px; padding:8px 12px 20px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <rect x="2" y="2" width="20" height="20" rx="7" fill="{{ cAccent }}"/>
+        <path d="M8 16V8m0 4h8m0-4v8" stroke="{{ cAccentText }}" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span style="font-size:15px; font-weight:800; letter-spacing:-0.01em;">Helpdesk</span>
+    </div>
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="8">
+      <div style="display:flex; align-items:center; gap:11px; padding:8px 10px; border-radius:7px; font-size:13.5px; font-weight:{{ n.weight }}; color:{{ n.color }}; background:{{ n.bg }};">
+        <span style="width:16px; height:16px; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+          <sc-if value="{{ n.isDashboard }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="5" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="12" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="16" width="7" height="5" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg></sc-if>
+          <sc-if value="{{ n.isEmployees }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="8" r="2.4" stroke="currentColor" stroke-width="1.6"/></svg></sc-if>
+          <sc-if value="{{ n.isPayroll }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="1.6" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="14.5" r="1.4" fill="currentColor"/></svg></sc-if>
+          <sc-if value="{{ n.isTime }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+          <sc-if value="{{ n.isMessages }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H8l-4 4V5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></sc-if>
+          <sc-if value="{{ n.isReports }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 20V10M11 20V4M18 20v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+          <sc-if value="{{ n.isActivity }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+          <sc-if value="{{ n.isSettings }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2.5M12 18.5V21M4.2 4.2l1.8 1.8M18 18l1.8 1.8M3 12h2.5M18.5 12H21M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+        </span>
+        {{ n.label }}
+      </div>
+    </sc-for>
+  </nav>
+
+  <div style="flex:1; min-width:0;">
+    <header style="display:flex; align-items:center; justify-content:space-between; padding:24px 40px 0;">
+      <h1 style="font-size:26px; font-weight:800; letter-spacing:-0.02em; margin:0;">Payroll</h1>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button onClick="{{ onRunPayroll }}" disabled="{{ isRunning }}" style="display:flex; align-items:center; gap:8px; background:{{ cAccent }}; color:{{ cAccentText }}; border:none; border-radius:9px; padding:10px 20px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; opacity:{{ runOpacity }};" style-hover="opacity:0.9;">
+          <sc-if value="{{ isRunning }}" hint-placeholder-val="{{ false }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 0.8s linear infinite;"><circle cx="12" cy="12" r="9" stroke="{{ cAccentText }}" stroke-width="2.5" opacity="0.35"/><path d="M21 12a9 9 0 0 0-9-9" stroke="{{ cAccentText }}" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </sc-if>
+          {{ runLabel }}
+        </button>
+        <button onClick="{{ toggleTheme }}" aria-label="Toggle color theme" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:999px; border:none; background:{{ cBgElevated }}; color:{{ cTextSecondary }}; cursor:pointer;" style-hover="color:{{ cText }};">
+          <sc-if value="{{ isDark }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+          <sc-if value="{{ isLight }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></sc-if>
+        </button>
+      </div>
+    </header>
+
+    <div style="padding:32px 40px 80px; display:flex; flex-direction:column; gap:44px;">
+
+      <sc-if value="{{ showRunSuccess }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; gap:10px; align-items:flex-start; background:{{ cSuccessBg }}; border-radius:12px; padding:16px 20px;">
+          <span style="color:{{ cSuccess }}; flex-shrink:0; margin-top:1px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <div style="font-size:14.5px; color:{{ cText }}; line-height:1.5;">Payroll run started for {{ runEmployeeCount }} employees, totaling {{ runTotal }}. Direct deposits land in 1–2 business days.</div>
+        </div>
+      </sc-if>
+
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0;">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
+          <div style="padding:0 28px; border-left:1px solid {{ s.showBorder }};">
+            <div style="font-size:13px; font-weight:600; color:{{ cTextTertiary }}; margin-bottom:10px;">{{ s.label }}</div>
+            <div style="width:18px; height:3px; border-radius:2px; background:{{ cAccent }}; margin-bottom:10px;"></div>
+            <div style="font-size:28px; font-weight:800; letter-spacing:-0.02em;">{{ s.value }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div>
+        <h2 style="font-size:17px; font-weight:700; letter-spacing:-0.01em; margin:0 0 4px;">Pay history</h2>
+        <p style="font-size:13.5px; color:{{ cTextTertiary }}; margin:0 0 20px;">Manual entries and scheduled runs both appear here, in the order they were processed.</p>
+        <div>
+          <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:16px; padding:0 0 12px; font-size:12.5px; font-weight:600; color:{{ cTextTertiary }}; text-transform:uppercase; letter-spacing:0.03em;">
+            <div>Date</div><div>Type</div><div>Employees</div><div>Total</div>
+          </div>
+          <sc-for list="{{ payHistory }}" as="p" hint-placeholder-count="4">
+            <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:16px; padding:14px 0; border-top:1px solid {{ cBorder }}; align-items:center;">
+              <div style="font-size:14.5px; color:{{ cText }};">{{ p.date }}</div>
+              <div style="font-size:13.5px; color:{{ p.typeColor }}; font-weight:{{ p.typeWeight }};">{{ p.type }}</div>
+              <div style="font-size:14px; color:{{ cTextSecondary }};">{{ p.count }}</div>
+              <div style="font-size:14px; color:{{ cText }};">{{ p.total }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { theme: 'dark', isRunning: false, showRunSuccess: false };
+
+  componentDidMount() {
+    try {
+      const saved = localStorage.getItem('helpdesk-careers-theme');
+      if (saved === 'light' || saved === 'dark') this.setState({ theme: saved });
+    } catch (e) {}
+  }
+
+  toggleTheme = () => {
+    const next = this.state.theme === 'dark' ? 'light' : 'dark';
+    this.setState({ theme: next });
+    try { localStorage.setItem('helpdesk-careers-theme', next); } catch (e) {}
+  };
+
+  onRunPayroll = () => {
+    this.setState({ isRunning: true, showRunSuccess: false });
+    setTimeout(() => this.setState({ isRunning: false, showRunSuccess: true }), 1100);
+  };
+
+  renderVals() {
+    const isDark = this.state.theme === 'dark';
+    const dark = {
+      cBg: 'oklch(17% 0.012 260)', cBgElevated: 'oklch(21% 0.014 258)', cBorder: 'oklch(28% 0.018 258)',
+      cText: 'oklch(95% 0.006 90)', cTextSecondary: 'oklch(72% 0.02 250)', cTextTertiary: 'oklch(52% 0.02 250)',
+      cAccent: 'oklch(64% 0.15 250)', cAccentText: 'oklch(99% 0 0)', cAmber: 'oklch(70% 0.15 55)', cSuccess: 'oklch(68% 0.15 145)', cSuccessBg: 'oklch(26% 0.05 145)',
+    };
+    const light = {
+      cBg: 'oklch(98% 0.004 90)', cBgElevated: 'oklch(95% 0.006 85)', cBorder: 'oklch(88% 0.01 90)',
+      cText: 'oklch(22% 0.01 260)', cTextSecondary: 'oklch(42% 0.015 255)', cTextTertiary: 'oklch(58% 0.015 255)',
+      cAccent: 'oklch(48% 0.14 250)', cAccentText: 'oklch(99% 0 0)', cAmber: 'oklch(58% 0.16 55)', cSuccess: 'oklch(45% 0.13 145)', cSuccessBg: 'oklch(92% 0.05 145)',
+    };
+    const c = isDark ? dark : light;
+
+    const navDefs = [
+      { label: 'Dashboard', key: 'isDashboard', active: false }, { label: 'Employees', key: 'isEmployees', active: false }, { label: 'Payroll', key: 'isPayroll', active: true },
+      { label: 'Time & Attendance', key: 'isTime', active: false }, { label: 'Messages', key: 'isMessages', active: false }, { label: 'Reports', key: 'isReports', active: false },
+      { label: 'Activity', key: 'isActivity', active: false }, { label: 'Settings', key: 'isSettings', active: false },
+    ];
+    const navItems = navDefs.map(n => ({
+      label: n.label, weight: n.active ? 700 : 500,
+      color: n.active ? c.cText : c.cTextSecondary,
+      bg: n.active ? c.cBgElevated : 'transparent',
+      isDashboard: n.key === 'isDashboard', isEmployees: n.key === 'isEmployees', isPayroll: n.key === 'isPayroll',
+      isTime: n.key === 'isTime', isMessages: n.key === 'isMessages', isReports: n.key === 'isReports',
+      isActivity: n.key === 'isActivity', isSettings: n.key === 'isSettings',
+    }));
+
+    const statDefs = [
+      { label: 'Next pay date', value: 'Jul 25' },
+      { label: 'Est. next run total', value: '$29.1K' },
+      { label: 'Manual entries pending', value: '2' },
+    ];
+    const stats = statDefs.map((s, i) => ({ ...s, showBorder: i === 0 ? 'transparent' : c.cBorder }));
+
+    const historyDefs = [
+      { date: 'Jul 12, 2026', type: 'Scheduled run', count: '14', total: '$28,340' },
+      { date: 'Jun 30, 2026', type: 'Manual entry', count: '1', total: '$1,120', typeKind: 'manual' },
+      { date: 'Jun 28, 2026', type: 'Scheduled run', count: '14', total: '$27,980' },
+      { date: 'Jun 14, 2026', type: 'Scheduled run', count: '13', total: '$26,650' },
+    ];
+    const payHistory = historyDefs.map(h => ({ ...h, typeColor: h.typeKind === 'manual' ? c.cAmber : c.cTextSecondary, typeWeight: h.typeKind === 'manual' ? 600 : 400 }));
+
+    return {
+      isDark, isLight: !isDark, toggleTheme: this.toggleTheme, ...c,
+      navItems, stats, payHistory,
+      isRunning: this.state.isRunning, runOpacity: this.state.isRunning ? 0.7 : 1,
+      runLabel: this.state.isRunning ? 'Running…' : 'Run payroll', onRunPayroll: this.onRunPayroll,
+      showRunSuccess: this.state.showRunSuccess, runEmployeeCount: '14', runTotal: '$28,910',
+    };
+  }
+}
+
+</script>
+</body>
+</html>

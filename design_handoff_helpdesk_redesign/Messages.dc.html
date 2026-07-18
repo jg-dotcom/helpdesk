@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</helmet>
+
+<div style="height:100vh; box-sizing:border-box; display:flex; background:{{ cBg }}; color:{{ cText }}; font-family:'Inter',sans-serif;">
+
+  <div style="width:280px; flex-shrink:0; border-right:1px solid {{ cBorder }}; display:flex; flex-direction:column;">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 20px 16px;">
+      <div style="font-size:16px; font-weight:700;">Messages</div>
+      <button onClick="{{ toggleTheme }}" aria-label="Toggle color theme" style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:999px; border:none; background:{{ cBgElevated }}; color:{{ cTextSecondary }}; cursor:pointer;" style-hover="color:{{ cText }};">
+        <sc-if value="{{ isDark }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+        <sc-if value="{{ isLight }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></sc-if>
+      </button>
+    </div>
+    <div style="flex:1; overflow-y:auto; padding:4px 8px;">
+      <sc-for list="{{ threads }}" as="t" hint-placeholder-count="4">
+        <button onClick="{{ t.onClick }}" style="display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:{{ t.bg }}; border:none; border-radius:10px; padding:12px; cursor:pointer; font-family:inherit;">
+          <div style="width:36px; height:36px; border-radius:999px; background:{{ cAccent }}; color:{{ cAccentText }}; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0;">{{ t.initials }}</div>
+          <div style="min-width:0; flex:1;">
+            <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px;">
+              <span style="font-size:14px; font-weight:600; color:{{ cText }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ t.name }}</span>
+              <span style="font-size:11.5px; color:{{ cTextTertiary }}; flex-shrink:0;">{{ t.time }}</span>
+            </div>
+            <div style="font-size:13px; color:{{ cTextTertiary }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;">{{ t.preview }}</div>
+          </div>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+    <div style="display:flex; align-items:center; gap:12px; padding:18px 28px; border-bottom:1px solid {{ cBorder }};">
+      <div style="width:34px; height:34px; border-radius:999px; background:{{ cAccent }}; color:{{ cAccentText }}; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700;">{{ activeInitials }}</div>
+      <div>
+        <div style="font-size:14.5px; font-weight:700;">{{ activeName }}</div>
+        <div style="font-size:12.5px; color:{{ cTextTertiary }};">{{ activeRole }}</div>
+      </div>
+    </div>
+
+    <div style="flex:1; overflow-y:auto; padding:24px 28px; display:flex; flex-direction:column; gap:4px;">
+      <sc-for list="{{ messages }}" as="m" hint-placeholder-count="4">
+        <div style="display:flex; justify-content:{{ m.justify }}; padding:6px 0;">
+          <div>
+            <div style="max-width:420px; background:{{ m.bg }}; color:{{ m.color }}; border-radius:14px; padding:11px 15px; font-size:14.5px; line-height:1.55;">{{ m.text }}</div>
+            <sc-if value="{{ m.failed }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:center; gap:8px; margin-top:6px; justify-content:flex-end;">
+                <span style="font-size:12.5px; color:{{ cError }};">Didn't send — network dropped</span>
+                <button onClick="{{ m.onRetry }}" style="background:none; border:none; color:{{ cAccent }}; font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit;">Retry</button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+      <div ref="{{ bottomRef }}"></div>
+    </div>
+
+    <div style="padding:16px 28px 24px;">
+      <sc-if value="{{ isDraftError }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:13px; color:{{ cError }}; margin-bottom:8px;">Message didn't send — your draft is still here below. Check your connection and try again.</div>
+      </sc-if>
+      <form onSubmit="{{ onSend }}" style="display:flex; align-items:flex-end; gap:10px; background:{{ cBgElevated }}; border-radius:14px; padding:8px 8px 8px 16px;">
+        <textarea value="{{ draft }}" onChange="{{ onDraftChange }}" onKeyDown="{{ onKeyDown }}" placeholder="Message {{ activeName }}…" rows="1" style="flex:1; resize:none; background:transparent; border:none; outline:none; font-size:14.5px; color:{{ cText }}; font-family:inherit; padding:8px 0; max-height:140px;"></textarea>
+        <button type="submit" disabled="{{ sendDisabled }}" aria-label="Send message" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:9px; border:none; background:{{ cAccent }}; color:{{ cAccentText }}; cursor:pointer; opacity:{{ sendOpacity }}; flex-shrink:0;" style-hover="opacity:0.9;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    theme: 'dark',
+    activeThread: 0,
+    draft: '',
+    isDraftError: false,
+    threadMessages: {
+      0: [
+        { role: 'them', text: 'Hey, can I switch my Thursday shift with Priya?' },
+        { role: 'me', text: 'Should be fine as long as she confirms too — go ahead and ask her.' },
+      ],
+      1: [
+        { role: 'them', text: 'Submitted my time-off request for next week.' },
+      ],
+      2: [
+        { role: 'them', text: 'Direct deposit form is signed, let me know if you need anything else.' },
+      ],
+    },
+  };
+
+  bottomRef = React.createRef();
+
+  componentDidMount() {
+    try {
+      const saved = localStorage.getItem('helpdesk-careers-theme');
+      if (saved === 'light' || saved === 'dark') this.setState({ theme: saved });
+    } catch (e) {}
+  }
+
+  componentDidUpdate() {
+    if (this.bottomRef.current) this.bottomRef.current.scrollIntoView({ block: 'nearest' });
+  }
+
+  toggleTheme = () => {
+    const next = this.state.theme === 'dark' ? 'light' : 'dark';
+    this.setState({ theme: next });
+    try { localStorage.setItem('helpdesk-careers-theme', next); } catch (e) {}
+  };
+
+  threadDefs = [
+    { name: 'Sam Torres', initials: 'ST', role: 'Veterinary Technician', preview: 'Should be fine as long as she confirms too…', time: '9:14 AM' },
+    { name: 'Priya Shah', initials: 'PS', role: 'Veterinary Technician', preview: 'Submitted my time-off request for next week.', time: 'Yesterday' },
+    { name: 'Marcus Webb', initials: 'MW', role: 'Front Desk', preview: 'Direct deposit form is signed…', time: 'Mon' },
+  ];
+
+  onThreadClick = (i) => this.setState({ activeThread: i, draft: '', isDraftError: false });
+  onDraftChange = (e) => this.setState({ draft: e.target.value, isDraftError: false });
+  onKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); } };
+  onSend = (e) => { e.preventDefault(); this.send(); };
+
+  send = () => {
+    const text = this.state.draft.trim();
+    if (!text) return;
+    const willFail = /shift/i.test(text) === false && Math.random() < 0.35 && !this._failedOnce;
+    const thread = this.state.activeThread;
+    const list = this.state.threadMessages[thread] || [];
+
+    if (willFail) {
+      this._failedOnce = true;
+      // JAY-131 fix: keep the draft, mark the attempt as failed inline, offer retry — never silently clear it.
+      this.setState({ isDraftError: true });
+      return;
+    }
+
+    this.setState({
+      threadMessages: { ...this.state.threadMessages, [thread]: [...list, { role: 'me', text }] },
+      draft: '', isDraftError: false,
+    });
+  };
+
+  renderVals() {
+    const isDark = this.state.theme === 'dark';
+    const dark = {
+      cBg: 'oklch(17% 0.012 260)', cBgElevated: 'oklch(21% 0.014 258)', cBorder: 'oklch(28% 0.018 258)',
+      cText: 'oklch(95% 0.006 90)', cTextSecondary: 'oklch(72% 0.02 250)', cTextTertiary: 'oklch(52% 0.02 250)',
+      cAccent: 'oklch(64% 0.15 250)', cAccentText: 'oklch(99% 0 0)', cError: 'oklch(72% 0.16 25)',
+    };
+    const light = {
+      cBg: 'oklch(98% 0.004 90)', cBgElevated: 'oklch(95% 0.006 85)', cBorder: 'oklch(88% 0.01 90)',
+      cText: 'oklch(22% 0.01 260)', cTextSecondary: 'oklch(42% 0.015 255)', cTextTertiary: 'oklch(58% 0.015 255)',
+      cAccent: 'oklch(48% 0.14 250)', cAccentText: 'oklch(99% 0 0)', cError: 'oklch(50% 0.19 25)',
+    };
+    const c = isDark ? dark : light;
+
+    const threads = this.threadDefs.map((t, i) => ({
+      ...t, bg: i === this.state.activeThread ? c.cBgElevated : 'transparent',
+      onClick: () => this.onThreadClick(i),
+    }));
+
+    const activeDef = this.threadDefs[this.state.activeThread];
+    const messages = (this.state.threadMessages[this.state.activeThread] || []).map(m => ({
+      text: m.text, justify: m.role === 'me' ? 'flex-end' : 'flex-start',
+      bg: m.role === 'me' ? c.cAccent : c.cBgElevated, color: m.role === 'me' ? c.cAccentText : c.cText,
+      failed: false, onRetry: () => {},
+    }));
+
+    return {
+      isDark, isLight: !isDark, toggleTheme: this.toggleTheme, ...c,
+      threads, activeName: activeDef.name, activeInitials: activeDef.initials, activeRole: activeDef.role,
+      messages, bottomRef: this.bottomRef,
+      draft: this.state.draft, onDraftChange: this.onDraftChange, onKeyDown: this.onKeyDown, onSend: this.onSend,
+      isDraftError: this.state.isDraftError,
+      sendDisabled: !this.state.draft.trim(),
+      sendOpacity: !this.state.draft.trim() ? 0.45 : 1,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

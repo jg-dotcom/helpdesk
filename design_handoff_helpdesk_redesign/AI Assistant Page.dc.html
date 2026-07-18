@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes blink { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+</helmet>
+
+<div style="height:100vh; box-sizing:border-box; display:flex; flex-direction:column; background:{{ cBg }}; color:{{ cText }}; font-family:'Inter',sans-serif;">
+
+  <header style="display:flex; align-items:center; justify-content:space-between; padding:20px 32px; flex-shrink:0;">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="width:32px; height:32px; border-radius:9px; background:{{ cAccent }}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9L12 3z" stroke="{{ cAccentText }}" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <div style="font-size:15px; font-weight:700;">AI Assistant</div>
+        <div style="font-size:12.5px; color:{{ cTextTertiary }};">Ask about payroll, timesheets, or policies</div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button onClick="{{ onNewChat }}" style="display:flex; align-items:center; gap:6px; background:{{ cBgElevated }}; color:{{ cTextSecondary }}; border:none; border-radius:8px; padding:9px 14px; font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit;" style-hover="color:{{ cText }};">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        New chat
+      </button>
+      <button onClick="{{ toggleTheme }}" aria-label="Toggle color theme" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:999px; border:none; background:{{ cBgElevated }}; color:{{ cTextSecondary }}; cursor:pointer;" style-hover="color:{{ cText }};">
+        <sc-if value="{{ isDark }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </sc-if>
+        <sc-if value="{{ isLight }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </sc-if>
+      </button>
+    </div>
+  </header>
+
+  <div style="flex:1; overflow-y:auto; display:flex; justify-content:center;">
+    <div style="width:100%; max-width:720px; padding:8px 24px 24px; display:flex; flex-direction:column; gap:4px;">
+
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; align-items:center; text-align:center; padding:80px 24px 40px; gap:24px;">
+          <div style="width:48px; height:48px; border-radius:12px; background:{{ cAccent }}; display:flex; align-items:center; justify-content:center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9L12 3z" stroke="{{ cAccentText }}" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          </div>
+          <div>
+            <div style="font-size:22px; font-weight:800; letter-spacing:-0.02em; margin-bottom:8px;">What do you need help with?</div>
+            <div style="font-size:14.5px; color:{{ cTextSecondary }};">I can look at your payroll, timesheets, and policies for {{ companyName }}.</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:440px;">
+            <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="3">
+              <button onClick="{{ s.onClick }}" style="text-align:left; background:{{ cBgElevated }}; border:none; border-radius:10px; padding:14px 16px; font-size:14px; color:{{ cText }}; cursor:pointer; font-family:inherit;" style-hover="background:{{ cBgInput }};">{{ s.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-for list="{{ messages }}" as="m" hint-placeholder-count="0">
+        <div style="display:flex; justify-content:{{ m.justify }}; padding:6px 0; animation:fadeUp 0.25s ease;">
+          <div style="max-width:78%; background:{{ m.bg }}; color:{{ m.color }}; border-radius:14px; padding:12px 16px; font-size:14.5px; line-height:1.6; white-space:pre-wrap;">{{ m.text }}</div>
+        </div>
+      </sc-for>
+
+      <sc-if value="{{ isThinking }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; justify-content:flex-start; padding:6px 0;">
+          <div style="display:flex; gap:5px; background:{{ cBgElevated }}; border-radius:14px; padding:14px 18px;">
+            <span style="width:6px; height:6px; border-radius:999px; background:{{ cTextTertiary }}; animation:blink 1.2s infinite;"></span>
+            <span style="width:6px; height:6px; border-radius:999px; background:{{ cTextTertiary }}; animation:blink 1.2s infinite 0.2s;"></span>
+            <span style="width:6px; height:6px; border-radius:999px; background:{{ cTextTertiary }}; animation:blink 1.2s infinite 0.4s;"></span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isErrored }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; justify-content:flex-start; padding:6px 0;">
+          <div style="display:flex; flex-direction:column; gap:10px; background:{{ cErrorBg }}; border-radius:14px; padding:14px 16px; max-width:78%;">
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <span style="color:{{ cError }}; flex-shrink:0; margin-top:1px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5M12 16.2v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+              <div style="font-size:14px; line-height:1.5; color:{{ cText }};">Couldn't send that message — the connection dropped. Your draft is still in the box below.</div>
+            </div>
+            <button onClick="{{ onRetry }}" style="align-self:flex-start; background:{{ cAccent }}; color:{{ cAccentText }}; border:none; border-radius:8px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;" style-hover="opacity:0.9;">Retry</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <div ref="{{ bottomRef }}"></div>
+    </div>
+  </div>
+
+  <div style="flex-shrink:0; padding:16px 24px 24px; display:flex; justify-content:center;">
+    <form onSubmit="{{ onSend }}" style="width:100%; max-width:720px; display:flex; align-items:flex-end; gap:10px; background:{{ cBgElevated }}; border-radius:14px; padding:10px 10px 10px 18px;">
+      <textarea value="{{ draft }}" onChange="{{ onDraftChange }}" onKeyDown="{{ onKeyDown }}" placeholder="Ask about a payroll run, a timesheet, or a policy…" rows="1" style="flex:1; resize:none; background:transparent; border:none; outline:none; font-size:15px; color:{{ cText }}; font-family:inherit; padding:8px 0; max-height:160px;"></textarea>
+      <button type="submit" disabled="{{ sendDisabled }}" aria-label="Send message" style="display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:10px; border:none; background:{{ cAccent }}; color:{{ cAccentText }}; cursor:pointer; opacity:{{ sendOpacity }}; flex-shrink:0;" style-hover="opacity:0.9;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </form>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    theme: 'dark',
+    draft: '',
+    messages: [], // {role:'user'|'assistant', text}
+    phase: 'idle', // idle | thinking | error
+    pendingText: ''
+  };
+
+  bottomRef = React.createRef();
+
+  componentDidMount() {
+    try {
+      const saved = localStorage.getItem('helpdesk-careers-theme');
+      if (saved === 'light' || saved === 'dark') this.setState({ theme: saved });
+    } catch (e) {}
+  }
+
+  componentDidUpdate() {
+    if (this.bottomRef.current) this.bottomRef.current.scrollIntoView({ block: 'nearest' });
+  }
+
+  toggleTheme = () => {
+    const next = this.state.theme === 'dark' ? 'light' : 'dark';
+    this.setState({ theme: next });
+    try { localStorage.setItem('helpdesk-careers-theme', next); } catch (e) {}
+  };
+
+  onNewChat = () => this.setState({ messages: [], draft: '', phase: 'idle', pendingText: '' });
+  onDraftChange = (e) => this.setState({ draft: e.target.value });
+  onKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); } };
+  onSuggestionClick = (label) => { this.setState({ draft: label }, () => this.send()); };
+
+  onSend = (e) => { e.preventDefault(); this.send(); };
+
+  send = () => {
+    const text = this.state.draft.trim();
+    if (!text || this.state.phase === 'thinking') return;
+    const messages = [...this.state.messages, { role: 'user', text }];
+    this.setState({ messages, draft: '', phase: 'thinking', pendingText: text });
+
+    // Simulate a network call that occasionally fails, to demo the retry path (JAY-131 fix: never silently drop the draft).
+    const willFail = /payroll run/i.test(text) && !this._retried;
+    setTimeout(() => {
+      if (willFail) {
+        this._retried = true;
+        this.setState({ phase: 'error' });
+        return;
+      }
+      const reply = this.craftReply(text);
+      this.setState(s => ({ messages: [...s.messages, { role: 'assistant', text: reply }], phase: 'idle' }));
+    }, 1100);
+  };
+
+  onRetry = () => {
+    const text = this.state.pendingText;
+    this.setState({ phase: 'thinking' });
+    setTimeout(() => {
+      const reply = this.craftReply(text);
+      this.setState(s => ({ messages: [...s.messages, { role: 'assistant', text: reply }], phase: 'idle' }));
+    }, 900);
+  };
+
+  craftReply = (text) => {
+    if (/payroll run/i.test(text)) {
+      return 'Your last payroll run was Friday, July 12 — 14 employees, $28,340 total, no rejected direct deposits. Want the breakdown by employee?';
+    }
+    if (/pto|time off|vacation/i.test(text)) {
+      return 'You have 3 pending time-off requests: Priya Shah (Jul 22–24), Marcus Webb (Aug 1, half-day), and Dana Ruiz (Aug 14–18). Want to review them now?';
+    }
+    if (/timesheet/i.test(text)) {
+      return 'This week, 2 employees haven\u2019t clocked out yet: Leo Bennett and Sam Torres. Everyone else\u2019s hours look normal, no overtime flags.';
+    }
+    return 'I can help with payroll runs, timesheets, PTO requests, and company policies — try asking about one of those, or rephrase what you need.';
+  };
+
+  renderVals() {
+    const isDark = this.state.theme === 'dark';
+    const dark = {
+      cBg: 'oklch(17% 0.012 260)', cBgElevated: 'oklch(21% 0.014 258)', cBgInput: 'oklch(25% 0.015 258)',
+      cText: 'oklch(95% 0.006 90)', cTextSecondary: 'oklch(72% 0.02 250)', cTextTertiary: 'oklch(52% 0.02 250)',
+      cAccent: 'oklch(64% 0.15 250)', cAccentText: 'oklch(99% 0 0)', cError: 'oklch(72% 0.16 25)', cErrorBg: 'oklch(27% 0.05 25)'
+    };
+    const light = {
+      cBg: 'oklch(98% 0.004 90)', cBgElevated: 'oklch(95% 0.006 85)', cBgInput: 'oklch(91% 0.008 85)',
+      cText: 'oklch(22% 0.01 260)', cTextSecondary: 'oklch(42% 0.015 255)', cTextTertiary: 'oklch(58% 0.015 255)',
+      cAccent: 'oklch(48% 0.14 250)', cAccentText: 'oklch(99% 0 0)', cError: 'oklch(50% 0.19 25)', cErrorBg: 'oklch(93% 0.05 25)'
+    };
+    const c = isDark ? dark : light;
+
+    const suggestionDefs = [
+      'What happened in the last payroll run?',
+      'Who has pending time-off requests?',
+      'Any timesheet issues this week?',
+    ];
+
+    const messages = this.state.messages.map(m => ({
+      text: m.text,
+      justify: m.role === 'user' ? 'flex-end' : 'flex-start',
+      bg: m.role === 'user' ? c.cAccent : c.cBgElevated,
+      color: m.role === 'user' ? c.cAccentText : c.cText,
+    }));
+
+    return {
+      isDark, isLight: !isDark, toggleTheme: this.toggleTheme,
+      ...c,
+      companyName: 'Harbor Lane Veterinary Clinic',
+      onNewChat: this.onNewChat,
+      isEmpty: this.state.messages.length === 0 && this.state.phase === 'idle',
+      suggestions: suggestionDefs.map(label => ({ label, onClick: () => this.onSuggestionClick(label) })),
+      messages,
+      isThinking: this.state.phase === 'thinking',
+      isErrored: this.state.phase === 'error',
+      onRetry: this.onRetry,
+      bottomRef: this.bottomRef,
+      draft: this.state.draft, onDraftChange: this.onDraftChange, onKeyDown: this.onKeyDown, onSend: this.onSend,
+      sendDisabled: !this.state.draft.trim() || this.state.phase === 'thinking',
+      sendOpacity: (!this.state.draft.trim() || this.state.phase === 'thinking') ? 0.45 : 1,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

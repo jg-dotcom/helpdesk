@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+</helmet>
+
+<div style="min-height:100vh; box-sizing:border-box; background:{{ cBg }}; color:{{ cText }}; font-family:'Inter',sans-serif;">
+  <header style="display:flex; align-items:center; justify-content:space-between; padding:20px 32px;">
+    <div style="font-size:14.5px; font-weight:700;">Welcome to {{ companyName }}</div>
+    <button onClick="{{ toggleTheme }}" aria-label="Toggle color theme" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:999px; border:none; background:{{ cBgElevated }}; color:{{ cTextSecondary }}; cursor:pointer;" style-hover="color:{{ cText }};">
+      <sc-if value="{{ isDark }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+      <sc-if value="{{ isLight }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></sc-if>
+    </button>
+  </header>
+
+  <div style="max-width:640px; margin:0 auto; padding:8px 24px 80px;">
+
+    <div style="display:flex; gap:6px; margin-bottom:36px;">
+      <sc-for list="{{ stepDots }}" as="dot" hint-placeholder-count="4">
+        <div style="height:4px; flex:1; border-radius:999px; background:{{ dot.color }};"></div>
+      </sc-for>
+    </div>
+
+    <div style="margin-bottom:8px; font-size:13px; font-weight:600; color:{{ cTextTertiary }};">Step {{ stepNumber }} of {{ stepTotal }}</div>
+<h1 style="font-size:28px; font-weight:800; letter-spacing:-0.02em; margin:0 0 6px;">{{ stepTitle }}</h1>
+    <div style="display:inline-flex; align-items:center; gap:6px; margin-bottom:24px;">
+      <sc-if value="{{ isRequired }}" hint-placeholder-val="{{ true }}">
+        <span style="font-size:12.5px; font-weight:600; color:{{ cError }}; background:{{ cErrorBg }}; padding:4px 10px; border-radius:999px;">Required by law — can't be skipped</span>
+      </sc-if>
+      <sc-if value="{{ isOptional }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:12.5px; font-weight:600; color:{{ cTextSecondary }}; background:{{ cBgElevated }}; padding:4px 10px; border-radius:999px;">Optional</span>
+      </sc-if>
+    </div>
+
+    <p style="font-size:15px; line-height:1.7; color:{{ cTextSecondary }}; margin:0 0 32px; max-width:480px;">{{ stepBody }}</p>
+
+    <div style="background:{{ cBgElevated }}; border-radius:14px; padding:28px; margin-bottom:28px; display:flex; flex-direction:column; gap:16px;">
+      <sc-for list="{{ stepFields }}" as="f" hint-placeholder-count="2">
+        <div>
+          <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">{{ f.label }}</label>
+          <input placeholder="{{ f.placeholder }}" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ cBorder }}; border-radius:8px; padding:11px 14px; font-size:14.5px; color:{{ cText }}; font-family:inherit;"/>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ isSkipConfirmOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="background:{{ cErrorBg }}; border-radius:12px; padding:18px 20px; margin-bottom:20px;">
+        <div style="font-size:14.5px; color:{{ cText }}; line-height:1.6; margin-bottom:14px;">Skipping {{ stepTitle }} means payroll can't run for you until it's completed — you'll see a reminder on your dashboard.</div>
+        <div style="display:flex; gap:10px;">
+          <button onClick="{{ onConfirmSkip }}" style="background:none; color:{{ cText }}; border:1px solid {{ cBorder }}; border-radius:8px; padding:9px 16px; font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit;">Skip anyway</button>
+          <button onClick="{{ onCancelSkip }}" style="background:{{ cAccent }}; color:{{ cAccentText }}; border:none; border-radius:8px; padding:9px 16px; font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit;">Go back and finish</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <button onClick="{{ onSkip }}" disabled="{{ isRequired }}" style="background:none; color:{{ skipColor }}; border:none; padding:11px 8px; font-size:14px; font-weight:600; cursor:{{ skipCursor }}; font-family:inherit;">{{ skipLabel }}</button>
+      <button onClick="{{ onContinue }}" style="background:{{ cAccent }}; color:{{ cAccentText }}; border:none; border-radius:9px; padding:11px 24px; font-size:14.5px; font-weight:600; cursor:pointer; font-family:inherit;" style-hover="opacity:0.9;">Continue</button>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { theme: 'dark', stepIndex: 0, isSkipConfirmOpen: false };
+
+  steps = [
+    { title: 'Sign your W-4', required: true, body: 'Tells us how much federal tax to withhold from your paycheck. Required before your first payroll run.', fields: [{ label: 'Filing status', placeholder: 'Single' }, { label: 'Allowances', placeholder: '0' }] },
+    { title: 'Complete your I-9', required: true, body: 'Verifies you\u2019re authorized to work in the US. Required by federal law within 3 days of your start date.', fields: [{ label: 'Document type', placeholder: 'Driver\u2019s license' }, { label: 'Document number', placeholder: '' }] },
+    { title: 'Set up direct deposit', required: true, body: 'Where your paycheck lands. Required before we can pay you — without it, your first check will be delayed.', fields: [{ label: 'Routing number', placeholder: '' }, { label: 'Account number', placeholder: '' }] },
+    { title: 'Add an emergency contact', required: false, body: 'Optional, but it helps us reach someone quickly if there\u2019s ever an emergency at work.', fields: [{ label: 'Name', placeholder: '' }, { label: 'Phone', placeholder: '' }] },
+  ];
+
+  componentDidMount() {
+    try {
+      const saved = localStorage.getItem('helpdesk-careers-theme');
+      if (saved === 'light' || saved === 'dark') this.setState({ theme: saved });
+    } catch (e) {}
+  }
+
+  toggleTheme = () => {
+    const next = this.state.theme === 'dark' ? 'light' : 'dark';
+    this.setState({ theme: next });
+    try { localStorage.setItem('helpdesk-careers-theme', next); } catch (e) {}
+  };
+
+  onContinue = () => this.setState(s => ({ stepIndex: Math.min(s.stepIndex + 1, this.steps.length - 1), isSkipConfirmOpen: false }));
+  onSkip = () => {
+    const step = this.steps[this.state.stepIndex];
+    if (step.required) return; // required steps can't be skipped at all
+    this.setState({ isSkipConfirmOpen: true });
+  };
+  onConfirmSkip = () => this.setState(s => ({ stepIndex: Math.min(s.stepIndex + 1, this.steps.length - 1), isSkipConfirmOpen: false }));
+  onCancelSkip = () => this.setState({ isSkipConfirmOpen: false });
+
+  renderVals() {
+    const isDark = this.state.theme === 'dark';
+    const dark = {
+      cBg: 'oklch(17% 0.012 260)', cBgElevated: 'oklch(21% 0.014 258)', cBgInput: 'oklch(25% 0.015 258)',
+      cBorder: 'oklch(30% 0.02 258)', cText: 'oklch(95% 0.006 90)', cTextSecondary: 'oklch(72% 0.02 250)',
+      cTextTertiary: 'oklch(52% 0.02 250)', cAccent: 'oklch(64% 0.15 250)', cAccentText: 'oklch(99% 0 0)',
+      cError: 'oklch(72% 0.16 25)', cErrorBg: 'oklch(27% 0.05 25)',
+    };
+    const light = {
+      cBg: 'oklch(98% 0.004 90)', cBgElevated: 'oklch(95% 0.006 85)', cBgInput: 'oklch(91% 0.008 85)',
+      cBorder: 'oklch(88% 0.01 90)', cText: 'oklch(22% 0.01 260)', cTextSecondary: 'oklch(42% 0.015 255)',
+      cTextTertiary: 'oklch(58% 0.015 255)', cAccent: 'oklch(48% 0.14 250)', cAccentText: 'oklch(99% 0 0)',
+      cError: 'oklch(50% 0.19 25)', cErrorBg: 'oklch(93% 0.05 25)',
+    };
+    const c = isDark ? dark : light;
+    const step = this.steps[this.state.stepIndex];
+
+    const stepDots = this.steps.map((s, i) => ({ color: i <= this.state.stepIndex ? c.cAccent : c.cBgElevated }));
+
+    return {
+      isDark, isLight: !isDark, toggleTheme: this.toggleTheme, ...c,
+      companyName: 'Harbor Lane Veterinary Clinic',
+      stepDots, stepNumber: this.state.stepIndex + 1, stepTotal: this.steps.length,
+      stepTitle: step.title, stepBody: step.body, stepFields: step.fields,
+      isRequired: step.required, isOptional: !step.required,
+      skipLabel: step.required ? 'Can\u2019t skip a required step' : 'Skip this step',
+      skipColor: step.required ? c.cTextTertiary : c.cTextSecondary,
+      skipCursor: step.required ? 'not-allowed' : 'pointer',
+      onSkip: this.onSkip, onContinue: this.onContinue,
+      isSkipConfirmOpen: this.state.isSkipConfirmOpen,
+      onConfirmSkip: this.onConfirmSkip, onCancelSkip: this.onCancelSkip,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

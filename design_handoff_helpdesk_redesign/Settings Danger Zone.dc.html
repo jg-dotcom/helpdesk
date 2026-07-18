@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+</helmet>
+
+<div style="min-height:100vh; box-sizing:border-box; background:{{ cBg }}; color:{{ cText }}; font-family:'Inter',sans-serif;">
+  <header style="display:flex; align-items:center; justify-content:space-between; padding:20px 32px;">
+    <div style="font-size:13.5px; color:{{ cTextTertiary }};">Settings / <span style="color:{{ cText }};">Danger zone</span></div>
+    <button onClick="{{ toggleTheme }}" aria-label="Toggle color theme" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:999px; border:none; background:{{ cBgElevated }}; color:{{ cTextSecondary }}; cursor:pointer;" style-hover="color:{{ cText }};">
+      <sc-if value="{{ isDark }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></sc-if>
+      <sc-if value="{{ isLight }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></sc-if>
+    </button>
+  </header>
+
+  <div style="max-width:640px; margin:0 auto; padding:12px 24px 80px; display:flex; flex-direction:column; gap:36px;">
+    <div>
+<h1 style="font-size:28px; font-weight:800; letter-spacing:-0.02em; margin:0 0 8px;">Danger zone</h1>
+      <p style="font-size:14.5px; color:{{ cTextSecondary }}; margin:0;">Actions here are permanent. Read each one carefully.</p>
+    </div>
+
+    <div>
+      <h2 style="font-size:16px; font-weight:700; color:{{ cError }}; margin:0 0 6px;">Delete account</h2>
+      <p style="font-size:14px; color:{{ cTextSecondary }}; line-height:1.6; margin:0 0 16px; max-width:460px;">Permanently deletes {{ companyName }} — all employees, payroll history, and documents. This cannot be undone. Type <strong style="color:{{ cText }};">delete {{ companyName }}</strong> to confirm.</p>
+
+      <input value="{{ confirmText }}" onChange="{{ onConfirmTextChange }}" placeholder="delete {{ companyName }}" style="width:100%; max-width:380px; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ inputBorder }}; border-radius:8px; padding:11px 14px; font-size:14.5px; color:{{ cText }}; font-family:inherit; margin-bottom:16px;"/>
+
+      <sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; gap:10px; align-items:flex-start; background:{{ cErrorBg }}; border-radius:10px; padding:14px 16px; margin-bottom:16px; max-width:460px;">
+          <span style="color:{{ cError }}; flex-shrink:0; margin-top:1px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5M12 16.2v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          <div style="font-size:14px; line-height:1.5; color:{{ cText }};">The deletion didn't go through — our server didn't confirm it completed. Your account and data are untouched. Try again, or contact support if it keeps failing.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isDeleted }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; gap:10px; align-items:flex-start; background:{{ cSuccessBg }}; border-radius:10px; padding:14px 16px; margin-bottom:16px; max-width:460px;">
+          <span style="color:{{ cSuccess }}; flex-shrink:0; margin-top:1px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <div style="font-size:14px; line-height:1.5; color:{{ cText }};">Account deleted. You'll be signed out and redirected shortly.</div>
+        </div>
+      </sc-if>
+
+      <button onClick="{{ onDelete }}" disabled="{{ deleteDisabled }}" style="display:flex; align-items:center; gap:8px; background:{{ cError }}; color:oklch(99% 0 0); border:none; border-radius:9px; padding:11px 20px; font-size:14.5px; font-weight:600; cursor:pointer; font-family:inherit; opacity:{{ deleteOpacity }};">
+        <sc-if value="{{ isDeleting }}" hint-placeholder-val="{{ false }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="animation:spin 0.8s linear infinite;"><circle cx="12" cy="12" r="9" stroke="oklch(99% 0 0)" stroke-width="2.5" opacity="0.35"/><path d="M21 12a9 9 0 0 0-9-9" stroke="oklch(99% 0 0)" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </sc-if>
+        {{ deleteLabel }}
+      </button>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { theme: 'dark', confirmText: '', phase: 'idle', attempts: 0 };
+
+  componentDidMount() {
+    try {
+      const saved = localStorage.getItem('helpdesk-careers-theme');
+      if (saved === 'light' || saved === 'dark') this.setState({ theme: saved });
+    } catch (e) {}
+  }
+
+  toggleTheme = () => {
+    const next = this.state.theme === 'dark' ? 'light' : 'dark';
+    this.setState({ theme: next });
+    try { localStorage.setItem('helpdesk-careers-theme', next); } catch (e) {}
+  };
+
+  onConfirmTextChange = (e) => this.setState({ confirmText: e.target.value, phase: 'idle' });
+
+  onDelete = () => {
+    this.setState({ phase: 'deleting' });
+    // Simulated fix for JAY-127: check the (simulated) API response before showing success.
+    setTimeout(() => {
+      const attempts = this.state.attempts + 1;
+      const apiSucceeded = attempts >= 2; // first attempt simulates a failed response
+      this.setState({ phase: apiSucceeded ? 'deleted' : 'error', attempts });
+    }, 900);
+  };
+
+  renderVals() {
+    const isDark = this.state.theme === 'dark';
+    const dark = {
+      cBg: 'oklch(17% 0.012 260)', cBgElevated: 'oklch(21% 0.014 258)', cBgInput: 'oklch(25% 0.015 258)',
+      cBorder: 'oklch(30% 0.02 258)', cText: 'oklch(95% 0.006 90)', cTextSecondary: 'oklch(72% 0.02 250)',
+      cTextTertiary: 'oklch(52% 0.02 250)', cAccent: 'oklch(64% 0.15 250)', cAccentText: 'oklch(99% 0 0)',
+      cError: 'oklch(72% 0.16 25)', cErrorBg: 'oklch(27% 0.05 25)', cSuccess: 'oklch(68% 0.15 145)', cSuccessBg: 'oklch(26% 0.05 145)',
+    };
+    const light = {
+      cBg: 'oklch(98% 0.004 90)', cBgElevated: 'oklch(95% 0.006 85)', cBgInput: 'oklch(91% 0.008 85)',
+      cBorder: 'oklch(88% 0.01 90)', cText: 'oklch(22% 0.01 260)', cTextSecondary: 'oklch(42% 0.015 255)',
+      cTextTertiary: 'oklch(58% 0.015 255)', cAccent: 'oklch(48% 0.14 250)', cAccentText: 'oklch(99% 0 0)',
+      cError: 'oklch(50% 0.19 25)', cErrorBg: 'oklch(93% 0.05 25)', cSuccess: 'oklch(45% 0.13 145)', cSuccessBg: 'oklch(92% 0.05 145)',
+    };
+    const c = isDark ? dark : light;
+    const companyName = 'Harbor Lane Veterinary Clinic';
+    const confirmMatches = this.state.confirmText.trim() === `delete ${companyName}`;
+    const isDeleting = this.state.phase === 'deleting';
+    const isError = this.state.phase === 'error';
+    const isDeleted = this.state.phase === 'deleted';
+
+    return {
+      isDark, isLight: !isDark, toggleTheme: this.toggleTheme, ...c,
+      companyName,
+      confirmText: this.state.confirmText, onConfirmTextChange: this.onConfirmTextChange,
+      inputBorder: isError ? c.cError : c.cBorder,
+      isError, isDeleted, isDeleting,
+      deleteDisabled: !confirmMatches || isDeleting || isDeleted,
+      deleteOpacity: (!confirmMatches || isDeleting || isDeleted) ? 0.5 : 1,
+      deleteLabel: isDeleting ? 'Deleting…' : isDeleted ? 'Deleted' : 'Delete this account',
+      onDelete: this.onDelete,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

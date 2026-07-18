@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @font-face { font-family: 'Inter'; src: local('Inter'); }
+  body { margin: 0; }
+  ::selection { background: oklch(62% 0.15 250 / 0.3); }
+  input::placeholder, textarea::placeholder { color: inherit; opacity: 0.45; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,500&display=swap" rel="stylesheet">
+</helmet>
+
+<div style="min-height:100vh; background:{{ cBg }}; color:{{ cText }}; font-family:'Inter',sans-serif; transition:background 0.25s ease,color 0.25s ease;">
+
+  <header style="display:flex; align-items:center; justify-content:space-between; max-width:880px; margin:0 auto; padding:28px 24px 0;">
+    <div style="font-size:15px; font-weight:600; letter-spacing:0.01em; color:{{ cTextSecondary }};">{{ companyName }}</div>
+    <button onClick="{{ toggleTheme }}" aria-label="Toggle color theme" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:999px; border:none; background:{{ cBgElevated }}; color:{{ cTextSecondary }}; cursor:pointer;" style-hover="color:{{ cText }};">
+      <sc-if value="{{ isDark }}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </sc-if>
+      <sc-if value="{{ isLight }}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </sc-if>
+    </button>
+  </header>
+
+  <section style="background:{{ cBgElevated }}; margin-top:20px;">
+    <div style="max-width:880px; margin:0 auto; padding:64px 24px 56px;">
+      <div style="font-size:13px; font-weight:600; color:{{ cAmber }}; letter-spacing:0.04em; text-transform:uppercase; margin-bottom:14px;">Open role</div>
+      <h1 style="font-size:44px; line-height:1.08; font-weight:800; letter-spacing:-0.02em; margin:0 0 16px;">{{ jobTitle }}</h1>
+      <div style="display:flex; flex-wrap:wrap; gap:10px 18px; font-size:15px; color:{{ cTextSecondary }}; margin-bottom:22px;">
+        <span>{{ jobDept }}</span>
+        <span style="opacity:0.4;">·</span>
+        <span>{{ jobLocation }}</span>
+        <span style="opacity:0.4;">·</span>
+        <span>{{ jobType }}</span>
+      </div>
+      <p style="font-size:18px; line-height:1.6; color:{{ cTextSecondary }}; max-width:560px; margin:0 0 32px;">{{ jobPitch }}</p>
+      <a href="#apply-form" style="display:inline-flex; align-items:center; gap:8px; background:{{ cAccent }}; color:{{ cAccentText }}; font-size:15px; font-weight:600; padding:13px 24px; border-radius:10px; text-decoration:none;" style-hover="opacity:0.9;">
+        Apply for this role
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+  </section>
+
+  <main style="max-width:880px; margin:0 auto; padding:64px 24px 100px; display:flex; flex-direction:column; gap:64px;">
+
+    <section>
+      <h2 style="font-size:22px; font-weight:700; letter-spacing:-0.01em; margin:0 0 18px;">What you'll do</h2>
+      <p style="font-size:16px; line-height:1.7; color:{{ cTextSecondary }}; margin:0 0 20px; max-width:640px;">{{ jobRoleDetail }}</p>
+      <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:12px;">
+        <sc-for list="{{ responsibilities }}" as="item" hint-placeholder-count="4">
+          <li style="display:flex; gap:12px; font-size:15px; line-height:1.6; color:{{ cText }};">
+            <span style="color:{{ cAccent }}; margin-top:2px; flex-shrink:0;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            {{ item }}
+          </li>
+        </sc-for>
+      </ul>
+    </section>
+
+    <section>
+      <h2 style="font-size:22px; font-weight:700; letter-spacing:-0.01em; margin:0 0 18px;">What you'll need</h2>
+      <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:12px;">
+        <sc-for list="{{ requirements }}" as="req" hint-placeholder-count="4">
+          <li style="display:flex; gap:12px; font-size:15px; line-height:1.6; color:{{ cTextSecondary }};">
+            <span style="color:{{ cTextTertiary }}; margin-top:8px; width:4px; height:4px; border-radius:999px; background:currentColor; flex-shrink:0;"></span>
+            {{ req }}
+          </li>
+        </sc-for>
+      </ul>
+    </section>
+
+    <section style="background:{{ cBgElevated }}; margin:0 -24px; padding:36px 24px; border-radius:16px;">
+      <h2 style="font-size:18px; font-weight:700; letter-spacing:-0.01em; margin:0 0 10px;">About {{ companyName }}</h2>
+      <p style="font-size:15px; line-height:1.7; color:{{ cTextSecondary }}; margin:0; max-width:620px;">{{ companyBlurb }}</p>
+    </section>
+
+    <section id="apply-form" style="scroll-margin-top:32px;">
+      <sc-if value="{{ isSuccess }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center; padding:56px 24px; animation:fadeUp 0.4s ease;">
+          <div style="width:56px; height:56px; border-radius:999px; background:{{ cSuccess }}; display:flex; align-items:center; justify-content:center; margin:0 auto 24px;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="{{ cBgElevated }}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h2 style="font-size:26px; font-weight:700; letter-spacing:-0.01em; margin:0 0 12px;">Application received</h2>
+          <p style="font-size:16px; line-height:1.6; color:{{ cTextSecondary }}; max-width:440px; margin:0 auto;">Thanks, {{ submittedName }}. {{ companyName }} will review your background for the {{ jobTitle }} role and reach out to <span style="color:{{ cText }};">{{ submittedEmail }}</span> within a few business days either way. You can close this page now.</p>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isFormVisible }}" hint-placeholder-val="{{ true }}">
+        <h2 style="font-size:22px; font-weight:700; letter-spacing:-0.01em; margin:0 0 8px;">Apply for this role</h2>
+        <p style="font-size:15px; color:{{ cTextSecondary }}; margin:0 0 32px;">Takes about five minutes. Fields marked with * are required.</p>
+
+        <form onSubmit="{{ onSubmit }}" style="display:flex; flex-direction:column; gap:24px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div>
+              <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Full name *</label>
+              <input type="text" value="{{ fullName }}" onChange="{{ onFullNameChange }}" placeholder="Jordan Alvarez" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ errorFullNameBorder }}; border-radius:8px; padding:11px 14px; font-size:15px; color:{{ cText }}; font-family:inherit;"/>
+              <sc-if value="{{ errorFullName }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:13px; color:{{ cError }}; margin-top:6px;">{{ errorFullName }}</div>
+              </sc-if>
+            </div>
+            <div>
+              <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Email *</label>
+              <input type="email" value="{{ email }}" onChange="{{ onEmailChange }}" placeholder="jordan@email.com" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ errorEmailBorder }}; border-radius:8px; padding:11px 14px; font-size:15px; color:{{ cText }}; font-family:inherit;"/>
+              <sc-if value="{{ errorEmail }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:13px; color:{{ cError }}; margin-top:6px;">{{ errorEmail }}</div>
+              </sc-if>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div>
+              <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Phone</label>
+              <input type="tel" value="{{ phone }}" onChange="{{ onPhoneChange }}" placeholder="(512) 555-0148" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ cBorder }}; border-radius:8px; padding:11px 14px; font-size:15px; color:{{ cText }}; font-family:inherit;"/>
+            </div>
+            <div>
+              <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Earliest start date</label>
+              <input type="date" value="{{ startDate }}" onChange="{{ onStartDateChange }}" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ cBorder }}; border-radius:8px; padding:11px 14px; font-size:15px; color:{{ cText }}; font-family:inherit;"/>
+            </div>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Resume *</label>
+            <input type="file" ref="{{ fileInputRef }}" onChange="{{ onFileInputChange }}" accept=".pdf,.doc,.docx" style="display:none;"/>
+
+            <sc-if value="{{ resumeIsEmpty }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ onDropZoneClick }}" onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}" style="border:1.5px dashed {{ dropZoneBorder }}; border-radius:10px; padding:28px; text-align:center; cursor:pointer; background:{{ dropZoneBg }};">
+                <div style="font-size:14px; color:{{ cText }}; margin-bottom:4px;">Drop your resume here, or click to browse</div>
+                <div style="font-size:13px; color:{{ cTextTertiary }};">PDF, DOC, or DOCX — up to 10MB</div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ resumeIsUploading }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:center; gap:12px; border:1px solid {{ cBorder }}; border-radius:10px; padding:16px; background:{{ cBgInput }};">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="animation:spin 0.8s linear infinite;"><circle cx="12" cy="12" r="9" stroke="{{ cBorder }}" stroke-width="2.5"/><path d="M21 12a9 9 0 0 0-9-9" stroke="{{ cAccent }}" stroke-width="2.5" stroke-linecap="round"/></svg>
+                <span style="font-size:14px; color:{{ cTextSecondary }};">Uploading {{ resumeFileName }}…</span>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ resumeIsDone }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid {{ cBorder }}; border-radius:10px; padding:14px 16px; background:{{ cBgInput }};">
+                <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                  <span style="color:{{ cSuccess }}; flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                  <span style="font-size:14px; color:{{ cText }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ resumeFileName }}</span>
+                  <span style="font-size:13px; color:{{ cTextTertiary }}; flex-shrink:0;">{{ resumeFileSizeLabel }}</span>
+                </div>
+                <button onClick="{{ onRemoveResume }}" type="button" style="background:none; border:none; color:{{ cTextSecondary }}; cursor:pointer; font-size:13px; font-weight:600; padding:4px 8px;" style-hover="color:{{ cError }};">Remove</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ resumeIsError }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ onDropZoneClick }}" style="border:1.5px dashed {{ cError }}; border-radius:10px; padding:20px; text-align:center; cursor:pointer;">
+                <div style="font-size:14px; color:{{ cError }};">{{ resumeErrorMsg }}</div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ errorResume }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:13px; color:{{ cError }}; margin-top:6px;">{{ errorResume }}</div>
+            </sc-if>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; color:{{ cTextSecondary }}; margin-bottom:8px;">Cover letter (optional, but it helps)</label>
+            <textarea value="{{ coverLetter }}" onChange="{{ onCoverLetterChange }}" placeholder="What draws you to this role?" rows="5" style="width:100%; box-sizing:border-box; background:{{ cBgInput }}; border:1px solid {{ cBorder }}; border-radius:8px; padding:12px 14px; font-size:15px; color:{{ cText }}; font-family:inherit; resize:vertical;"></textarea>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:16px; margin-top:8px;">
+            <button type="submit" disabled="{{ isSubmitting }}" style="display:flex; align-items:center; gap:8px; background:{{ cAccent }}; color:{{ cAccentText }}; font-size:15px; font-weight:600; padding:13px 26px; border-radius:10px; border:none; cursor:pointer; opacity:{{ submitOpacity }};" style-hover="opacity:0.9;">
+              <sc-if value="{{ isSubmitting }}" hint-placeholder-val="{{ false }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="animation:spin 0.8s linear infinite;"><circle cx="12" cy="12" r="9" stroke="{{ cAccentText }}" stroke-width="2.5" opacity="0.35"/><path d="M21 12a9 9 0 0 0-9-9" stroke="{{ cAccentText }}" stroke-width="2.5" stroke-linecap="round"/></svg>
+              </sc-if>
+              {{ submitLabel }}
+            </button>
+            <span style="font-size:13px; color:{{ cTextTertiary }};">{{ companyName }} typically responds within a week.</span>
+          </div>
+        </form>
+      </sc-if>
+    </section>
+
+  </main>
+
+  <footer style="max-width:880px; margin:0 auto; padding:0 24px 48px; font-size:13px; color:{{ cTextTertiary }};">
+    Powered by Helpdesk
+  </footer>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    theme: 'dark',
+    fullName: '', email: '', phone: '', linkedin: '', coverLetter: '', startDate: '', payRange: '',
+    errors: {},
+    resumeStatus: 'empty', resumeFileName: '', resumeFileSizeLabel: '', resumeErrorMsg: '',
+    isDragging: false,
+    status: 'idle',
+    submittedName: '', submittedEmail: ''
+  };
+
+  fileInputRef = React.createRef();
+
+  componentDidMount() {
+    try {
+      const saved = localStorage.getItem('helpdesk-careers-theme');
+      if (saved === 'light' || saved === 'dark') this.setState({ theme: saved });
+    } catch (e) {}
+  }
+
+  toggleTheme = () => {
+    const next = this.state.theme === 'dark' ? 'light' : 'dark';
+    this.setState({ theme: next });
+    try { localStorage.setItem('helpdesk-careers-theme', next); } catch (e) {}
+  };
+
+  setField = (field, value) => {
+    this.setState(s => ({ [field]: value, errors: { ...s.errors, [field]: undefined } }));
+  };
+
+  onFullNameChange = (e) => this.setField('fullName', e.target.value);
+  onEmailChange = (e) => this.setField('email', e.target.value);
+  onPhoneChange = (e) => this.setField('phone', e.target.value);
+  onLinkedinChange = (e) => this.setField('linkedin', e.target.value);
+  onCoverLetterChange = (e) => this.setField('coverLetter', e.target.value);
+  onStartDateChange = (e) => this.setField('startDate', e.target.value);
+  onPayRangeChange = (e) => this.setField('payRange', e.target.value);
+
+  onDropZoneClick = () => { if (this.fileInputRef.current) this.fileInputRef.current.click(); };
+  onDragOver = (e) => { e.preventDefault(); this.setState({ isDragging: true }); };
+  onDragLeave = (e) => { e.preventDefault(); this.setState({ isDragging: false }); };
+  onDrop = (e) => {
+    e.preventDefault();
+    this.setState({ isDragging: false });
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) this.processFile(file);
+  };
+  onFileInputChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) this.processFile(file);
+  };
+
+  processFile = (file) => {
+    const name = file.name.toLowerCase();
+    const validExt = name.endsWith('.pdf') || name.endsWith('.doc') || name.endsWith('.docx');
+    if (!validExt) {
+      this.setState({ resumeStatus: 'error', resumeErrorMsg: 'That file type isn\u2019t supported \u2014 try a PDF, DOC, or DOCX instead.' });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      this.setState({ resumeStatus: 'error', resumeErrorMsg: 'That file is over 10MB \u2014 try a smaller or compressed version.' });
+      return;
+    }
+    this.setState({ resumeStatus: 'uploading', resumeFileName: file.name, errors: { ...this.state.errors, resume: undefined } });
+    const sizeLabel = file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(1) + ' MB' : Math.round(file.size / 1024) + ' KB';
+    setTimeout(() => {
+      this.setState({ resumeStatus: 'done', resumeFileSizeLabel: sizeLabel });
+    }, 650);
+  };
+
+  onRemoveResume = () => {
+    this.setState({ resumeStatus: 'empty', resumeFileName: '', resumeFileSizeLabel: '' });
+    if (this.fileInputRef.current) this.fileInputRef.current.value = '';
+  };
+
+  onSubmit = (e) => {
+    e.preventDefault();
+    const errors = {};
+    if (!this.state.fullName.trim()) errors.fullName = 'Enter your full name so we know who\u2019s applying.';
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.state.email.trim());
+    if (!emailOk) errors.email = 'Enter a valid email \u2014 that\u2019s how we\u2019ll reach you about next steps.';
+    if (this.state.resumeStatus !== 'done') errors.resume = 'Attach your resume before submitting.';
+    if (Object.keys(errors).length > 0) {
+      this.setState({ errors });
+      return;
+    }
+    this.setState({ status: 'submitting' });
+    setTimeout(() => {
+      this.setState({ status: 'success', submittedName: this.state.fullName.trim(), submittedEmail: this.state.email.trim() });
+    }, 900);
+  };
+
+  renderVals() {
+    const isDark = this.state.theme === 'dark';
+    const dark = {
+      cBg: 'oklch(17% 0.012 260)', cBgElevated: 'oklch(21% 0.014 258)', cBgInput: 'oklch(23% 0.014 258)',
+      cBorder: 'oklch(32% 0.02 258)', cText: 'oklch(95% 0.006 90)', cTextSecondary: 'oklch(72% 0.02 250)',
+      cTextTertiary: 'oklch(52% 0.02 250)', cAccent: 'oklch(64% 0.15 250)', cAccentText: 'oklch(99% 0 0)', cAmber: 'oklch(70% 0.15 55)',
+      cSuccess: 'oklch(68% 0.15 145)', cError: 'oklch(68% 0.17 25)'
+    };
+    const light = {
+      cBg: 'oklch(98% 0.004 90)', cBgElevated: 'oklch(95% 0.006 85)', cBgInput: 'oklch(99% 0.002 90)',
+      cBorder: 'oklch(88% 0.01 90)', cText: 'oklch(22% 0.01 260)', cTextSecondary: 'oklch(42% 0.015 255)',
+      cTextTertiary: 'oklch(58% 0.015 255)', cAccent: 'oklch(48% 0.14 250)', cAccentText: 'oklch(99% 0 0)', cAmber: 'oklch(58% 0.16 55)',
+      cSuccess: 'oklch(45% 0.13 145)', cError: 'oklch(50% 0.19 25)'
+    };
+    const c = isDark ? dark : light;
+    const errors = this.state.errors || {};
+
+    return {
+      isDark, isLight: !isDark, toggleTheme: this.toggleTheme,
+      ...c,
+
+      companyName: 'Harbor Lane Veterinary Clinic',
+      jobTitle: 'Veterinary Technician',
+      jobDept: 'Clinical Care',
+      jobLocation: 'Austin, TX',
+      jobType: 'Full-time',
+      jobPitch: 'Join a four-doctor small-animal practice where you\u2019ll run diagnostics, assist in surgery, and know every patient by name.',
+      jobRoleDetail: 'You\u2019ll work alongside our veterinarians and two other technicians across a mix of wellness visits, diagnostics, and same-day urgent care.',
+      responsibilities: [
+        'Prep patients and assist with exams, surgeries, and dental procedures',
+        'Run and interpret in-house lab work (bloodwork, urinalysis, fecal exams)',
+        'Place IV catheters and monitor anesthesia during procedures',
+        'Educate pet owners on medications, aftercare, and follow-up',
+      ],
+      requirements: [
+        'Licensed Veterinary Technician (LVT/RVT/CVT) or equivalent experience',
+        '1+ years in a small-animal clinical setting',
+        'Comfortable restraining and handling anxious or in-pain animals',
+        'Available for occasional Saturday shifts (rotating, roughly 1 in 4)',
+      ],
+      companyBlurb: 'We\u2019re a locally owned clinic that\u2019s been caring for Austin pets since 2011. Six full-time staff, low turnover, and a genuine no-drama culture \u2014 most of our team has been here 3+ years.',
+
+      fullName: this.state.fullName, email: this.state.email, phone: this.state.phone,
+      linkedin: this.state.linkedin, coverLetter: this.state.coverLetter, startDate: this.state.startDate, payRange: this.state.payRange,
+      onFullNameChange: this.onFullNameChange, onEmailChange: this.onEmailChange, onPhoneChange: this.onPhoneChange,
+      onLinkedinChange: this.onLinkedinChange, onCoverLetterChange: this.onCoverLetterChange,
+      onStartDateChange: this.onStartDateChange, onPayRangeChange: this.onPayRangeChange,
+
+      errorFullName: errors.fullName || '', errorEmail: errors.email || '', errorResume: errors.resume || '',
+      errorFullNameBorder: errors.fullName ? c.cError : c.cBorder,
+      errorEmailBorder: errors.email ? c.cError : c.cBorder,
+
+      fileInputRef: this.fileInputRef,
+      onDropZoneClick: this.onDropZoneClick, onDragOver: this.onDragOver, onDragLeave: this.onDragLeave,
+      onDrop: this.onDrop, onFileInputChange: this.onFileInputChange, onRemoveResume: this.onRemoveResume,
+      resumeIsEmpty: this.state.resumeStatus === 'empty',
+      resumeIsUploading: this.state.resumeStatus === 'uploading',
+      resumeIsDone: this.state.resumeStatus === 'done',
+      resumeIsError: this.state.resumeStatus === 'error',
+      resumeFileName: this.state.resumeFileName, resumeFileSizeLabel: this.state.resumeFileSizeLabel,
+      resumeErrorMsg: this.state.resumeErrorMsg,
+      dropZoneBorder: this.state.isDragging ? c.cAccent : c.cBorder,
+      dropZoneBg: this.state.isDragging ? c.cBgElevated : 'transparent',
+
+      isSubmitting: this.state.status === 'submitting',
+      isSuccess: this.state.status === 'success',
+      isFormVisible: this.state.status !== 'success',
+      submitLabel: this.state.status === 'submitting' ? 'Submitting…' : 'Submit application',
+      submitOpacity: this.state.status === 'submitting' ? 0.7 : 1,
+      onSubmit: this.onSubmit,
+      submittedName: this.state.submittedName, submittedEmail: this.state.submittedEmail,
+    };
+  }
+}
+
+</script>
+</body>
+</html>
