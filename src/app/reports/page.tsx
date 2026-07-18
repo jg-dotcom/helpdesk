@@ -234,9 +234,19 @@ export default function ReportsPage() {
             <div style={{ fontSize: '22px', fontWeight: 600, color: turnoverRate > 20 ? '#f87171' : '#f1f5f9' }}>{turnoverRate}%</div>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Turnover rate</div>
           </div>
-          <div style={cardStyle}>
-            <div style={{ fontSize: '22px', fontWeight: 600, color: complianceScore === 100 ? '#4ade80' : complianceScore >= 80 ? '#fbbf24' : '#f87171' }}>{complianceScore}%</div>
+          <div
+            style={{ ...cardStyle, cursor: complianceScore < 100 ? 'pointer' : 'default' }}
+            onClick={complianceScore < 100 ? () => {
+              setPaperworkExpanded(true)
+              document.getElementById('incomplete-paperwork')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            } : undefined}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ fontSize: '22px', fontWeight: 600, color: complianceScore === 100 ? '#4ade80' : complianceScore >= 80 ? '#fbbf24' : '#f87171' }}>{complianceScore}%</div>
+              {complianceScore < 100 && <span style={{ fontSize: '13px', color: '#64748b' }}>›</span>}
+            </div>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Compliance score</div>
+            <div style={{ fontSize: '10px', color: '#475569', marginTop: '2px' }}>Based on direct deposit + document completion</div>
           </div>
           <div style={cardStyle}>
             <div style={{ fontSize: '20px', fontWeight: 600, color: '#f1f5f9' }}>
@@ -300,7 +310,7 @@ export default function ReportsPage() {
           const distinctCombos = new Set(rows.map(r => r.missing.join(',')))
           const canCollapse = incomplete.length > 3 && distinctCombos.size === 1
           return (
-            <div style={{ ...cardStyle, marginBottom: '1rem', border: '1px solid rgba(239,68,68,0.28)' }}>
+            <div id="incomplete-paperwork" style={{ ...cardStyle, marginBottom: '1rem', border: '1px solid rgba(239,68,68,0.28)' }}>
               <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '0.75rem', color: '#f87171' }}>Incomplete paperwork</div>
               {canCollapse && !paperworkExpanded ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px' }}>
