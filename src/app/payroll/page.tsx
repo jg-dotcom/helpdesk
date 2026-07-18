@@ -39,6 +39,8 @@ type PayrollRun = {
   total_gross: number
   employee_count: number
   notes: string | null
+  run_type?: 'regular' | 'off_cycle'
+  reason?: string | null
 }
 
 type PayrollRunItem = {
@@ -136,6 +138,12 @@ export default function PayrollPage() {
   const [runPeriodEnd, setRunPeriodEnd] = useState(defaultPeriod.end)
   const [runNotes, setRunNotes] = useState('')
   const [runCreating, setRunCreating] = useState(false)
+
+  // JAY-115 — off-cycle runs (bonus/correction/one-off pay), scoped to a
+  // hand-picked subset of employees instead of "everyone active in period."
+  const [runType, setRunType] = useState<'regular' | 'off_cycle'>('regular')
+  const [offCycleEmployeeIds, setOffCycleEmployeeIds] = useState<number[]>([])
+  const [offCycleReason, setOffCycleReason] = useState<'Bonus' | 'Correction' | 'Other'>('Bonus')
   const [savingDeductions, setSavingDeductions] = useState<number | null>(null)
   const [editDeductions, setEditDeductions] = useState<Record<number, { federal: string; state: string; other: string }>>({})
 
@@ -281,17 +289,25 @@ export default function PayrollPage() {
 
   async function createRun() {
     if (!sessionToken) return
+    if (runType === 'off_cycle' && offCycleEmployeeIds.length === 0) {
+      showToast('Select at least one employee for an off-cycle run.', 'error')
+      return
+    }
     setRunCreating(true)
     const res = await fetch('/api/payroll/run', {
       method: 'POST',
       headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ periodStart: runPeriodStart, periodEnd: runPeriodEnd, notes: runNotes.trim() || undefined }),
+      body: JSON.stringify({
+        periodStart: runPeriodStart, periodEnd: runPeriodEnd, notes: runNotes.trim() || undefined,
+        ...(runType === 'off_cycle' ? { runType: 'off_cycle', employeeIds: offCycleEmployeeIds, reason: offCycleReason } : {}),
+      }),
     })
     const data = await res.json()
     if (!res.ok) {
       showToast(data.error ?? 'Failed to create run.', 'error')
     } else {
       showToast('Run created.', 'success')
+      setOffCycleEmployeeIds([])
       await reloadRuns(sessionToken)
     }
     setRunCreating(false)
@@ -848,6 +864,21 @@ export default function PayrollPage() {
             {/* Run payroll form */}
             <div style={{ ...cardStyle, marginBottom: '1.25rem' }}>
               <div style={{ fontWeight: 600, color: '#f1f5f9', marginBottom: '1rem' }}>Run payroll</div>
+
+              {/* JAY-115 — off-cycle runs (bonus/correction/one-off pay),
+                  scoped to hand-picked employees, exempt from the JAY-48
+                  duplicate-period guard. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                  <input type="radio" name="run-type" checked={runType === 'regular'} onChange={() => setRunType('regular')} style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+                  Regular run — all active employees
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                  <input type="radio" name="run-type" checked={runType === 'off_cycle'} onChange={() => setRunType('off_cycle')} style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+                  Off-cycle run — bonus, correction, or one-off payment
+                </label>
+              </div>
+
               <div className="row2" style={{ marginBottom: '0.75rem' }}>
                 <div className="field">
                   <label>Period start</label>
@@ -858,6 +889,36 @@ export default function PayrollPage() {
                   <input type="date" value={runPeriodEnd} onChange={e => setRunPeriodEnd(e.target.value)} />
                 </div>
               </div>
+
+              {runType === 'off_cycle' && (
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <div className="field" style={{ marginBottom: '0.75rem' }}>
+                    <label>Reason</label>
+                    <select value={offCycleReason} onChange={e => setOffCycleReason(e.target.value as typeof offCycleReason)}>
+                      <option value="Bonus">Bonus</option>
+                      <option value="Correction">Correction</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>Employees</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px' }}>
+                      {employees.filter(e => e.status === 'active').map(emp => (
+                        <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={offCycleEmployeeIds.includes(emp.id)}
+                            onChange={e => setOffCycleEmployeeIds(prev => e.target.checked ? [...prev, emp.id] : prev.filter(id => id !== emp.id))}
+                            style={{ width: '15px', height: '15px', flexShrink: 0 }}
+                          />
+                          {emp.name}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="field" style={{ marginBottom: '0.75rem' }}>
                 <label>Notes (optional)</label>
                 <input value={runNotes} onChange={e => setRunNotes(e.target.value)} placeholder="e.g. regular biweekly run" />
@@ -890,8 +951,13 @@ export default function PayrollPage() {
                         }}
                       >
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9' }}>
+                          <div style={{ fontWeight: 600, fontSize: '14px', color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {formatDate(run.period_start)} – {formatDate(run.period_end)}
+                            {run.run_type === 'off_cycle' && (
+                              <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', background: 'rgba(147,51,234,0.16)', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                Off-cycle{run.reason ? ` · ${run.reason}` : ''}
+                              </span>
+                            )}
                           </div>
                           <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
                             {run.employee_count} employee{run.employee_count !== 1 ? 's' : ''} · run on {formatDate(run.run_date)}

@@ -285,4 +285,79 @@ describe('POST /api/payroll/run', () => {
     expect(jordan.gross_pay).toBe(960)
     expect(jordan.notes).toBe('+8.0 hrs PTO')
   })
+
+  // JAY-115 — off-cycle runs (bonus/correction/one-off pay).
+  describe('off-cycle runs', () => {
+    it('returns 400 when runType is off_cycle but no employeeIds are given', async () => {
+      mockOwner({ id: 'owner-1' })
+      const res = await POST(mockRequest({ token: 'good', body: { periodStart: '2026-07-01', periodEnd: '2026-07-14', runType: 'off_cycle' } }) as never)
+      expect(res.status).toBe(400)
+    })
+
+    // The JAY-48 duplicate-finalized-period check must be skipped entirely
+    // for off-cycle runs — no payroll_runs lookup should happen first.
+    it('skips the duplicate-finalized-period check for an off-cycle run', async () => {
+      mockOwner({ id: 'owner-1' })
+      const fromMock = queueFromResponses(supabaseAdmin, [
+        { data: [{ id: 1, name: 'Jordan T.', pay_type: 'hourly', pay_rate: 20 }], error: null }, // employees (filtered to employeeIds)
+        { data: [], error: null }, // time_entries
+        { data: [], error: null }, // pay_rate_history
+        { data: [], error: null }, // time_off_requests
+        { data: [], error: null }, // shifts
+        { data: { id: 500, period_start: '2026-07-01', period_end: '2026-07-14' }, error: null }, // payroll_runs insert
+        { data: null, error: null }, // payroll_run_items insert
+      ])
+      const res = await POST(mockRequest({
+        token: 'good',
+        body: { periodStart: '2026-07-01', periodEnd: '2026-07-14', runType: 'off_cycle', employeeIds: [1], reason: 'Bonus' },
+      }) as never)
+      expect(res.status).toBe(200)
+      // First .from() call must be 'employees', not 'payroll_runs' (the dup check).
+      expect(fromMock.mock.calls[0][0]).toBe('employees')
+
+      const runInsertCall = fromMock.mock.results[5].value
+      expect(runInsertCall.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ run_type: 'off_cycle', reason: 'Bonus' })
+      )
+    })
+
+    it('scopes the employees query to the given employeeIds', async () => {
+      mockOwner({ id: 'owner-1' })
+      const fromMock = queueFromResponses(supabaseAdmin, [
+        { data: [{ id: 2, name: 'Casey R.', pay_type: 'hourly', pay_rate: 15 }], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: { id: 501, period_start: '2026-07-01', period_end: '2026-07-14' }, error: null },
+        { data: null, error: null },
+      ])
+      await POST(mockRequest({
+        token: 'good',
+        body: { periodStart: '2026-07-01', periodEnd: '2026-07-14', runType: 'off_cycle', employeeIds: [2], reason: 'Correction' },
+      }) as never)
+      const employeesQueryBuilder = fromMock.mock.results[0].value
+      expect(employeesQueryBuilder.in).toHaveBeenCalledWith('id', [2])
+    })
+
+    it('a regular run still stores run_type: regular and reason: null', async () => {
+      mockOwner({ id: 'owner-1' })
+      const fromMock = queueFromResponses(supabaseAdmin, [
+        { data: null, error: null }, // payroll_runs — no existing finalized run
+        { data: [{ id: 1, name: 'Jordan T.', pay_type: 'hourly', pay_rate: 20 }], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: { id: 502, period_start: '2026-07-01', period_end: '2026-07-14' }, error: null },
+        { data: null, error: null },
+      ])
+      const res = await POST(mockRequest({ token: 'good', body: { periodStart: '2026-07-01', periodEnd: '2026-07-14' } }) as never)
+      expect(res.status).toBe(200)
+      const runInsertCall = fromMock.mock.results[6].value
+      expect(runInsertCall.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ run_type: 'regular', reason: null })
+      )
+    })
+  })
 })

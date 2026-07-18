@@ -22,41 +22,59 @@ export async function POST(req: NextRequest) {
   const user = await getBearerUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { periodStart, periodEnd, notes } = await req.json()
+  const { periodStart, periodEnd, notes, runType, reason, employeeIds: offCycleEmployeeIds } = await req.json()
   if (!periodStart || !periodEnd) {
     return NextResponse.json({ error: 'periodStart and periodEnd required' }, { status: 400 })
   }
 
-  // JAY-48 — block a second FINALIZED run for the same period (double-pay
-  // risk from a double-click or retried request). Draft runs stay
-  // unrestricted — an owner may want to regenerate a draft preview more than
-  // once before finalizing, and only a finalized run represents money
-  // actually considered "paid." Backed by a DB-level partial unique index
-  // (payroll_runs_one_finalized_per_period) as defense in depth; this check
-  // is what produces the actual helpful error message.
-  const { data: existingFinalized } = await supabaseAdmin
-    .from('payroll_runs')
-    .select('id, run_date, total_gross')
-    .eq('user_id', user.id)
-    .eq('period_start', periodStart)
-    .eq('period_end', periodEnd)
-    .eq('status', 'finalized')
-    .maybeSingle()
-
-  if (existingFinalized) {
-    return NextResponse.json({
-      error: `A finalized payroll run already exists for this period (run on ${existingFinalized.run_date}, $${Number(existingFinalized.total_gross).toFixed(2)} total).`,
-      existingRunId: existingFinalized.id,
-    }, { status: 409 })
+  // JAY-115 — off-cycle runs (bonus/correction/one-off pay) reuse this same
+  // real payroll_runs/payroll_run_items pipeline rather than a third parallel
+  // ledger (the JAY-88 lesson), just scoped to a caller-chosen subset of
+  // employees and intentionally exempt from the JAY-48 duplicate-period
+  // guard below — an owner may legitimately need to run a bonus for the same
+  // period a regular run already covered.
+  const isOffCycle = runType === 'off_cycle'
+  if (isOffCycle && (!Array.isArray(offCycleEmployeeIds) || offCycleEmployeeIds.length === 0)) {
+    return NextResponse.json({ error: 'Select at least one employee for an off-cycle run.' }, { status: 400 })
   }
 
-  // Fetch active employees with pay info
-  const { data: employees } = await supabaseAdmin
+  if (!isOffCycle) {
+    // JAY-48 — block a second FINALIZED run for the same period (double-pay
+    // risk from a double-click or retried request). Draft runs stay
+    // unrestricted — an owner may want to regenerate a draft preview more than
+    // once before finalizing, and only a finalized run represents money
+    // actually considered "paid." Backed by a DB-level partial unique index
+    // (payroll_runs_one_finalized_per_period, now scoped to run_type='regular'
+    // per JAY-115) as defense in depth; this check is what produces the
+    // actual helpful error message.
+    const { data: existingFinalized } = await supabaseAdmin
+      .from('payroll_runs')
+      .select('id, run_date, total_gross')
+      .eq('user_id', user.id)
+      .eq('period_start', periodStart)
+      .eq('period_end', periodEnd)
+      .eq('status', 'finalized')
+      .maybeSingle()
+
+    if (existingFinalized) {
+      return NextResponse.json({
+        error: `A finalized payroll run already exists for this period (run on ${existingFinalized.run_date}, $${Number(existingFinalized.total_gross).toFixed(2)} total).`,
+        existingRunId: existingFinalized.id,
+      }, { status: 409 })
+    }
+  }
+
+  // Fetch active employees with pay info. Off-cycle runs restrict this to
+  // the caller-selected subset instead of "everyone active" — a bonus run
+  // isn't meant to re-pay the whole team.
+  let employeesQuery = supabaseAdmin
     .from('employees')
     .select('id, name, pay_type, pay_rate, pay_period')
     .eq('user_id', user.id)
     .eq('status', 'active')
     .not('pay_rate', 'is', null)
+  if (isOffCycle) employeesQuery = employeesQuery.in('id', offCycleEmployeeIds)
+  const { data: employees } = await employeesQuery
 
   if (!employees?.length) {
     return NextResponse.json({ error: 'No active employees with pay rates set.' }, { status: 400 })
@@ -333,6 +351,8 @@ export async function POST(req: NextRequest) {
       total_gross: Math.round(totalGross * 100) / 100,
       employee_count: items.length,
       notes: notes ?? null,
+      run_type: isOffCycle ? 'off_cycle' : 'regular',
+      reason: isOffCycle ? (reason ?? null) : null,
     })
     .select()
     .single()
