@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import Nav from '../components/Nav'
 
@@ -53,6 +54,7 @@ function BarChart({ data, color = '#3b82f6', prefix = '', suffix = '' }: { data:
 }
 
 export default function ReportsPage() {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [entries, setEntries] = useState<TimeEntry[]>([])
@@ -323,9 +325,12 @@ export default function ReportsPage() {
                     <button onClick={() => setPaperworkExpanded(false)} style={{ alignSelf: 'flex-end', fontSize: '12px', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '2px' }}>Hide ▴</button>
                   )}
                   {rows.map(({ employee: e, missing }) => (
-                    <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '6px 0', borderBottom: '1px solid rgba(239,68,68,0.15)' }}>
+                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', padding: '6px 0', borderBottom: '1px solid rgba(239,68,68,0.15)' }}>
                       <span style={{ fontWeight: 500, color: '#e2e8f0' }}>{e.name}</span>
-                      <span style={{ color: '#f87171' }}>{missing.join(', ')} pending</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#f87171' }}>{missing.join(', ')} pending</span>
+                        <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => router.push(`/employees/${e.id}`)}>View profile</button>
+                      </div>
                     </div>
                   ))}
                 </div>
