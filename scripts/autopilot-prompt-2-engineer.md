@@ -16,4 +16,8 @@ STEP 3 — Run a first-pass sanity check: `npm test` and `npx tsc --noEmit`. Thi
 
 STEP 4 — Report. Output a clear summary: what changed (files + one-line description each), what tests you added, your own test run results (pass/fail counts), and the tsc error list you observed. This report will be read by the next stage (QA), which will independently re-verify everything rather than trust this report — so be honest about anything uncertain rather than optimistic.
 
+Also include a line in EXACTLY this format, listing every file (relative path from repo root) you actually created or modified, space-separated on one line:
+FILES CHANGED: path/one.tsx path/two.ts
+This is load-bearing, not cosmetic — if QA later needs to discard your changes on a FAIL verdict, it uses exactly this list rather than wiping the whole working tree, because other tickets' already-implemented-but-not-yet-deployed work can legitimately be sitting uncommitted in the tree at the same time (confirmed as a real incident on 2026-07-18 — a different ticket's whole-tree discard destroyed this exact kind of pending work). An incomplete or wrong FILES CHANGED list means either your own changes don't get properly discarded on FAIL, or someone else's do. List every file precisely.
+
 Do not discard your own changes even if a test fails — leave the working tree as-is and report the failure honestly; QA will make the discard/keep decision, not you.
