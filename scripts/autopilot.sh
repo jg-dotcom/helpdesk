@@ -126,13 +126,19 @@ maybe_run_ideagen() {
 }
 
 # Runs one claude -p call with the given prompt text and allowed-tools array
-# (passed as a name-reference to avoid re-quoting issues), with the same
-# timeout/errexit-safety wrapper every stage needs. Sets globals: OUTPUT,
-# CLAUDE_EXIT, TIMED_OUT.
+# (passed by name, resolved via eval — bash 3.2 compatible, see below), with
+# the same timeout/errexit-safety wrapper every stage needs. Sets globals:
+# OUTPUT, CLAUDE_EXIT, TIMED_OUT.
 run_stage() {
   local stage_name="$1"
   local prompt_text="$2"
-  local -n tools_ref="$3"
+  local arr_name="$3"
+  # macOS ships /bin/bash frozen at 3.2 (GPLv2 licensing) — no `local -n`
+  # nameref support (that's bash 4.3+). Use eval-based indirect array
+  # expansion instead, which works on 3.2. Confirmed as the real cause of
+  # every stage failing immediately with "local: -n: invalid option" during
+  # the 2026-07-18 4-stage rollout (see autopilot-launchd-error.log).
+  eval "local tools_ref=(\"\${${arr_name}[@]}\")"
 
   echo "  [${stage_name}] starting ($(date))" >> "$LOG"
 
