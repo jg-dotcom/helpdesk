@@ -202,6 +202,54 @@ run_stage() {
   echo "  [${stage_name}] exit=$CLAUDE_EXIT timed_out=$TIMED_OUT" >> "$LOG"
 }
 
+# Clears stale git lock files (.git/index.lock, .git/HEAD.lock) that a
+# force-killed stage can leave behind — TIMEOUT_SECS enforcement above uses
+# `kill -9`, which gives a mid-flight `git` process no chance to clean up
+# its own lock. Confirmed as a real, recurring gap on 2026-07-18: JAY-135's
+# Deploy stage correctly refused to touch a stale lock unattended (right
+# call for a stage running under a narrow, cautious tool allowlist), but
+# that meant a fully QA-passed, ready-to-ship change sat uncommitted until
+# a human noticed and cleared it by hand. This runs at the bash level (not
+# inside a claude -p stage) specifically so it isn't gated by any stage's
+# permission model, and is deliberately conservative: only clears a lock
+# older than STALE_LOCK_SECS, and skips it (logging why) if `lsof` is
+# available and shows the file genuinely still held open by a live process.
+STALE_LOCK_SECS=90
+clear_stale_git_locks() {
+  local lockfile
+  for lockfile in .git/index.lock .git/HEAD.lock; do
+    [ -f "$lockfile" ] || continue
+    local mtime now age
+    # BSD stat (macOS, the real target) uses -f as a custom-format flag;
+    # GNU stat (Linux) uses -f to mean "filesystem info" and exits 0 with
+    # unrelated multi-line output instead of failing — so `||` alone can't
+    # be trusted to fall through correctly. Validate the result is a plain
+    # integer before using it.
+    mtime="$(stat -f %m "$lockfile" 2>/dev/null)"
+    if ! [[ "$mtime" =~ ^[0-9]+$ ]]; then
+      mtime="$(stat -c %Y "$lockfile" 2>/dev/null)"
+    fi
+    if ! [[ "$mtime" =~ ^[0-9]+$ ]]; then
+      mtime=0
+    fi
+    now="$(date +%s)"
+    age=$((now - mtime))
+    if [ "$age" -lt "$STALE_LOCK_SECS" ]; then
+      continue   # too recent to safely assume it's abandoned
+    fi
+    if command -v lsof >/dev/null 2>&1 && lsof "$lockfile" >/dev/null 2>&1; then
+      echo "  [git-lock] ${lockfile} is ${age}s old but still held by a live process — leaving it alone." >> "$LOG"
+      continue
+    fi
+    echo "  [git-lock] Clearing stale ${lockfile} (${age}s old, no live holder detected) — likely left by an earlier force-killed stage." >> "$LOG"
+    rm -f "$lockfile"
+  done
+}
+
+# Run once at startup too, in case the PREVIOUS run (crash or force-kill)
+# left a lock behind — don't wait for the first loop iteration.
+clear_stale_git_locks
+
 # Sets a Linear issue's state via the minimal TOOLS_LINEAR_STATE allowlist.
 # Best-effort: logs its own exit code but never aborts the pipeline if it
 # fails (a missed status update is a cosmetic problem, not a correctness one
@@ -217,6 +265,7 @@ set_issue_state() {
 
 while true; do
   ITER=$((ITER + 1))
+  clear_stale_git_locks   # catch anything a mid-cycle force-kill left behind
   echo "--- Issue cycle #$ITER ($(date)) ---" >> "$LOG"
 
   EXCLUSION_TEXT=""
