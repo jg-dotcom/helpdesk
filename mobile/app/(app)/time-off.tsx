@@ -1,11 +1,13 @@
 // Mirrors the employee time-off flow backed by /api/employee/time-off
 // (GET list / POST new request) and /api/employee/pto-balance.
 import { useCallback, useEffect, useState } from 'react'
-import { View, Text, FlatList, Pressable, TextInput, StyleSheet, Modal, ActivityIndicator } from 'react-native'
+import { View, Text, FlatList, Pressable, TextInput, StyleSheet, Modal, ActivityIndicator, Platform } from 'react-native'
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker'
 import { api, ApiError } from '../../src/lib/api'
 import type { TimeOffRequest } from '../../src/types'
 
 type Balance = { total: number; used: number; remaining: number } | null
+type PickerTarget = 'start' | 'end' | null
 
 const TYPES = ['vacation', 'sick', 'unpaid', 'other']
 
@@ -15,13 +17,25 @@ function statusColor(status: string) {
   return '#fbbf24'
 }
 
+function toISODateString(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function formatDisplayDate(d: Date) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export default function TimeOff() {
   const [requests, setRequests] = useState<TimeOffRequest[]>([])
   const [balance, setBalance] = useState<Balance>(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState<Date | null>(null)
+  const [endDate, setEndDate] = useState<Date | null>(null)
+  const [activePicker, setActivePicker] = useState<PickerTarget>(null)
   const [type, setType] = useState(TYPES[0])
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -43,18 +57,38 @@ export default function TimeOff() {
   useEffect(() => { load() }, [load])
 
   async function submit() {
-    if (!startDate || !endDate) { setError('Start and end date are required (YYYY-MM-DD).'); return }
+    if (!startDate || !endDate) { setError('Start and end date are required.'); return }
     setSubmitting(true)
     setError('')
     try {
-      await api.post('/api/employee/time-off', { startDate, endDate, type, reason })
+      await api.post('/api/employee/time-off', {
+        startDate: toISODateString(startDate),
+        endDate: toISODateString(endDate),
+        type,
+        reason,
+      })
       setShowForm(false)
-      setStartDate(''); setEndDate(''); setReason(''); setType(TYPES[0])
+      setStartDate(null); setEndDate(null); setReason(''); setType(TYPES[0])
       load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to submit request.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  function closeForm() {
+    setShowForm(false)
+    setActivePicker(null)
+  }
+
+  function onPickDate(target: Exclude<PickerTarget, null>) {
+    return (event: DateTimePickerEvent, selected?: Date) => {
+      if (Platform.OS === 'android') setActivePicker(null)
+      if (event.type === 'dismissed') return
+      if (!selected) return
+      if (target === 'start') setStartDate(selected)
+      else setEndDate(selected)
     }
   }
 
@@ -93,12 +127,47 @@ export default function TimeOff() {
         )}
       />
 
-      <Modal visible={showForm} animationType="slide" transparent onRequestClose={() => setShowForm(false)}>
+      <Modal visible={showForm} animationType="slide" transparent onRequestClose={closeForm}>
         <View style={styles.modalWrap}>
           <View style={styles.modalCard}>
             <Text style={styles.cardTitle}>Request time off</Text>
-            <TextInput style={styles.input} placeholder="Start date (YYYY-MM-DD)" placeholderTextColor="#64748b" value={startDate} onChangeText={setStartDate} />
-            <TextInput style={styles.input} placeholder="End date (YYYY-MM-DD)" placeholderTextColor="#64748b" value={endDate} onChangeText={setEndDate} />
+            <Pressable style={styles.input} onPress={() => setActivePicker(activePicker === 'start' ? null : 'start')}>
+              <Text style={startDate ? styles.dateText : styles.datePlaceholder}>
+                {startDate ? formatDisplayDate(startDate) : 'Start date'}
+              </Text>
+            </Pressable>
+            {activePicker === 'start' && (
+              <DateTimePicker
+                value={startDate ?? new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onPickDate('start')}
+              />
+            )}
+            {Platform.OS === 'ios' && activePicker === 'start' && (
+              <Pressable style={styles.doneButton} onPress={() => setActivePicker(null)}>
+                <Text style={styles.doneButtonText}>Done</Text>
+              </Pressable>
+            )}
+
+            <Pressable style={styles.input} onPress={() => setActivePicker(activePicker === 'end' ? null : 'end')}>
+              <Text style={endDate ? styles.dateText : styles.datePlaceholder}>
+                {endDate ? formatDisplayDate(endDate) : 'End date'}
+              </Text>
+            </Pressable>
+            {activePicker === 'end' && (
+              <DateTimePicker
+                value={endDate ?? startDate ?? new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onPickDate('end')}
+              />
+            )}
+            {Platform.OS === 'ios' && activePicker === 'end' && (
+              <Pressable style={styles.doneButton} onPress={() => setActivePicker(null)}>
+                <Text style={styles.doneButtonText}>Done</Text>
+              </Pressable>
+            )}
             <View style={styles.typeRow}>
               {TYPES.map(t => (
                 <Pressable key={t} style={[styles.typeChip, type === t && styles.typeChipActive]} onPress={() => setType(t)}>
@@ -109,7 +178,7 @@ export default function TimeOff() {
             <TextInput style={[styles.input, { height: 70 }]} placeholder="Reason (optional)" placeholderTextColor="#64748b" value={reason} onChangeText={setReason} multiline />
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-              <Pressable style={[styles.modalButton, { backgroundColor: 'rgba(255,255,255,0.06)' }]} onPress={() => setShowForm(false)}>
+              <Pressable style={[styles.modalButton, { backgroundColor: 'rgba(255,255,255,0.06)' }]} onPress={closeForm}>
                 <Text style={{ color: '#f1f5f9' }}>Cancel</Text>
               </Pressable>
               <Pressable style={[styles.modalButton, { backgroundColor: '#4ade80' }, submitting && { opacity: 0.6 }]} onPress={submit} disabled={submitting}>
@@ -142,6 +211,10 @@ const styles = StyleSheet.create({
   modalCard: { backgroundColor: '#11161d', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 10 },
   cardTitle: { fontSize: 17, fontWeight: '700', color: '#f1f5f9', marginBottom: 4 },
   input: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: 12, color: '#f1f5f9', fontSize: 14 },
+  dateText: { color: '#f1f5f9', fontSize: 14 },
+  datePlaceholder: { color: '#64748b', fontSize: 14 },
+  doneButton: { alignSelf: 'flex-end', paddingVertical: 6, paddingHorizontal: 14 },
+  doneButtonText: { color: '#4ade80', fontWeight: '700', fontSize: 13 },
   typeRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   typeChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   typeChipActive: { backgroundColor: '#4ade80', borderColor: '#4ade80' },
