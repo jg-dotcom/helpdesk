@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/Toast'
+import Nav from '../components/Nav'
 
 const DEFAULT_ITEMS = [
   'Keys / access cards returned',
@@ -78,15 +79,16 @@ export default function OffboardingSettings() {
   // rgba(255,255,255,0.07) borders, #e2e8f0/#94a3b8/#64748b text tiers.
   const cardStyle: React.CSSProperties = { background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
 
-  if (loading) return <div className="dash-content" style={{ background: '#0f172a', minHeight: '100vh', color: '#94a3b8' }}><div className="loading-state">Loading...</div></div>
+  if (loading) return (
+    <div className="dash-wrap" style={{ background: '#0f172a', minHeight: '100vh' }}>
+      <Nav active="settings" />
+      <div className="dash-content" style={{ color: '#94a3b8' }}><div className="loading-state">Loading...</div></div>
+    </div>
+  )
 
   return (
     <div className="dash-wrap" style={{ background: '#0f172a', minHeight: '100vh' }}>
-      <div className="dash-nav" style={{ background: '#1e293b', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <div className="dash-nav-left">
-          <div className="logo" style={{ color: '#e2e8f0' }}>help<span>desk</span></div>
-        </div>
-      </div>
+      <Nav active="settings" />
 
       <div className="dash-content">
         <a href="/" className="back-btn" style={{ color: '#94a3b8' }}>← Back to dashboard</a>

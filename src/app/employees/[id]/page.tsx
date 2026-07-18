@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import ComplianceChecklist from '../../components/ComplianceChecklist'
 import PayrollTab from '../../components/PayrollTab'
 import { useToast } from '../../components/Toast'
+import Nav from '../../components/Nav'
 
 type Employee = {
   id: number
@@ -184,7 +185,7 @@ export default function EmployeeProfile() {
 
   if (loading) return (
     <div className="dash-wrap">
-      <div className="dash-nav"><div className="dash-nav-left"><div className="logo">help<span>desk</span></div></div></div>
+      <Nav active="dashboard" />
       <div className="dash-content"><div className="loading-state">Loading...</div></div>
     </div>
   )
@@ -193,11 +194,7 @@ export default function EmployeeProfile() {
 
   return (
     <div className="dash-wrap">
-      <div className="dash-nav">
-        <div className="dash-nav-left">
-          <div className="logo">help<span>desk</span></div>
-        </div>
-      </div>
+      <Nav active="dashboard" />
 
       <div className="dash-content">
         <button className="back-btn" onClick={() => router.push('/')}>← Back to dashboard</button>
