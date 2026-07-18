@@ -321,7 +321,7 @@ function SettingsContent() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ business_name: bizName, address, timezone, contact_email: contactEmail, accountant_email: accountantEmail }),
     })
-    showToast(res.ok ? 'Saved.' : 'Error saving.', res.ok ? 'success' : 'error')
+    showToast(res.ok ? 'Saved.' : "Couldn't save changes. Check your connection and try again.", res.ok ? 'success' : 'error')
     setAcctSaving(false)
   }
 
@@ -332,7 +332,7 @@ function SettingsContent() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ business_name: bizName, address, timezone, contact_email: contactEmail, business_hours: bizHours }),
     })
-    showToast(res.ok ? 'Saved.' : 'Error saving.', res.ok ? 'success' : 'error')
+    showToast(res.ok ? 'Saved.' : "Couldn't save changes. Check your connection and try again.", res.ok ? 'success' : 'error')
     setHoursSaving(false)
   }
 
@@ -347,7 +347,7 @@ function SettingsContent() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ business_name: bizName, address, timezone, contact_email: contactEmail, weekly_labor_budget_cents: cents }),
     })
-    showToast(res.ok ? 'Saved.' : 'Error saving.', res.ok ? 'success' : 'error')
+    showToast(res.ok ? 'Saved.' : "Couldn't save changes. Check your connection and try again.", res.ok ? 'success' : 'error')
     setBudgetSaving(false)
   }
 
@@ -368,7 +368,7 @@ function SettingsContent() {
         require_clockin_photo: requireClockinPhoto,
       }),
     })
-    showToast(res.ok ? 'Saved.' : 'Error saving.', res.ok ? 'success' : 'error')
+    showToast(res.ok ? 'Saved.' : "Couldn't save changes. Check your connection and try again.", res.ok ? 'success' : 'error')
     setClockinTrustSaving(false)
   }
 
@@ -378,7 +378,7 @@ function SettingsContent() {
       { user_id: userId, fields, welcome_pack: welcomePack, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' }
     )
-    showToast(error ? 'Error saving.' : 'Template saved.', error ? 'error' : 'success')
+    showToast(error ? "Couldn't save changes. Check your connection and try again." : 'Template saved.', error ? 'error' : 'success')
     setTmplSaving(false)
   }
 

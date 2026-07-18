@@ -66,7 +66,7 @@ export default function OffboardingSettings() {
         offboarding_checklist: checklistItems,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
-    showToast(error ? 'Error saving. Try again.' : 'Saved.', error ? 'error' : 'success')
+    showToast(error ? "Couldn't save changes. Check your connection and try again." : 'Saved.', error ? 'error' : 'success')
     setSaving(false)
   }
 
