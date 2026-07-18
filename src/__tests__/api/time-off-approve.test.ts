@@ -2,7 +2,9 @@
 // creates its own Supabase client inline (via createClient) for the auth
 // check instead of reusing supabaseAdmin, so @supabase/supabase-js itself
 // needs mocking here, in addition to supabaseAdmin for the data queries.
-jest.mock('../../app/lib/supabaseAdmin', () => ({ supabaseAdmin: { auth: {}, from: jest.fn() } }))
+jest.mock('../../app/lib/supabaseAdmin', () => ({
+  supabaseAdmin: { auth: { admin: { listUsers: jest.fn() } }, from: jest.fn() },
+}))
 
 const mockGetUser = jest.fn()
 jest.mock('@supabase/supabase-js', () => ({
@@ -18,6 +20,10 @@ function params(id: string) {
 }
 
 describe('PATCH /api/time-off/[id]', () => {
+  beforeEach(() => {
+    ;(supabaseAdmin.auth.admin.listUsers as jest.Mock).mockResolvedValue({ data: { users: [] }, error: null })
+  })
+
   it('returns 400 for an invalid status', async () => {
     const res = await PATCH(mockRequest({ token: 'good', body: { status: 'maybe' } }) as never, params('1'))
     expect(res.status).toBe(400)
@@ -46,14 +52,50 @@ describe('PATCH /api/time-off/[id]', () => {
     const fromMock = queueFromResponses(supabaseAdmin, [
       { data: { id: 1, user_id: 'owner-1', employee_id: 5, start_date: '2026-07-10', end_date: '2026-07-12', type: 'vacation' }, error: null },
       { data: null, error: null }, // update
-      { data: { name: 'Jane' }, error: null }, // employee name lookup
-      { data: null, error: null }, // notification insert
+      { data: { name: 'Jane', email: 'jane@example.com' }, error: null }, // employee name/email lookup
+      { data: null, error: null }, // owner notification insert
     ])
     const res = await PATCH(mockRequest({ token: 'good', body: { status: 'approved' } }) as never, params('1'))
     const body = await res.json()
     expect(res.status).toBe(200)
     expect(body.success).toBe(true)
     expect(fromMock).toHaveBeenCalledWith('notifications')
+  })
+
+  // JAY-120 — the employee themself should also get a notification, in
+  // their own portal bell, resolved by matching their auth account's email.
+  it('also notifies the employee at their own auth id when the email matches', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'owner-1' } } })
+    ;(supabaseAdmin.auth.admin.listUsers as jest.Mock).mockResolvedValue({
+      data: { users: [{ id: 'employee-auth-1', email: 'jane@example.com' }] },
+      error: null,
+    })
+    const fromMock = queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'owner-1', employee_id: 5, start_date: '2026-07-10', end_date: '2026-07-12', type: 'vacation' }, error: null },
+      { data: null, error: null }, // update
+      { data: { name: 'Jane', email: 'jane@example.com' }, error: null }, // employee name/email lookup
+      { data: null, error: null }, // owner notification insert
+      { data: null, error: null }, // employee notification insert
+    ])
+    const res = await PATCH(mockRequest({ token: 'good', body: { status: 'approved' } }) as never, params('1'))
+    expect(res.status).toBe(200)
+    const notifCalls = (fromMock.mock.calls as unknown[][]).filter(call => call[0] === 'notifications')
+    expect(notifCalls).toHaveLength(2)
+  })
+
+  it('does not notify the employee when no auth account matches their email', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'owner-1' } } })
+    ;(supabaseAdmin.auth.admin.listUsers as jest.Mock).mockResolvedValue({ data: { users: [] }, error: null })
+    const fromMock = queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'owner-1', employee_id: 5, start_date: '2026-07-10', end_date: '2026-07-12', type: 'vacation' }, error: null },
+      { data: null, error: null }, // update
+      { data: { name: 'Jane', email: 'jane@example.com' }, error: null }, // employee name/email lookup
+      { data: null, error: null }, // owner notification insert
+    ])
+    const res = await PATCH(mockRequest({ token: 'good', body: { status: 'approved' } }) as never, params('1'))
+    expect(res.status).toBe(200)
+    const notifCalls = (fromMock.mock.calls as unknown[][]).filter(call => call[0] === 'notifications')
+    expect(notifCalls).toHaveLength(1)
   })
 
   it('returns 500 when the update fails', async () => {

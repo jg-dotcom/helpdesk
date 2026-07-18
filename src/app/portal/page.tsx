@@ -14,6 +14,7 @@ type TimeEntry = { id: number; clock_in: string; clock_out: string | null; total
 type TimeOffRequest = { id: number; start_date: string; end_date: string; type: string; reason: string | null; status: string; portion?: string | null; seen?: boolean; seenAt?: string | null }
 type PTOBalance = { total: number; used: number; remaining: number }
 type Announcement = { id: number; title: string; message: string; created_at: string }
+type PortalNotification = { id: number; message: string; link: string | null; read: boolean; created_at: string }
 
 function fmt(t: string) {
   const [h, m] = t.split(':'); const hr = parseInt(h)
@@ -126,6 +127,7 @@ export default function PortalPage() {
   // Bell / notifications
   const [showBell, setShowBell] = useState(false)
   const bellRef = useRef<HTMLDivElement>(null)
+  const [notifications, setNotifications] = useState<PortalNotification[]>([])
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -145,7 +147,7 @@ export default function PortalPage() {
 
   async function loadAll(tk: string) {
     const headers = { Authorization: `Bearer ${tk}` }
-    const [meRes, shiftsRes, ptoRes, toRes, entriesRes, openRes, swapRes, coworkerRes, onboardRes] = await Promise.all([
+    const [meRes, shiftsRes, ptoRes, toRes, entriesRes, openRes, swapRes, coworkerRes, onboardRes, notifRes] = await Promise.all([
       fetch('/api/employee/me', { headers }),
       fetch('/api/employee/shifts', { headers }),
       fetch('/api/employee/pto-balance', { headers }),
@@ -155,10 +157,11 @@ export default function PortalPage() {
       fetch('/api/employee/swap-requests', { headers }),
       fetch('/api/employee/coworker-shifts', { headers }),
       fetch('/api/portal/onboarding-check', { headers }),
+      fetch('/api/employee/notifications', { headers }),
     ])
-    const [me, sh, pto, to, ents, open, swaps, coworkers, onboard] = await Promise.all([
+    const [me, sh, pto, to, ents, open, swaps, coworkers, onboard, notif] = await Promise.all([
       meRes.json(), shiftsRes.json(), ptoRes.json(), toRes.json(), entriesRes.json(),
-      openRes.json(), swapRes.json(), coworkerRes.json(), onboardRes.json(),
+      openRes.json(), swapRes.json(), coworkerRes.json(), onboardRes.json(), notifRes.json(),
     ])
 
     if (!me.employee) { window.location.href = '/'; return }
@@ -180,6 +183,7 @@ export default function PortalPage() {
     setCoworkerShifts(coworkers.shifts ?? [])
     setPtoBalance(pto.balance)
     setTimeOffRequests(to.requests ?? [])
+    setNotifications(notif.notifications ?? [])
 
     const allEntries: TimeEntry[] = ents.entries ?? []
     setCurrentEntry(allEntries.find(e => !e.clock_out) ?? null)
@@ -255,6 +259,15 @@ export default function PortalPage() {
       .subscribe()
     return () => { supabase.removeChannel(sub) }
   }, [chatBusinessId, chatUserId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function markNotificationRead(id: number) {
+    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)))
+    fetch('/api/employee/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id }),
+    }).catch(() => {})
+  }
 
   async function openOnboarding() {
     if (!onboardingToken || !token) return
@@ -503,12 +516,12 @@ export default function PortalPage() {
               style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px', display: 'flex', alignItems: 'center' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              {onboardingToken && <span style={{ position: 'absolute', top: 2, right: 2, width: 8, height: 8, borderRadius: '50%', background: '#f87171', border: '1.5px solid #1e293b' }} />}
+              {(onboardingToken || notifications.some(n => !n.read)) && <span style={{ position: 'absolute', top: 2, right: 2, width: 8, height: 8, borderRadius: '50%', background: '#f87171', border: '1.5px solid #1e293b' }} />}
             </button>
             {showBell && (
-              <div style={{ position: 'absolute', right: 0, top: '120%', width: 280, background: '#1e293b', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 100 }}>
+              <div style={{ position: 'absolute', right: 0, top: '120%', width: 280, maxHeight: 360, overflowY: 'auto', background: '#1e293b', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 100 }}>
                 <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notifications</div>
-                {onboardingToken ? (
+                {onboardingToken && (
                   <div
                     onClick={() => { setShowBell(false); openOnboarding() }}
                     style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
@@ -519,7 +532,20 @@ export default function PortalPage() {
                       <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>W-4, I-9, direct deposit, and more.</div>
                     </div>
                   </div>
-                ) : (
+                )}
+                {notifications.length > 0 ? notifications.map(n => (
+                  <div
+                    key={n.id}
+                    onClick={() => { markNotificationRead(n.id); if (n.link) { setShowBell(false); window.location.href = n.link } }}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 14px', cursor: n.link ? 'pointer' : 'default', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                  >
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.read ? 'transparent' : '#3b82f6', flexShrink: 0, marginTop: 5 }} />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: n.read ? 400 : 600, color: '#e2e8f0' }}>{n.message}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{timeAgo(n.created_at)}</div>
+                    </div>
+                  </div>
+                )) : !onboardingToken && (
                   <div style={{ padding: '16px 14px', fontSize: '13px', color: '#475569' }}>No new notifications.</div>
                 )}
               </div>
