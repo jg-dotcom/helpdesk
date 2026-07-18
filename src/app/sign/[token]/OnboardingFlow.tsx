@@ -9,6 +9,8 @@ import { TimeOffRequest } from './SignUpload'
 import DirectDepositForm from './DirectDepositForm'
 import { useToast } from '../../components/Toast'
 
+const REQUIRED_STEPS = new Set(['w4', 'i9', 'deposit'])
+
 type Doc = {
   id: number
   file_name: string
@@ -187,6 +189,7 @@ export default function OnboardingFlow({ token, employeeId, userId, employeeName
   const { showToast } = useToast()
   const [step, setStep] = useState(0)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [confirmSkip, setConfirmSkip] = useState(false)
 
   async function goToPortal() {
     setPortalLoading(true)
@@ -220,11 +223,13 @@ export default function OnboardingFlow({ token, employeeId, userId, employeeName
   }, [docs.length])
 
   function next() {
+    setConfirmSkip(false)
     setStep(s => Math.min(s + 1, STEPS.length - 1))
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function back() {
+    setConfirmSkip(false)
     setStep(s => Math.max(s - 1, 0))
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -328,10 +333,36 @@ export default function OnboardingFlow({ token, employeeId, userId, employeeName
         )}
 
         {step > 0 && currentId !== 'done' && (
-          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-            <button className="btn" onClick={back} style={{ color: '#666', background: 'transparent', boxShadow: 'none' }}>← Back</button>
-            {currentId !== 'agreement' && currentId !== 'documents' && (
-              <button className="btn" onClick={next} style={{ color: '#185fa5', background: 'transparent', boxShadow: 'none' }}>Skip this step</button>
+          <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button className="btn" onClick={back} style={{ color: '#666', background: 'transparent', boxShadow: 'none' }}>← Back</button>
+              {currentId !== 'agreement' && currentId !== 'documents' && !REQUIRED_STEPS.has(currentId) && (
+                <button className="btn" onClick={next} style={{ color: '#185fa5', background: 'transparent', boxShadow: 'none' }}>Skip this step</button>
+              )}
+              {REQUIRED_STEPS.has(currentId) && !confirmSkip && (
+                <button
+                  onClick={() => setConfirmSkip(true)}
+                  style={{ fontSize: '12px', color: '#999', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                >
+                  Skip for now (you&apos;ll be reminded later) →
+                </button>
+              )}
+            </div>
+            {REQUIRED_STEPS.has(currentId) && (
+              <div style={{ fontSize: '12px', color: '#c0392b', marginTop: '0.75rem', textAlign: 'right' }}>
+                This step is required before your first paycheck can be processed.
+                {confirmSkip && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <button
+                      onClick={next}
+                      className="btn"
+                      style={{ color: '#185fa5', background: 'transparent', boxShadow: 'none', fontSize: '12px' }}
+                    >
+                      Yes, skip for now
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
