@@ -134,6 +134,12 @@ export default function Dashboard({
   const [filterDept, setFilterDept] = useState<number | null>(null)
   const [approving, setApproving] = useState<Record<string, boolean>>({})
 
+  // JAY-113 — bulk actions on the "Your team" grid
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkRoleEditing, setBulkRoleEditing] = useState(false)
+  const [bulkRoleValue, setBulkRoleValue] = useState('')
+  const [bulkSaving, setBulkSaving] = useState(false)
+
   type CalloutTarget = { shiftId: number; shiftDate: string; startTime: string; endTime: string; employee: { id: number; name: string } }
   const [calloutTarget, setCalloutTarget] = useState<CalloutTarget | null>(null)
 
@@ -385,6 +391,55 @@ export default function Dashboard({
     setNewName(''); setNewRole(''); setNewStart(''); setNewType('Full-time'); setNewPhone(''); setNewEmail('')
     setShowAddForm(false)
     setSaving(false)
+  }
+
+  function toggleSelected(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+    setBulkRoleEditing(false)
+    setBulkRoleValue('')
+  }
+
+  async function bulkPatch(updates: { role?: string; status?: string }) {
+    if (!token || selectedIds.size === 0) return
+    setBulkSaving(true)
+    const ids = Array.from(selectedIds)
+    const results = await Promise.all(ids.map(async id => {
+      const res = await fetch(`/api/employees/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(updates),
+      })
+      const data = await res.json()
+      return { id, ok: res.ok, employee: data.employee }
+    }))
+    for (const r of results) {
+      if (r.ok && r.employee) onUpdateEmployee(r.employee)
+    }
+    const failed = results.filter(r => !r.ok).length
+    if (failed > 0) {
+      showToast(`${failed} of ${ids.length} update${ids.length !== 1 ? 's' : ''} failed. Try again.`, 'error')
+    } else {
+      showToast(`Updated ${ids.length} employee${ids.length !== 1 ? 's' : ''}.`, 'success')
+    }
+    setBulkSaving(false)
+    clearSelection()
+  }
+
+  async function bulkChangeRole() {
+    if (!bulkRoleValue.trim()) return
+    await bulkPatch({ role: bulkRoleValue.trim() })
+  }
+
+  async function bulkDeactivate() {
+    await bulkPatch({ status: 'terminated' })
   }
 
   // Derived values
@@ -859,9 +914,17 @@ export default function Dashboard({
               }).map(emp => {
                 const empDepts = departments.filter(d => (deptMembers[emp.id] ?? []).includes(d.id))
                 const isIn = clockedInIds.has(emp.id)
+                const isSelected = selectedIds.has(emp.id)
                 return (
                   <div key={emp.id} onClick={() => onSelectEmp(selectedEmp?.id === emp.id ? null as any : emp)}
                     style={{ background: selectedEmp?.id === emp.id ? 'rgba(29,78,216,0.2)' : '#1e293b', padding: '14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '6px', position: 'relative' }}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onClick={e => e.stopPropagation()}
+                      onChange={() => toggleSelected(emp.id)}
+                      style={{ position: 'absolute', top: '10px', left: '10px', width: 14, height: 14, cursor: 'pointer' }}
+                    />
                     {isIn && <div style={{ position: 'absolute', top: '10px', right: '10px', width: 7, height: 7, borderRadius: '50%', background: '#4ade80' }} />}
                     <div style={{ width: 38, height: 38, borderRadius: '50%', background: selectedEmp?.id === emp.id ? '#1d4ed8' : 'rgba(59,130,246,0.15)', color: selectedEmp?.id === emp.id ? '#fff' : '#93c5fd', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initials(emp.name)}</div>
                     <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f5f9' }}>{emp.name}</div>
@@ -873,6 +936,36 @@ export default function Dashboard({
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {selectedIds.size > 0 && (
+            <div style={{ position: 'sticky', bottom: 0, display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: '#0f172a', borderTop: '1px solid rgba(255,255,255,0.08)', flexWrap: 'wrap' as const }}>
+              <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>{selectedIds.size} selected</div>
+              {bulkRoleEditing ? (
+                <>
+                  <input
+                    autoFocus
+                    value={bulkRoleValue}
+                    onChange={e => setBulkRoleValue(e.target.value)}
+                    placeholder="New role"
+                    style={{ fontSize: '12px', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#f1f5f9', borderRadius: '7px', width: '140px', outline: 'none' }}
+                  />
+                  <button onClick={bulkChangeRole} disabled={bulkSaving || !bulkRoleValue.trim()} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '7px', background: '#1d4ed8', color: '#fff', border: 'none', cursor: bulkSaving ? 'not-allowed' : 'pointer' }}>
+                    Apply
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setBulkRoleEditing(true)} disabled={bulkSaving} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '7px', background: 'rgba(255,255,255,0.06)', color: '#f1f5f9', border: '1px solid rgba(255,255,255,0.1)', cursor: bulkSaving ? 'not-allowed' : 'pointer' }}>
+                  Change role
+                </button>
+              )}
+              <button onClick={bulkDeactivate} disabled={bulkSaving} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '7px', background: 'rgba(248,113,113,0.12)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.3)', cursor: bulkSaving ? 'not-allowed' : 'pointer' }}>
+                Deactivate
+              </button>
+              <button onClick={clearSelection} disabled={bulkSaving} title="Clear selection" style={{ fontSize: '14px', color: '#64748b', background: 'none', border: 'none', cursor: bulkSaving ? 'not-allowed' : 'pointer', marginLeft: 'auto' }}>
+                ×
+              </button>
             </div>
           )}
 
