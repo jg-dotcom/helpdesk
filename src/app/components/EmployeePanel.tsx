@@ -195,6 +195,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [sending, setSending] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
+  const [resendingInvite, setResendingInvite] = useState(false)
 
   // Notes tab state
   type CheckinNote = { id: number; content: string; created_at: string }
@@ -626,6 +627,26 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     })
   }
 
+  async function resendPortalInvite() {
+    if (!employee.email) { showToast('Employee has no email on file.', 'error'); return }
+    setResendingInvite(true)
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+    if (!accessToken) { showToast('Not signed in.', 'error'); setResendingInvite(false); return }
+    const res = await fetch('/api/employee/portal-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ employeeId: employee.id }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      showToast(data.error || 'Could not send invite.', 'error')
+    } else {
+      showToast('Portal invite sent.', 'success')
+    }
+    setResendingInvite(false)
+  }
+
   function applyPlaceholders(text: string, day: string, rsn: string) {
     return text
       .replace(/\{\{employee_name\}\}/g, employee.name)
@@ -1049,6 +1070,14 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               </div>
             </>
           )}
+
+          <div style={sectionLabelStyle}>Portal invite</div>
+          <p style={{ fontSize: '13px', color: muted, marginBottom: '0.75rem' }}>
+            Sends a fresh sign-in link to {employee.email || 'their email'}.
+          </p>
+          <button style={ghostBtn} onClick={resendPortalInvite} disabled={resendingInvite || !employee.email}>
+            {resendingInvite ? 'Sending...' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><MailIcon size={14} /> Resend portal invite</span>}
+          </button>
 
         </div>
       )}
