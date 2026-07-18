@@ -52,7 +52,7 @@ export default function AcceptInvite() {
       body: JSON.stringify({ token }),
     })
 
-    if (!res.ok) { showToast('Could not accept invite.', 'error'); setSubmitting(false); return }
+    if (!res.ok) { showToast('This invite could not be accepted. It may have expired — ask whoever invited you to send a new one.', 'error'); setSubmitting(false); return }
 
     setStatus('done')
     setTimeout(() => { window.location.href = '/' }, 1500)
