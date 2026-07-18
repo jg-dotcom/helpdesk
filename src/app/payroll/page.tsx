@@ -437,6 +437,20 @@ export default function PayrollPage() {
   const hasAttentionItems = missingPayRate.length > 0 || notYetPaidThisPeriod.length > 0 || draftRuns.length > 0
     || hoursAnomalies.length > 0 || clockOverlaps.length > 0 || openTimeEntries.length > 0 || paidTimeOff.requestCount > 0
 
+  // JAY-104: group repeated open clock-in rows by employee instead of listing
+  // one row per open shift (e.g. 3 employees x 2 shifts each read as 6 rows of noise).
+  const openTimeEntriesByEmployee: { employeeId: number; employeeName: string; count: number; oldestClockIn: string; maxHoursOpen: number }[] = []
+  openTimeEntries.forEach(o => {
+    const existing = openTimeEntriesByEmployee.find(g => g.employeeId === o.employeeId)
+    if (existing) {
+      existing.count += 1
+      existing.maxHoursOpen = Math.max(existing.maxHoursOpen, o.hoursOpen)
+      if (new Date(o.clockIn) < new Date(existing.oldestClockIn)) existing.oldestClockIn = o.clockIn
+    } else {
+      openTimeEntriesByEmployee.push({ employeeId: o.employeeId, employeeName: o.employeeName, count: 1, oldestClockIn: o.clockIn, maxHoursOpen: o.hoursOpen })
+    }
+  })
+
   const cardStyle: React.CSSProperties = { background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1.25rem' }
   const ghostBtn: React.CSSProperties = { fontSize: '12px', padding: '5px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', cursor: 'pointer', fontFamily: 'inherit' }
   const primaryBtn: React.CSSProperties = { fontSize: '13px', padding: '7px 14px', borderRadius: '8px', border: 'none', background: '#1d4ed8', color: '#fff', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }
@@ -512,7 +526,10 @@ export default function PayrollPage() {
               )}
               {(hoursAnomalies.length > 0 || clockOverlaps.length > 0 || openTimeEntries.length > 0 || paidTimeOff.requestCount > 0) && (
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px', marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Before you run</div>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Before you run
+                    {openTimeEntriesByEmployee.length > 0 && ` (${openTimeEntriesByEmployee.length} employee${openTimeEntriesByEmployee.length !== 1 ? 's' : ''}, ${openTimeEntries.length} open clock-in${openTimeEntries.length !== 1 ? 's' : ''})`}
+                  </div>
                   {hoursAnomalies.map(a => (
                     <div key={`hours-${a.employeeId}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
                       <span style={{ color: '#fbbf24' }}>●</span>
@@ -527,10 +544,10 @@ export default function PayrollPage() {
                       <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('overview')}>Review time entries</button>
                     </div>
                   ))}
-                  {openTimeEntries.map(o => (
+                  {openTimeEntriesByEmployee.map(o => (
                     <div key={`open-${o.employeeId}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0' }}>
                       <span style={{ color: '#fbbf24' }}>●</span>
-                      {o.employeeName} — still clocked in since {new Date(o.clockIn).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })} ({o.hoursOpen}+ hrs, likely forgot to clock out)
+                      {o.employeeName} — {o.count} shift{o.count !== 1 ? 's' : ''} open, oldest {new Date(o.oldestClockIn).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
                       <button style={{ ...ghostBtn, padding: '2px 8px', fontSize: '11px' }} onClick={() => setActiveTab('overview')}>Review time entries</button>
                     </div>
                   ))}
