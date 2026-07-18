@@ -297,12 +297,15 @@ export async function executeTool(
 
     case 'get_analytics_summary': {
       const since = new Date(); since.setDate(since.getDate() - 56)
-      const [{ data: payroll }, { data: time }, { data: emps }] = await Promise.all([
+      // JAY-92 — "Run Payroll" writes to payroll_run_items, not payroll_entries;
+      // merge both ledgers so this doesn't disagree with the Reports page total.
+      const [{ data: payroll }, { data: runItems }, { data: time }, { data: emps }] = await Promise.all([
         supabaseAdmin.from('payroll_entries').select('gross_pay').eq('user_id', ownerId).gte('created_at', since.toISOString()),
+        supabaseAdmin.from('payroll_run_items').select('gross_pay').eq('user_id', ownerId).gte('created_at', since.toISOString()),
         supabaseAdmin.from('time_entries').select('total_minutes').eq('user_id', ownerId).not('total_minutes', 'is', null).gte('clock_in', since.toISOString()),
         supabaseAdmin.from('employees').select('id').eq('user_id', ownerId).eq('status', 'active'),
       ])
-      const totalPay = (payroll ?? []).reduce((s, p) => s + p.gross_pay, 0)
+      const totalPay = (payroll ?? []).reduce((s, p) => s + p.gross_pay, 0) + (runItems ?? []).reduce((s, p) => s + p.gross_pay, 0)
       const totalHours = Math.round((time ?? []).reduce((s, t) => s + (t.total_minutes ?? 0), 0) / 60)
       return `Last 8 weeks: $${totalPay.toLocaleString()} total payroll, ${totalHours} hours worked, ${emps?.length ?? 0} active employees.`
     }
