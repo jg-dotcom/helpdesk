@@ -58,6 +58,7 @@ describe('PATCH /api/applications/[id]', () => {
     expect(res.status).toBe(200)
     expect(body.calendarSynced).toBe(false)
     expect(createCalendarEvent).not.toHaveBeenCalled()
+    expect(sendMock).not.toHaveBeenCalled()
   })
 
   it('saves an interview time when the owner has no Google Calendar connected', async () => {
@@ -72,6 +73,37 @@ describe('PATCH /api/applications/[id]', () => {
     expect(res.status).toBe(200)
     expect(body.calendarSynced).toBe(false)
     expect(createCalendarEvent).not.toHaveBeenCalled()
+  })
+
+  it('emails the candidate a confirmation when an interview is scheduled, even without calendar sync', async () => {
+    mockOwner({ id: 'owner-1' })
+    queueFromResponses(supabaseAdmin, [
+      { data: { name: 'Jamie Tran', email: 'jamie@example.com' }, error: null }, // candidate lookup
+      { data: null, error: null }, // application update
+      { data: null, error: null }, // no google_connections row
+    ])
+    const res = await PATCH(mockRequest({ token: 'good', body: { interview_at: '2026-07-20T14:00:00.000Z', jobTitle: 'Sales associate' } }) as never, params('1'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.calendarSynced).toBe(false)
+    expect(body.interviewNotified).toBe(true)
+    expect(sendMock).toHaveBeenCalledTimes(1)
+    expect(sendMock.mock.calls[0][0]).toMatchObject({ to: 'jamie@example.com', subject: expect.stringContaining('Sales associate') })
+  })
+
+  it('still reports success if the interview confirmation email fails to send', async () => {
+    mockOwner({ id: 'owner-1' })
+    sendMock.mockRejectedValueOnce(new Error('resend down'))
+    queueFromResponses(supabaseAdmin, [
+      { data: { name: 'Jamie Tran', email: 'jamie@example.com' }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+    ])
+    const res = await PATCH(mockRequest({ token: 'good', body: { interview_at: '2026-07-20T14:00:00.000Z' } }) as never, params('1'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.success).toBe(true)
+    expect(body.interviewNotified).toBe(false)
   })
 
   it('creates a calendar event when the owner has an active Google Calendar connection', async () => {

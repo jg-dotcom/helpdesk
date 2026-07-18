@@ -71,6 +71,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // Confirms the interview time to the candidate via email, unconditionally — the
+  // calendar invite below is a bonus if Google Calendar is connected, but the candidate
+  // must be told the interview was scheduled either way. Best-effort, mirroring the
+  // decline-and-notify block above: a failed send never blocks the status change.
+  let interviewNotified = false
+  if (interview_at && candidate?.email) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      const start = new Date(interview_at)
+      const formatted = start.toLocaleString('en-US', {
+        dateStyle: 'full',
+        timeStyle: 'short',
+        timeZone: timeZone ?? 'America/New_York',
+      })
+      await resend.emails.send({
+        from: 'Helpdesk <onboarding@resend.dev>',
+        to: candidate.email,
+        subject: jobTitle ? `Interview scheduled for ${jobTitle}` : 'Interview scheduled',
+        html: `
+          <p>Hi ${candidate.name.split(' ')[0]},</p>
+          <p>Your interview${jobTitle ? ` for the ${jobTitle} position` : ''} has been scheduled for ${formatted}.</p>
+          <p>We look forward to speaking with you.</p>
+        `,
+      })
+      interviewNotified = true
+    } catch {
+      // Non-fatal — the interview time already saved above.
+    }
+  }
+
   // Best-effort Google Calendar sync — an interview time is saved either way; the
   // calendar event is a bonus if the owner has connected their calendar.
   let calendarSynced = false
@@ -115,7 +145,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  return NextResponse.json({ success: true, calendarSynced, notified })
+  return NextResponse.json({ success: true, calendarSynced, notified, interviewNotified })
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
