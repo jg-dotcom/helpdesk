@@ -188,6 +188,10 @@ export default function TimePage() {
   const [dismissedHoursWarningWeek, setDismissedHoursWarningWeek] = useState<number | null>(null)
   // JAY-6: short-notice schedule change banner, dismissible per week (same pattern)
   const [dismissedChangeWarningWeek, setDismissedChangeWarningWeek] = useState<number | null>(null)
+  // JAY-105: "+N more" expand toggles for the two banners above, so overflow rows
+  // are reachable instead of dead text
+  const [showAllHoursWarnings, setShowAllHoursWarnings] = useState(false)
+  const [showAllChangeWarnings, setShowAllChangeWarnings] = useState(false)
   // Active shift pill (for inline action panel)
   const [activeShiftId, setActiveShiftId] = useState<number | null>(null)
   // Drag-and-drop
@@ -510,6 +514,13 @@ export default function TimePage() {
     setShiftNotes('')
     setBreakWarningDismissed(false)
     setShowShiftForm(true)
+  }
+
+  // JAY-105: scroll a shift-warning banner row into view in the grid below and
+  // highlight it, reusing the existing activeShiftId highlight styling.
+  function jumpToShift(shiftId: number) {
+    setActiveShiftId(shiftId)
+    document.getElementById(`shift-cell-${shiftId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   // ── Time off actions ──────────────────────────────────────────────────────
@@ -996,19 +1007,30 @@ export default function TimePage() {
                       </button>
                     </div>
                     <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      {outOfHoursShifts.slice(0, 5).map(({ shift, dateStr, dayHours }) => {
+                      {(showAllHoursWarnings ? outOfHoursShifts : outOfHoursShifts.slice(0, 5)).map(({ shift, dateStr, dayHours }) => {
                         const emp = empMap[shift.employee_id!]
                         const reason = dayHours.closed
                           ? 'business is closed this day'
                           : `outside ${fmt(dayHours.open)}–${fmt(dayHours.close)}`
                         return (
-                          <div key={shift.id} style={{ fontSize: '12px', color: '#e2e8f0' }}>
+                          <div
+                            key={shift.id}
+                            onClick={() => jumpToShift(shift.id)}
+                            style={{ fontSize: '12px', color: '#e2e8f0', cursor: 'pointer' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.textDecoration = 'underline' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.textDecoration = 'none' }}
+                          >
                             {emp?.name ?? 'Unknown'} — {fmtDate(dateStr)} {fmt(shift.start_time)}–{fmt(shift.end_time)} ({reason})
                           </div>
                         )
                       })}
                       {outOfHoursShifts.length > 5 && (
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>+{outOfHoursShifts.length - 5} more</div>
+                        <button
+                          onClick={() => setShowAllHoursWarnings(v => !v)}
+                          style={{ fontSize: '11px', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, textAlign: 'left' }}
+                        >
+                          {showAllHoursWarnings ? 'Show fewer' : `+${outOfHoursShifts.length - 5} more`}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1036,17 +1058,31 @@ export default function TimePage() {
                       Some cities require extra pay for late schedule changes. Review below.
                     </div>
                     <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      {shortNoticeChanges.slice(0, 5).map(c => {
+                      {(showAllChangeWarnings ? shortNoticeChanges : shortNoticeChanges.slice(0, 5)).map(c => {
                         const emp = c.employee_id != null ? empMap[c.employee_id] : null
                         const verb = c.change_type === 'created' ? 'added' : c.change_type === 'deleted' ? 'removed' : c.change_type === 'reassigned' ? 'reassigned' : 'moved'
+                        // Deleted shifts no longer exist in the grid below, so only rows for
+                        // shifts still on the schedule are clickable/jumpable.
+                        const stillScheduled = c.change_type !== 'deleted' && shifts.some(s => s.id === c.shift_id)
                         return (
-                          <div key={c.id} style={{ fontSize: '12px', color: '#e2e8f0' }}>
+                          <div
+                            key={c.id}
+                            onClick={stillScheduled ? () => jumpToShift(c.shift_id) : undefined}
+                            style={{ fontSize: '12px', color: '#e2e8f0', cursor: stillScheduled ? 'pointer' : 'default' }}
+                            onMouseEnter={e => { if (stillScheduled) (e.currentTarget as HTMLDivElement).style.textDecoration = 'underline' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.textDecoration = 'none' }}
+                          >
                             {emp?.name ?? 'Employee'} — {fmtDate(c.shift_date)} shift {verb} ({fmtTime(c.changed_at)})
                           </div>
                         )
                       })}
                       {shortNoticeChanges.length > 5 && (
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>+{shortNoticeChanges.length - 5} more</div>
+                        <button
+                          onClick={() => setShowAllChangeWarnings(v => !v)}
+                          style={{ fontSize: '11px', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, textAlign: 'left' }}
+                        >
+                          {showAllChangeWarnings ? 'Show fewer' : `+${shortNoticeChanges.length - 5} more`}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1121,6 +1157,7 @@ export default function TimePage() {
                           return (
                             <div
                               key={dateStr}
+                              id={dayShift ? `shift-cell-${dayShift.id}` : undefined}
                               onClick={() => {
                                 if (draggingShiftId) return
                                 if (dayShift) {
