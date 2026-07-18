@@ -29,6 +29,25 @@ describe('GET /api/employee/time-off', () => {
     const body = await res.json()
     expect(body.requests).toHaveLength(2)
   })
+
+  // JAY-86 — "seen by owner" read receipt, reusing chat_read_receipts via a
+  // pseudo-channel (`timeoff:<id>`).
+  it('marks a request seen when a matching chat_read_receipts row exists', async () => {
+    mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
+    queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'owner1' }, error: null },
+      { data: [{ id: 10, status: 'pending' }, { id: 9, status: 'pending' }], error: null },
+      { data: [{ channel: 'timeoff:10', last_read_at: '2026-07-17T12:00:00Z' }], error: null },
+    ])
+    const res = await GET(mockRequest({ token: 'good' }) as never)
+    const body = await res.json()
+    const seen = body.requests.find((r: { id: number }) => r.id === 10)
+    const notSeen = body.requests.find((r: { id: number }) => r.id === 9)
+    expect(seen.seen).toBe(true)
+    expect(seen.seenAt).toBe('2026-07-17T12:00:00Z')
+    expect(notSeen.seen).toBe(false)
+    expect(notSeen.seenAt).toBeNull()
+  })
 })
 
 describe('POST /api/employee/time-off', () => {

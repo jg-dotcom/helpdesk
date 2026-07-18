@@ -333,6 +333,25 @@ export default function TimePage() {
     setRequests(reqs ?? [])
     setEntries(ents ?? [])
 
+    // JAY-86 — "seen" read receipts for pending time-off requests, reusing
+    // chat_read_receipts via a pseudo-channel per request (`timeoff:<id>`),
+    // same mechanism as JAY-27's announcement seen-tracking. Best-effort:
+    // never blocks the page, and silently no-ops for non-owner managers
+    // (mark-read is scoped to chat channel permissions, same limitation the
+    // announcement feature already has).
+    const pendingReqs = (reqs ?? []).filter(r => r.status === 'pending')
+    if (pendingReqs.length > 0) {
+      Promise.allSettled(
+        pendingReqs.map(r =>
+          fetch('/api/messages/mark-read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ channel: `timeoff:${r.id}`, businessId: tenantId }),
+          })
+        )
+      )
+    }
+
     if (empList.length > 0) {
       const { data: avail } = await supabase.from('employee_availability').select('*').in('employee_id', empList.map(e => e.id))
       if (avail) setAvailability(avail)
@@ -345,6 +364,20 @@ export default function TimePage() {
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
     setSwapRequests(swaps ?? [])
+
+    // JAY-86 — same "seen" read-receipt pattern as time-off requests above,
+    // pseudo-channel `swap:<id>`. `swaps` is already filtered to pending.
+    if ((swaps ?? []).length > 0) {
+      Promise.allSettled(
+        (swaps ?? []).map(s =>
+          fetch('/api/messages/mark-read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ channel: `swap:${s.id}`, businessId: tenantId }),
+          })
+        )
+      )
+    }
 
     const fullName = (session.user.user_metadata?.full_name ?? '').trim()
     setAuthorName(fullName || session.user.email || 'Manager')

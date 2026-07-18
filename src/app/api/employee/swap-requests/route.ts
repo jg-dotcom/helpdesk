@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   // JAY-43 — block terminated employees; see employee/me/route.ts for context.
   const { data: employee } = await supabaseAdmin
     .from('employees')
-    .select('id')
+    .select('id, user_id')
     .eq('email', user.email)
     .eq('status', 'active')
     .single()
@@ -23,5 +23,24 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(20)
 
-  return NextResponse.json({ swaps: swaps ?? [] })
+  // JAY-86 — "seen by owner" read receipt, same pseudo-channel pattern as
+  // time-off requests (`swap:<id>`); see employee/time-off/route.ts.
+  const ids = (swaps ?? []).map(s => s.id)
+  let receipts: { channel: string; last_read_at: string }[] = []
+  if (ids.length > 0) {
+    const { data } = await supabaseAdmin
+      .from('chat_read_receipts')
+      .select('channel, last_read_at')
+      .eq('business_id', employee.user_id)
+      .in('channel', ids.map(id => `swap:${id}`))
+    receipts = data ?? []
+  }
+  const seenAt = new Map(receipts.map(r => [r.channel, r.last_read_at]))
+  const withSeen = (swaps ?? []).map(s => ({
+    ...s,
+    seen: seenAt.has(`swap:${s.id}`),
+    seenAt: seenAt.get(`swap:${s.id}`) ?? null,
+  }))
+
+  return NextResponse.json({ swaps: withSeen })
 }

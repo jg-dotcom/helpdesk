@@ -9,9 +9,9 @@ type Employee = { id: number; name: string; role: string; email: string }
 type Shift = { id: number; shift_date: string; start_time: string; end_time: string; notes: string | null; status?: string }
 type OpenShift = { id: number; shift_date: string; start_time: string; end_time: string; notes: string | null }
 type CoworkerShift = { id: number; employee_id: number; employee_name: string; shift_date: string; start_time: string; end_time: string }
-type SwapRequest = { id: number; requester_shift_id: number; target_shift_id: number | null; target_employee_id: number | null; status: string; notes: string | null; created_at: string }
+type SwapRequest = { id: number; requester_shift_id: number; target_shift_id: number | null; target_employee_id: number | null; status: string; notes: string | null; created_at: string; seen?: boolean; seenAt?: string | null }
 type TimeEntry = { id: number; clock_in: string; clock_out: string | null; total_minutes: number | null }
-type TimeOffRequest = { id: number; start_date: string; end_date: string; type: string; reason: string | null; status: string; portion?: string | null }
+type TimeOffRequest = { id: number; start_date: string; end_date: string; type: string; reason: string | null; status: string; portion?: string | null; seen?: boolean; seenAt?: string | null }
 type PTOBalance = { total: number; used: number; remaining: number }
 type Announcement = { id: number; title: string; message: string; created_at: string }
 
@@ -24,6 +24,18 @@ function fmtDate(iso: string) {
 }
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+// JAY-86 — "seen by owner" indicator; mirrors src/app/activity/page.tsx's timeAgo.
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 function elapsed(clockIn: string) {
   const mins = Math.floor((Date.now() - new Date(clockIn).getTime()) / 60000)
@@ -1056,6 +1068,12 @@ export default function PortalPage() {
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>{r.type}</div>
                         <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>{fmtDate(r.start_date)} – {fmtDate(r.end_date)}{r.start_date === r.end_date && (r.portion === 'first_half' || r.portion === 'second_half') ? ` (${r.portion === 'first_half' ? 'first half' : 'second half'})` : ''}</div>
+                        {/* JAY-86 — read-receipt: has the owner seen this request yet? */}
+                        {r.status === 'pending' && (
+                          <div style={{ fontSize: '11px', marginTop: '1px', color: r.seen ? '#4ade80' : '#64748b' }}>
+                            {r.seen && r.seenAt ? `✓ Seen ${timeAgo(r.seenAt)}` : 'Not yet seen'}
+                          </div>
+                        )}
                       </div>
                       <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor[r.status as keyof typeof statusColor] ?? '#64748b', textTransform: 'capitalize' }}>{r.status}</span>
                     </div>
@@ -1073,8 +1091,16 @@ export default function PortalPage() {
                   const swapStatusColor = sr.status === 'approved' ? '#4ade80' : sr.status === 'denied' ? '#f87171' : '#fbbf24'
                   return (
                     <div key={sr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-                        {myShift ? fmtDate(myShift.shift_date) : `Shift #${sr.requester_shift_id}`}
+                      <div>
+                        <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                          {myShift ? fmtDate(myShift.shift_date) : `Shift #${sr.requester_shift_id}`}
+                        </div>
+                        {/* JAY-86 — read-receipt: has the owner seen this swap request yet? */}
+                        {sr.status === 'pending' && (
+                          <div style={{ fontSize: '11px', marginTop: '1px', color: sr.seen ? '#4ade80' : '#64748b' }}>
+                            {sr.seen && sr.seenAt ? `✓ Seen ${timeAgo(sr.seenAt)}` : 'Not yet seen'}
+                          </div>
+                        )}
                       </div>
                       <span style={{ fontSize: '11px', fontWeight: 600, color: swapStatusColor, textTransform: 'capitalize' }}>{sr.status}</span>
                     </div>

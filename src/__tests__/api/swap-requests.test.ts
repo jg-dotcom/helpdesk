@@ -22,4 +22,19 @@ describe('GET /api/employee/swap-requests', () => {
     const body = await res.json()
     expect(body.swaps).toHaveLength(1)
   })
+
+  // JAY-86 — "seen by owner" read receipt, reusing chat_read_receipts via a
+  // pseudo-channel (`swap:<id>`).
+  it('marks a swap request seen when a matching chat_read_receipts row exists', async () => {
+    mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
+    queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'owner1' }, error: null },
+      { data: [{ id: 10, status: 'pending' }], error: null },
+      { data: [{ channel: 'swap:10', last_read_at: '2026-07-17T12:00:00Z' }], error: null },
+    ])
+    const res = await GET(mockRequest({ token: 'good' }) as never)
+    const body = await res.json()
+    expect(body.swaps[0].seen).toBe(true)
+    expect(body.swaps[0].seenAt).toBe('2026-07-17T12:00:00Z')
+  })
 })

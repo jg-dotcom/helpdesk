@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   // JAY-43 — block terminated employees; see employee/me/route.ts for context.
   const { data: employee } = await supabaseAdmin
     .from('employees')
-    .select('id')
+    .select('id, user_id')
     .eq('email', user.email)
     .eq('status', 'active')
     .single()
@@ -22,7 +22,28 @@ export async function GET(req: NextRequest) {
     .eq('employee_id', employee.id)
     .order('created_at', { ascending: false })
 
-  return NextResponse.json({ requests: requests ?? [] })
+  // JAY-86 — "seen by owner" read receipt, reusing chat_read_receipts via a
+  // pseudo-channel per request (`timeoff:<id>`), same pattern as JAY-27's
+  // announcement seen-tracking. Receipts are written when the owner views
+  // the Time page (src/app/time/page.tsx).
+  const ids = (requests ?? []).map(r => r.id)
+  let receipts: { channel: string; last_read_at: string }[] = []
+  if (ids.length > 0) {
+    const { data } = await supabaseAdmin
+      .from('chat_read_receipts')
+      .select('channel, last_read_at')
+      .eq('business_id', employee.user_id)
+      .in('channel', ids.map(id => `timeoff:${id}`))
+    receipts = data ?? []
+  }
+  const seenAt = new Map(receipts.map(r => [r.channel, r.last_read_at]))
+  const withSeen = (requests ?? []).map(r => ({
+    ...r,
+    seen: seenAt.has(`timeoff:${r.id}`),
+    seenAt: seenAt.get(`timeoff:${r.id}`) ?? null,
+  }))
+
+  return NextResponse.json({ requests: withSeen })
 }
 
 export async function POST(req: NextRequest) {
