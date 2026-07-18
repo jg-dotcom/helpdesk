@@ -1478,6 +1478,26 @@ body:has(.dash-wrap) {
   margin-top: 2px;
 }
 
+/* Dark-page overrides — the profile header sits directly on .dash-wrap's
+   dark background, so it needs the light-on-dark text pairing used
+   elsewhere in the admin dashboard (see .dash-content input overrides
+   above) rather than the light-theme colors above. */
+.dash-content .profile-name {
+  color: #e2e8f0;
+}
+
+.dash-content .profile-role {
+  color: #94a3b8;
+}
+
+.profile-card {
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
 .profile-tabs {
   display: flex;
   gap: 0.25rem;
@@ -1503,6 +1523,23 @@ body:has(.dash-wrap) {
 .profile-tab.active {
   color: #185fa5;
   border-bottom-color: #185fa5;
+}
+
+.dash-content .profile-tabs {
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+
+.dash-content .profile-tab {
+  color: #94a3b8;
+}
+
+.dash-content .profile-tab:hover {
+  color: #e2e8f0;
+}
+
+.dash-content .profile-tab.active {
+  color: #93c5fd;
+  border-bottom-color: #3b82f6;
 }
 
 /* Compliance checklist */

@@ -229,7 +229,7 @@ export default function EmployeeProfile() {
         </div>
 
         {tab === 'info' && (
-          <div className="card">
+          <div className="profile-card">
             <div className="emp-panel-section">Profile</div>
             <div className="row2">
               <div className="field"><label>Name</label><input value={form.name} onChange={e => set('name', e.target.value)} /></div>
@@ -323,7 +323,7 @@ export default function EmployeeProfile() {
         )}
 
         {tab === 'documents' && (
-          <div className="card">
+          <div className="profile-card">
             {docs.length === 0 ? (
               <div className="empty-state">No documents uploaded yet.</div>
             ) : (
@@ -345,7 +345,7 @@ export default function EmployeeProfile() {
         )}
 
         {tab === 'activity' && (
-          <div className="card">
+          <div className="profile-card">
             {activity.length === 0 ? (
               <div className="empty-state">No documents generated yet.</div>
             ) : (
