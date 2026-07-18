@@ -90,6 +90,16 @@ TOOLS_IDEAGEN=(
   "Read" "Grep" "Glob" "Bash(git log*)"
   "mcp__claude_ai_Linear__list_issues" "mcp__claude_ai_Linear__get_issue" "mcp__claude_ai_Linear__save_issue"
 )
+# Deliberately the narrowest possible allowlist — one tool, one job. Used to
+# reflect real pipeline progress in Linear (flip to "In Progress" once Tech
+# Lead commits to a GO, revert to "Todo" if a later stage fails/times out)
+# without widening Tech Lead/Engineer/QA's own blast radius just to get a
+# status update out. Before this, every ticket sat in "Todo" the entire time
+# it was being implemented and only ever jumped straight to "Done" or stayed
+# in "Todo" — no visible signal that anything was happening.
+TOOLS_LINEAR_STATE=(
+  "mcp__claude_ai_Linear__save_issue"
+)
 
 # Optional Vercel deployment-verification config (Deploy stage Check D).
 # Sourced from a gitignored local file so the token isn't hardcoded here.
@@ -172,6 +182,19 @@ run_stage() {
   echo "  [${stage_name}] exit=$CLAUDE_EXIT timed_out=$TIMED_OUT" >> "$LOG"
 }
 
+# Sets a Linear issue's state via the minimal TOOLS_LINEAR_STATE allowlist.
+# Best-effort: logs its own exit code but never aborts the pipeline if it
+# fails (a missed status update is a cosmetic problem, not a correctness one
+# — the actual Todo/Done transitions from Deploy are still the source of
+# truth).
+set_issue_state() {
+  local issue_id="$1"
+  local target_state="$2"
+  local prompt="Call save_issue on issue ${issue_id} with state \"${target_state}\". Do not call any other tool. Output nothing else."
+  run_stage "LINEAR-STATE(${target_state})" "$prompt" TOOLS_LINEAR_STATE
+  echo "  set ${issue_id} -> ${target_state}: exit=${CLAUDE_EXIT} timed_out=${TIMED_OUT}" >> "$LOG"
+}
+
 while true; do
   ITER=$((ITER + 1))
   echo "--- Issue cycle #$ITER ($(date)) ---" >> "$LOG"
@@ -215,6 +238,15 @@ treat it the same as an empty Todo list and stop."
   TECHLEAD_OUTPUT="$OUTPUT"
   PICKED_ID="$(echo "$TECHLEAD_OUTPUT" | grep -oE 'JAY-[0-9]+' | head -1 || true)"
 
+  # Only flip to "In Progress" once Tech Lead actually commits to a GO on
+  # this specific ticket — not the moment the stage starts, since Tech Lead
+  # routinely reads and discards several stale/already-shipped candidates
+  # before landing on one (see JAY-121/122/124 history). Marking those as
+  # "In Progress" would have been actively misleading.
+  if [ -n "$PICKED_ID" ] && echo "$TECHLEAD_OUTPUT" | grep -qi "proceed to implementation"; then
+    set_issue_state "$PICKED_ID" "In Progress"
+  fi
+
   # --- STAGE 2: ENGINEER ---
   ENGINEER_PROMPT="$(cat scripts/autopilot-prompt-2-engineer.md)
 
@@ -225,6 +257,7 @@ ${TECHLEAD_OUTPUT}"
   if [ "$TIMED_OUT" -eq 1 ] || [ "$CLAUDE_EXIT" -ne 0 ]; then
     echo "Engineer stage failed/timed out on ${PICKED_ID:-unknown} — leaving any partial changes as-is, sleeping ${IDLE_SLEEP_SECS}s." >> "$LOG"
     [ -n "$PICKED_ID" ] && ALREADY_ATTEMPTED+=("$PICKED_ID")
+    [ -n "$PICKED_ID" ] && set_issue_state "$PICKED_ID" "Todo"
     sleep "$IDLE_SLEEP_SECS"
     continue
   fi
@@ -243,6 +276,7 @@ ${ENGINEER_OUTPUT}"
   if [ "$TIMED_OUT" -eq 1 ] || [ "$CLAUDE_EXIT" -ne 0 ]; then
     echo "QA stage failed/timed out on ${PICKED_ID:-unknown} — sleeping ${IDLE_SLEEP_SECS}s." >> "$LOG"
     [ -n "$PICKED_ID" ] && ALREADY_ATTEMPTED+=("$PICKED_ID")
+    [ -n "$PICKED_ID" ] && set_issue_state "$PICKED_ID" "Todo"
     sleep "$IDLE_SLEEP_SECS"
     continue
   fi
@@ -262,7 +296,7 @@ ${QA_OUTPUT}"
   run_stage "DEPLOY" "$DEPLOY_PROMPT" TOOLS_DEPLOY
 
   if [ "$TIMED_OUT" -eq 1 ] || [ "$CLAUDE_EXIT" -ne 0 ]; then
-    echo "Deploy stage failed/timed out on ${PICKED_ID:-unknown} — this may leave the ticket in an inconsistent state (implemented but not committed/closed). Check manually. Sleeping ${IDLE_SLEEP_SECS}s." >> "$LOG"
+    echo "Deploy stage failed/timed out on ${PICKED_ID:-unknown} — this may leave the ticket in an inconsistent state (implemented but not committed/closed). Deliberately NOT reverting Linear state to Todo here, unlike the Engineer/QA failure branches: unlike those, the code change may already be sitting in the working tree uncommitted (real work, not nothing), and a human should look at git status before this gets silently re-picked as if nothing happened. Check manually. Sleeping ${IDLE_SLEEP_SECS}s." >> "$LOG"
     [ -n "$PICKED_ID" ] && ALREADY_ATTEMPTED+=("$PICKED_ID")
     sleep "$IDLE_SLEEP_SECS"
     continue
