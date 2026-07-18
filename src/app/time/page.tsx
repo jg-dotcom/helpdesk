@@ -1541,7 +1541,7 @@ export default function TimePage() {
             <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '1rem' }}>
               <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>All entries this week</div>
               {entries.length === 0 ? (
-                <div style={{ color: '#475569', fontSize: '13px', padding: '0.5rem 0' }}>No time entries this week.</div>
+                <div style={{ color: '#475569', fontSize: '13px', padding: '0.5rem 0' }}>No time entries yet. They&apos;ll show up here once your team clocks in or out.</div>
               ) : [...clockedIn, ...completed].map(e => {
                 const emp = empMap[e.employee_id]
                 return (
