@@ -233,7 +233,7 @@ export default function JobsPage() {
 
   // Source breakdown — where candidates are coming from
   const sourceCounts = apps.reduce<Record<string, number>>((acc, a) => {
-    const key = a.source?.trim() || 'Unknown'
+    const key = a.source?.trim() || 'Prefer not to say'
     acc[key] = (acc[key] ?? 0) + 1
     return acc
   }, {})
