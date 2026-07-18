@@ -85,6 +85,7 @@ export default function EmployeePortal() {
   const [toEnd, setToEnd] = useState('')
   const [toType, setToType] = useState('PTO / Vacation')
   const [toReason, setToReason] = useState('')
+  const [toPortion, setToPortion] = useState<'full' | 'first_half' | 'second_half'>('full')
   const [toSaving, setToSaving] = useState(false)
 
   useEffect(() => {
@@ -164,12 +165,12 @@ export default function EmployeePortal() {
     const res = await fetch('/api/employee/time-off', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ startDate: toStart, endDate: toEnd, type: toType, reason: toReason }),
+      body: JSON.stringify({ startDate: toStart, endDate: toEnd, type: toType, reason: toReason, portion: toStart === toEnd && toPortion !== 'full' ? toPortion : undefined }),
     })
     const data = await res.json()
     if (!res.ok) { showToast(data.error, 'error') } else {
       showToast('Request submitted.', 'success')
-      setToStart(''); setToEnd(''); setToReason('')
+      setToStart(''); setToEnd(''); setToReason(''); setToPortion('full')
       const torRes = await fetch('/api/employee/time-off', { headers: { Authorization: `Bearer ${accessToken}` } })
       const torData = await torRes.json()
       if (torData.requests) setRequests(torData.requests)
@@ -335,13 +336,23 @@ export default function EmployeePortal() {
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '3px' }}>From</label>
-                  <input type="date" value={toStart} onChange={e => setToStart(e.target.value)} />
+                  <input type="date" value={toStart} onChange={e => { const v = e.target.value; setToStart(v); if (v !== toEnd) setToPortion('full') }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '3px' }}>To</label>
-                  <input type="date" value={toEnd} onChange={e => setToEnd(e.target.value)} />
+                  <input type="date" value={toEnd} onChange={e => { const v = e.target.value; setToEnd(v); if (v !== toStart) setToPortion('full') }} />
                 </div>
               </div>
+              {toStart && toEnd && toStart === toEnd && (
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  {([['full', 'Full day'], ['first_half', 'Half day — morning'], ['second_half', 'Half day — afternoon']] as [typeof toPortion, string][]).map(([value, label]) => (
+                    <label key={value} style={{ flex: 1, fontSize: '11px', color: toPortion === value ? '#93c5fd' : '#64748b', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                      <input type="radio" name="toPortion" checked={toPortion === value} onChange={() => setToPortion(value)} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              )}
               <select value={toType} onChange={e => setToType(e.target.value)} style={{ marginBottom: '0.75rem' }}>
                 <option>PTO / Vacation</option>
                 <option>Sick leave</option>
