@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '../../../lib/supabaseAdmin'
 import { getBearerUser } from '../../../lib/apiAuth'
+import { computeAccruedPtoDays, nextAccrualDate } from '../../../lib/ptoAccrual'
 
 export async function GET(req: NextRequest) {
   const user = await getBearerUser(req)
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
   // Find employee by email
   const { data: employees } = await supabaseAdmin
     .from('employees')
-    .select('id, name, pto_days_per_year')
+    .select('id, name, pto_days_per_year, start, user_id')
     .eq('email', user.email!)
 
   if (!employees || employees.length === 0) {
@@ -17,6 +18,15 @@ export async function GET(req: NextRequest) {
   }
 
   const emp = employees[0]
+
+  // JAY-123 — resolve the owning business's accrual policy (defaults to
+  // 'flat', i.e. unchanged behavior, if no business_profiles row or policy
+  // is found).
+  const { data: policy } = await supabaseAdmin
+    .from('business_profiles')
+    .select('pto_accrual_method, pto_accrual_rate')
+    .eq('user_id', emp.user_id)
+    .maybeSingle()
   const year = new Date().getFullYear()
   const startOfYear = `${year}-01-01`
   const endOfYear = `${year}-12-31`
@@ -49,12 +59,15 @@ export async function GET(req: NextRequest) {
     usedDays += days
   }
 
-  const totalDays = emp.pto_days_per_year ?? 0
+  const accrualPolicy = { method: policy?.pto_accrual_method, rate: policy?.pto_accrual_rate }
+  const totalDays = computeAccruedPtoDays(accrualPolicy, emp.pto_days_per_year ?? 0, emp.start)
+
   return NextResponse.json({
     balance: {
       total: totalDays,
       used: usedDays,
       remaining: Math.max(0, totalDays - usedDays),
+      nextAccrualDate: nextAccrualDate(accrualPolicy),
     },
   })
 }

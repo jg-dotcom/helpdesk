@@ -32,17 +32,19 @@ describe('GET /api/employee/pto-balance', () => {
     mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
     queueFromResponses(supabaseAdmin, [
       { data: [{ id: 1, name: 'Jane', pto_days_per_year: 15 }], error: null },
+      { data: null, error: null }, // business_profiles — no policy row, defaults to flat
       { data: [{ start_date: '2026-07-06', end_date: '2026-07-10' }], error: null }, // 5 days
     ])
     const res = await GET(mockRequest({ token: 'good-token' }) as never)
     const body = await res.json()
-    expect(body).toEqual({ balance: { total: 15, used: 5, remaining: 10 } })
+    expect(body).toEqual({ balance: { total: 15, used: 5, remaining: 10, nextAccrualDate: null } })
   })
 
   it('clamps remaining to 0 when more days are used than allotted', async () => {
     mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
     queueFromResponses(supabaseAdmin, [
       { data: [{ id: 1, name: 'Jane', pto_days_per_year: 5 }], error: null },
+      { data: null, error: null },
       { data: [{ start_date: '2026-01-01', end_date: '2026-01-20' }], error: null }, // 20 days
     ])
     const res = await GET(mockRequest({ token: 'good-token' }) as never)
@@ -55,17 +57,19 @@ describe('GET /api/employee/pto-balance', () => {
     mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
     queueFromResponses(supabaseAdmin, [
       { data: [{ id: 1, name: 'Jane', pto_days_per_year: 10 }], error: null },
+      { data: null, error: null },
       { data: [{ start_date: '2026-07-10', end_date: '2026-07-10', portion: 'first_half' }], error: null },
     ])
     const res = await GET(mockRequest({ token: 'good-token' }) as never)
     const body = await res.json()
-    expect(body).toEqual({ balance: { total: 10, used: 0.5, remaining: 9.5 } })
+    expect(body).toEqual({ balance: { total: 10, used: 0.5, remaining: 9.5, nextAccrualDate: null } })
   })
 
   it('mixes half-day and full-day requests correctly', async () => {
     mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
     queueFromResponses(supabaseAdmin, [
       { data: [{ id: 1, name: 'Jane', pto_days_per_year: 10 }], error: null },
+      { data: null, error: null },
       { data: [
         { start_date: '2026-07-10', end_date: '2026-07-10', portion: 'second_half' },
         { start_date: '2026-08-01', end_date: '2026-08-02', portion: null },
@@ -84,10 +88,29 @@ describe('GET /api/employee/pto-balance', () => {
     mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
     const fromMock = queueFromResponses(supabaseAdmin, [
       { data: [{ id: 1, name: 'Jane', pto_days_per_year: 10 }], error: null },
+      { data: null, error: null },
       { data: [{ start_date: '2026-07-06', end_date: '2026-07-10' }], error: null },
     ])
     await GET(mockRequest({ token: 'good-token' }) as never)
-    const approvedQueryBuilder = fromMock.mock.results[1].value
+    const approvedQueryBuilder = fromMock.mock.results[2].value
     expect(approvedQueryBuilder.neq).toHaveBeenCalledWith('type', 'Unpaid')
+  })
+
+  // JAY-123 — monthly accrual prorates from hire date instead of granting
+  // the full annual total immediately.
+  it('prorates PTO total when the business is on a monthly accrual policy', async () => {
+    mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
+    queueFromResponses(supabaseAdmin, [
+      { data: [{ id: 1, name: 'Jane', pto_days_per_year: 15, start: '2026-01-01' }], error: null },
+      { data: { pto_accrual_method: 'monthly', pto_accrual_rate: 1.25 }, error: null },
+      { data: [], error: null },
+    ])
+    const res = await GET(mockRequest({ token: 'good-token' }) as never)
+    const body = await res.json()
+    // computeAccruedPtoDays is unit-tested directly in ptoAccrual.test.ts;
+    // this just confirms the route wires the policy + hire date through.
+    expect(body.balance.total).toBeGreaterThan(0)
+    expect(body.balance.total).toBeLessThanOrEqual(15)
+    expect(body.balance.nextAccrualDate).not.toBeNull()
   })
 })

@@ -131,6 +131,15 @@ function SettingsContent() {
   const [requireClockinPhoto, setRequireClockinPhoto] = useState(false)
   const [clockinTrustSaving, setClockinTrustSaving] = useState(false)
 
+  // JAY-123 — PTO accrual policy. 'flat' preserves the original behavior
+  // (everyone gets the full pto_days_per_year on day one); 'monthly' prorates
+  // from hire date, `rate` days per month, up to the annual grant. Rollover
+  // cap is stored for a future year-end job — it doesn't affect balances yet.
+  const [ptoAccrualMethod, setPtoAccrualMethod] = useState<'flat' | 'monthly'>('flat')
+  const [ptoAccrualRate, setPtoAccrualRate] = useState('1.25')
+  const [ptoRolloverCap, setPtoRolloverCap] = useState('')
+  const [ptoPolicySaving, setPtoPolicySaving] = useState(false)
+
   // Account
   const [bizName, setBizName] = useState('')
   const [address, setAddress] = useState('')
@@ -230,6 +239,10 @@ function SettingsContent() {
       if (bizData.profile.geofence_lng != null) setGeofenceLng(String(bizData.profile.geofence_lng))
       if (bizData.profile.geofence_radius_m != null) setGeofenceRadiusMi((bizData.profile.geofence_radius_m / 1609.34).toFixed(2))
       setRequireClockinPhoto(!!bizData.profile.require_clockin_photo)
+      // JAY-123
+      if (bizData.profile.pto_accrual_method) setPtoAccrualMethod(bizData.profile.pto_accrual_method)
+      if (bizData.profile.pto_accrual_rate != null) setPtoAccrualRate(String(bizData.profile.pto_accrual_rate))
+      if (bizData.profile.pto_rollover_cap != null) setPtoRolloverCap(String(bizData.profile.pto_rollover_cap))
     }
 
     if (tmplRes.data?.fields?.length) setFields(tmplRes.data.fields)
@@ -370,6 +383,24 @@ function SettingsContent() {
     })
     showToast(res.ok ? 'Saved.' : "Couldn't save changes. Check your connection and try again.", res.ok ? 'success' : 'error')
     setClockinTrustSaving(false)
+  }
+
+  // JAY-123 — same "own save button" pattern as the labor budget / clock-in
+  // trust sections above.
+  async function savePtoPolicy() {
+    setPtoPolicySaving(true)
+    const rate = ptoAccrualRate.trim() === '' ? null : parseFloat(ptoAccrualRate)
+    const rolloverCap = ptoRolloverCap.trim() === '' ? null : parseFloat(ptoRolloverCap)
+    const res = await fetch('/api/settings/business', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        business_name: bizName, address, timezone, contact_email: contactEmail,
+        pto_accrual_method: ptoAccrualMethod, pto_accrual_rate: rate, pto_rollover_cap: rolloverCap,
+      }),
+    })
+    showToast(res.ok ? 'Saved.' : "Couldn't save changes. Check your connection and try again.", res.ok ? 'success' : 'error')
+    setPtoPolicySaving(false)
   }
 
   async function saveTemplate() {
@@ -715,6 +746,40 @@ function SettingsContent() {
                 </label>
                 <button className="btn auth-btn-primary" onClick={saveClockinTrust} disabled={clockinTrustSaving} style={{ marginTop: '1rem', width: 'auto' }}>
                   {clockinTrustSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+
+              {/* JAY-123 — PTO accrual policy. 'Flat' keeps existing accounts'
+                  behavior unchanged; 'Monthly' prorates from hire date. */}
+              <div style={{ marginTop: '1.75rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ ...sectionLabelStyle, marginBottom: '0.25rem' }}>PTO accrual</div>
+                <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                  Flat grants the full annual PTO days on day one. Monthly accrual prorates from each employee&apos;s hire date, adding a set number of days each month up to the annual grant.
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '0.75rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                    <input type="radio" name="pto-accrual-method" checked={ptoAccrualMethod === 'flat'} onChange={() => setPtoAccrualMethod('flat')} style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+                    Flat annual grant (current)
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+                    <input type="radio" name="pto-accrual-method" checked={ptoAccrualMethod === 'monthly'} onChange={() => setPtoAccrualMethod('monthly')} style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+                    Monthly accrual
+                  </label>
+                </div>
+                {ptoAccrualMethod === 'monthly' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', maxWidth: '320px', marginBottom: '0.5rem' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '3px' }}>Days / month</label>
+                      <input type="number" min="0" step="0.25" value={ptoAccrualRate} onChange={e => setPtoAccrualRate(e.target.value)} placeholder="e.g. 1.25" />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '3px' }}>Rollover cap (days)</label>
+                      <input type="number" min="0" step="0.5" value={ptoRolloverCap} onChange={e => setPtoRolloverCap(e.target.value)} placeholder="e.g. 5" />
+                    </div>
+                  </div>
+                )}
+                <button className="btn auth-btn-primary" onClick={savePtoPolicy} disabled={ptoPolicySaving} style={{ marginTop: '1rem', width: 'auto' }}>
+                  {ptoPolicySaving ? 'Saving...' : 'Save PTO policy'}
                 </button>
               </div>
             </div>

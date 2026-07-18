@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '../../../lib/supabaseAdmin'
 import { getBearerUser } from '../../../lib/apiAuth'
+import { computeAccruedPtoDays } from '../../../lib/ptoAccrual'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -229,8 +230,17 @@ export async function executeTool(
 
     case 'get_pto_balance': {
       const { data: emp } = await supabaseAdmin
-        .from('employees').select('pto_days_per_year').eq('email', role.employeeName ? undefined : undefined).eq('id', role.employeeId ?? 0).maybeSingle()
-      const ptoDays = (emp as { pto_days_per_year?: number } | null)?.pto_days_per_year ?? 0
+        .from('employees').select('pto_days_per_year, start').eq('email', role.employeeName ? undefined : undefined).eq('id', role.employeeId ?? 0).maybeSingle()
+      // JAY-123 — same accrual policy as /api/employee/pto-balance; defaults
+      // to the flat grant (unchanged behavior) if no policy is configured.
+      const { data: policy } = await supabaseAdmin
+        .from('business_profiles').select('pto_accrual_method, pto_accrual_rate').eq('user_id', ownerId).maybeSingle()
+      const empRow = emp as { pto_days_per_year?: number; start?: string } | null
+      const ptoDays = computeAccruedPtoDays(
+        { method: policy?.pto_accrual_method, rate: policy?.pto_accrual_rate },
+        empRow?.pto_days_per_year ?? 0,
+        empRow?.start,
+      )
       const year = new Date().getFullYear()
       const { data: requests } = await supabaseAdmin
         .from('time_off_requests').select('start_date, end_date').eq('employee_id', role.employeeId ?? 0).eq('status', 'approved')
