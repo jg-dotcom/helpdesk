@@ -26,6 +26,10 @@ describe('GET /api/settings/export', () => {
       { data: [{ id: 1, name: 'Jane' }], error: null },
       { data: [{ id: 2, gross_pay: 500 }], error: null },
       { data: [{ id: 3, start: '2026-01-01' }], error: null },
+      { data: [{ id: 4, pay_period: '2026-01' }], error: null },
+      { data: [{ id: 5, gross_pay: 600 }], error: null },
+      { data: [{ id: 6, status: 'approved' }], error: null },
+      { data: [{ id: 7, clock_in: '2026-01-01T09:00:00Z' }], error: null },
     ])
     const res = await GET(mockRequest({ token: 'good' }) as never)
     expect(res.status).toBe(200)
@@ -34,5 +38,9 @@ describe('GET /api/settings/export', () => {
     expect(body.employees).toEqual([{ id: 1, name: 'Jane' }])
     expect(body.payroll_entries).toEqual([{ id: 2, gross_pay: 500 }])
     expect(body.shifts).toEqual([{ id: 3, start: '2026-01-01' }])
+    expect(body.payroll_runs).toEqual([{ id: 4, pay_period: '2026-01' }])
+    expect(body.payroll_run_items).toEqual([{ id: 5, gross_pay: 600 }])
+    expect(body.time_off_requests).toEqual([{ id: 6, status: 'approved' }])
+    expect(body.time_entries).toEqual([{ id: 7, clock_in: '2026-01-01T09:00:00Z' }])
   })
 })
