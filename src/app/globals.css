@@ -9,45 +9,65 @@ a {
   color: inherit;
 }
 
-/* JAY-136 — design tokens for the light/dark theme toggle. These are
-   currently additive only: no existing rule in this file consumes
-   var(--...) yet, so switching [data-theme] has no visual effect until
-   pages are migrated to reference these tokens. Default (:root, no
-   attribute set yet) mirrors [data-theme="dark"] since that's the look
-   every existing user already sees (hardcoded dark sidebar/dashboard hex
-   elsewhere in this file) — this avoids a flash/regression for anyone
-   whose ThemeProvider hasn't run yet. */
+/* JAY-136 / JAY-132 — design tokens for the light/dark theme toggle.
+   Reconciled against the real design_handoff_helpdesk_redesign/README.md
+   spec (Jay supplied the missing handoff after JAY-136 shipped an initial,
+   smaller hex-based token set). Values below are the spec's OKLCH values
+   verbatim. --bg-secondary/--bg-info/--bg-success/--text-info/--text-success/
+   --border-md are kept as aliases (not in the spec) so the 8 pages already
+   migrated onto them in the earlier de-box pass don't regress — they now
+   point at the closest spec-equivalent token instead of a hardcoded hex. */
 :root,
 [data-theme="dark"] {
-  --bg: #0d111e;
-  --bg-secondary: #131a2c;
-  --bg-info: rgba(37, 99, 235, 0.15);
-  --bg-success: rgba(34, 197, 94, 0.15);
-  --text: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-info: #60a5fa;
-  --text-success: #4ade80;
-  --border: rgba(255, 255, 255, 0.06);
-  --border-md: rgba(255, 255, 255, 0.12);
+  --bg: oklch(17% 0.012 260);
+  --bg-elevated: oklch(21% 0.014 258);
+  --bg-input: oklch(25% 0.015 258);
+  --border: oklch(28% 0.018 258);
+  --text: oklch(95% 0.006 90);
+  --text-secondary: oklch(72% 0.02 250);
+  --text-tertiary: oklch(52% 0.02 250);
+  --accent: oklch(64% 0.15 250);
+  --accent-text: oklch(99% 0 0);
+  --amber: oklch(70% 0.15 55);
+  --success: oklch(68% 0.15 145);
+  --warn: oklch(75% 0.14 85);
+  --error: oklch(72% 0.16 25);
   --radius-md: 8px;
   --radius-lg: 12px;
+
+  /* Legacy aliases — predate the real spec, kept for pages not yet
+     reconciled to the token names above. */
+  --bg-secondary: var(--bg-elevated);
+  --bg-info: oklch(64% 0.15 250 / 0.15);
+  --bg-success: oklch(68% 0.15 145 / 0.15);
+  --text-info: var(--accent);
+  --text-success: var(--success);
+  --border-md: oklch(28% 0.018 258 / 1.6);
 }
 
 [data-theme="light"] {
-  --bg: #ffffff;
-  --bg-secondary: #f7f7f5;
-  --bg-info: #e6f1fb;
-  --bg-success: #eaf3de;
-  --text: #1a1a1a;
-  --text-secondary: #6b6b6b;
-  --text-tertiary: #9a9a9a;
-  --text-info: #185fa5;
-  --text-success: #3b6d11;
-  --border: rgba(0, 0, 0, 0.12);
-  --border-md: rgba(0, 0, 0, 0.22);
+  --bg: oklch(98% 0.004 90);
+  --bg-elevated: oklch(95% 0.006 85);
+  --bg-input: oklch(91% 0.008 85);
+  --border: oklch(88% 0.01 90);
+  --text: oklch(22% 0.01 260);
+  --text-secondary: oklch(42% 0.015 255);
+  --text-tertiary: oklch(58% 0.015 255);
+  --accent: oklch(48% 0.14 250);
+  --accent-text: oklch(99% 0 0);
+  --amber: oklch(58% 0.16 55);
+  --success: oklch(45% 0.13 145);
+  --warn: oklch(50% 0.13 85);
+  --error: oklch(50% 0.19 25);
   --radius-md: 8px;
   --radius-lg: 12px;
+
+  --bg-secondary: var(--bg-elevated);
+  --bg-info: oklch(48% 0.14 250 / 0.12);
+  --bg-success: oklch(45% 0.13 145 / 0.12);
+  --text-info: var(--accent);
+  --text-success: var(--success);
+  --border-md: oklch(88% 0.01 90 / 1.6);
 }
 
 body {
