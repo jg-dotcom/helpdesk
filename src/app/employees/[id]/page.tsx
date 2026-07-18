@@ -322,7 +322,7 @@ export default function EmployeeProfile() {
         {tab === 'documents' && (
           <div className="profile-card">
             {docs.length === 0 ? (
-              <div className="empty-state">No documents uploaded yet.</div>
+              <div className="empty-state">No documents uploaded yet — upload files from the Documents tab or ask them to sign via their onboarding link.</div>
             ) : (
               <div className="upload-list">
                 {docs.map(doc => (
@@ -344,7 +344,7 @@ export default function EmployeeProfile() {
         {tab === 'activity' && (
           <div className="profile-card">
             {activity.length === 0 ? (
-              <div className="empty-state">No documents generated yet.</div>
+              <div className="empty-state">No documents generated yet — generate one from the templates above.</div>
             ) : (
               activity.map(item => (
                 <div key={item.id} className="history-item">
