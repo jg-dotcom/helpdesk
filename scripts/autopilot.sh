@@ -149,7 +149,38 @@ COOLDOWN_SECS=20      # pause between successive issues
 IDLE_SLEEP_SECS=120   # pause when Todo is empty/all-data-schema
 IDEAGEN_COOLDOWN_SECS=3600  # at most once per hour, even if idle the whole time
 LAST_IDEAGEN_TS=0
+
+# ALREADY_ATTEMPTED used to be in-memory only, cleared on every daemon
+# restart — meaning a ticket that failed right before a restart (planned or
+# crash) could get re-picked and re-attempted immediately after, which is
+# functionally an unintended auto-retry. Jay explicitly confirmed on
+# 2026-07-19 that the pipeline should never auto-retry a failed ticket, only
+# ever stop and surface it — so this now persists to a small gitignored file
+# and survives restarts. Cleared the same two places the in-memory array used
+# to be cleared (Todo empty, or only data-schema issues left), since those
+# are legitimate "start fresh" boundaries, not restarts.
+ATTEMPTED_FILE="$(pwd)/scripts/.autopilot-attempted"
 ALREADY_ATTEMPTED=()
+if [ -f "$ATTEMPTED_FILE" ]; then
+  while IFS= read -r line; do
+    [ -n "$line" ] && ALREADY_ATTEMPTED+=("$line")
+  done < "$ATTEMPTED_FILE"
+  if [ "${#ALREADY_ATTEMPTED[@]}" -gt 0 ]; then
+    echo "Restored ${#ALREADY_ATTEMPTED[@]} already-attempted issue ID(s) from previous run: ${ALREADY_ATTEMPTED[*]}" >> "$LOG"
+  fi
+fi
+
+record_attempted() {
+  # $1 = issue ID. Appends in-memory AND to disk so it survives a restart.
+  ALREADY_ATTEMPTED+=("$1")
+  echo "$1" >> "$ATTEMPTED_FILE"
+}
+
+clear_attempted() {
+  ALREADY_ATTEMPTED=()
+  rm -f "$ATTEMPTED_FILE"
+}
+
 ITER=0
 
 # Called from the idle branches below. Runs the emergency top-up stage at
@@ -319,7 +350,7 @@ treat it the same as an empty Todo list and stop."
 
   if echo "$OUTPUT" | grep -qi "No Todo issues, nothing to do"; then
     echo "Todo is empty — clearing attempted-list, checking whether a Backlog top-up is needed." >> "$LOG"
-    ALREADY_ATTEMPTED=()
+    clear_attempted
     maybe_run_ideagen
     sleep "$IDLE_SLEEP_SECS"
     continue
@@ -327,7 +358,7 @@ treat it the same as an empty Todo list and stop."
 
   if echo "$OUTPUT" | grep -qi "Only data-schema issues in Todo"; then
     echo "Remaining Todo issues are all data-schema — clearing attempted-list, checking whether a Backlog top-up is needed." >> "$LOG"
-    ALREADY_ATTEMPTED=()
+    clear_attempted
     maybe_run_ideagen
     sleep "$IDLE_SLEEP_SECS"
     continue
@@ -357,7 +388,7 @@ ${TECHLEAD_OUTPUT}"
 
   if [ "$TIMED_OUT" -eq 1 ] || [ "$CLAUDE_EXIT" -ne 0 ]; then
     echo "Engineer stage failed/timed out on ${PICKED_ID:-unknown} — leaving any partial changes as-is, sleeping ${IDLE_SLEEP_SECS}s." >> "$LOG"
-    [ -n "$PICKED_ID" ] && ALREADY_ATTEMPTED+=("$PICKED_ID")
+    [ -n "$PICKED_ID" ] && record_attempted "$PICKED_ID"
     [ -n "$PICKED_ID" ] && set_issue_state "$PICKED_ID" "Todo"
     rm -f "$STATEFILE"
     sleep "$IDLE_SLEEP_SECS"
@@ -380,7 +411,7 @@ ${ENGINEER_OUTPUT}"
 
   if [ "$TIMED_OUT" -eq 1 ] || [ "$CLAUDE_EXIT" -ne 0 ]; then
     echo "QA stage failed/timed out on ${PICKED_ID:-unknown} — sleeping ${IDLE_SLEEP_SECS}s." >> "$LOG"
-    [ -n "$PICKED_ID" ] && ALREADY_ATTEMPTED+=("$PICKED_ID")
+    [ -n "$PICKED_ID" ] && record_attempted "$PICKED_ID"
     [ -n "$PICKED_ID" ] && set_issue_state "$PICKED_ID" "Todo"
     rm -f "$STATEFILE"
     sleep "$IDLE_SLEEP_SECS"
@@ -415,7 +446,7 @@ ${QA_OUTPUT}"
 
   if [ "$TIMED_OUT" -eq 1 ] || [ "$CLAUDE_EXIT" -ne 0 ]; then
     echo "Deploy stage failed/timed out on ${PICKED_ID:-unknown} — this may leave the ticket in an inconsistent state (implemented but not committed/closed). Deliberately NOT reverting Linear state to Todo here, unlike the Engineer/QA failure branches: unlike those, the code change may already be sitting in the working tree uncommitted (real work, not nothing), and a human should look at git status before this gets silently re-picked as if nothing happened. Check manually. Sleeping ${IDLE_SLEEP_SECS}s." >> "$LOG"
-    [ -n "$PICKED_ID" ] && ALREADY_ATTEMPTED+=("$PICKED_ID")
+    [ -n "$PICKED_ID" ] && record_attempted "$PICKED_ID"
     # Deliberately NOT clearing STATEFILE here either — this is exactly the
     # case it exists for. Leaving it in place means a restart before this
     # gets manually resolved will surface it loudly on next startup instead
@@ -428,7 +459,7 @@ STARTED=$(date)" > "$STATEFILE"
   fi
 
   if [ -n "$PICKED_ID" ] && ! echo "$OUTPUT" | grep -qi "moved to \"Done\"\|status.*Done"; then
-    ALREADY_ATTEMPTED+=("$PICKED_ID")
+    record_attempted "$PICKED_ID"
   fi
 
   # Deploy can exit=0 (the claude -p call itself didn't crash) while still

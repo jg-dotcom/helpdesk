@@ -52,4 +52,5 @@ mobile/*.env*
 scripts/autopilot.log
 scripts/autopilot-launchd.log
 scripts/autopilot-launchd-error.log
+scripts/.autopilot-attempted
 .tsc_before.txt
