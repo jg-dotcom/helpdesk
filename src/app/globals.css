@@ -309,35 +309,44 @@ input:focus, select:focus, textarea:focus {
   border-color: #185fa5;
 }
 
-/* ── Dark form overrides inside the admin dashboard ── */
+/* JAY-132 — this block was hardcoded to "always dark" regardless of the
+   theme toggle (previous comment literally said "Dark form overrides"),
+   so every input/select/textarea across the whole authenticated app
+   stayed dark even in light mode. Retokenized to follow [data-theme]. */
 .dash-content input,
 .dash-content select,
 .dash-content textarea {
-  background: rgba(255,255,255,0.05);
-  color: #e2e8f0;
-  border-color: rgba(255,255,255,0.1);
+  background: var(--bg-input);
+  color: var(--text);
+  border-color: var(--border);
   color-scheme: dark;
+}
+
+[data-theme="light"] .dash-content input,
+[data-theme="light"] .dash-content select,
+[data-theme="light"] .dash-content textarea {
+  color-scheme: light;
 }
 
 .dash-content input::placeholder,
 .dash-content textarea::placeholder {
-  color: #475569;
+  color: var(--text-tertiary);
 }
 
 .dash-content input:focus,
 .dash-content select:focus,
 .dash-content textarea:focus {
-  border-color: rgba(59,130,246,0.5);
-  background: rgba(255,255,255,0.07);
+  border-color: var(--accent);
+  background: var(--bg-input);
 }
 
 .dash-content .field label {
-  color: #64748b;
+  color: var(--text-tertiary);
 }
 
 .dash-content select option {
-  background: #1e293b;
-  color: #e2e8f0;
+  background: var(--bg-elevated);
+  color: var(--text);
 }
 
 textarea {
@@ -921,6 +930,10 @@ body:has(.dash-wrap) {
 }
 
 /* ── Sidebar nav ── */
+/* JAY-132 — the sidebar never had theme support: every color here was a
+   raw hardcoded hex, so toggling light/dark only ever changed the main
+   content area and left the sidebar permanently dark. Retokenized so it
+   follows the same [data-theme] system as everything else. */
 .dash-nav {
   position: fixed;
   top: 0;
@@ -928,8 +941,8 @@ body:has(.dash-wrap) {
   width: 240px;
   height: 100vh;
   overflow-y: auto;
-  background: #0d111e;
-  border-right: 1px solid rgba(255,255,255,0.06);
+  background: var(--bg);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   z-index: 50;
@@ -940,7 +953,7 @@ body:has(.dash-wrap) {
   align-items: center;
   gap: 10px;
   padding: 20px 16px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -948,8 +961,8 @@ body:has(.dash-wrap) {
   width: 30px;
   height: 30px;
   border-radius: 7px;
-  background: #2563eb;
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-text);
   font-size: 14px;
   font-weight: 700;
   display: flex;
@@ -961,7 +974,7 @@ body:has(.dash-wrap) {
 .sidebar-logo-text {
   font-size: 15px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text);
   letter-spacing: -0.01em;
 }
 
@@ -976,7 +989,7 @@ body:has(.dash-wrap) {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #4b5563;
+  color: var(--text-tertiary);
   padding: 8px 16px 4px;
 }
 
@@ -989,7 +1002,7 @@ body:has(.dash-wrap) {
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   text-decoration: none;
   position: relative;
@@ -997,13 +1010,14 @@ body:has(.dash-wrap) {
 }
 
 .sidebar-link:hover {
-  background: rgba(255,255,255,0.05);
-  color: #e2e8f0;
+  background: var(--bg-elevated);
+  color: var(--text);
 }
 
 .sidebar-link.active {
-  background: rgba(37,99,235,0.15);
-  color: #f1f5f9;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-weight: 700;
 }
 
 .sidebar-link-icon {
@@ -1025,8 +1039,8 @@ body:has(.dash-wrap) {
   min-width: 18px;
   height: 18px;
   border-radius: 99px;
-  background: #dc2626;
-  color: #fff;
+  background: var(--error);
+  color: var(--accent-text);
   font-size: 10px;
   font-weight: 700;
   display: flex;
@@ -1037,11 +1051,11 @@ body:has(.dash-wrap) {
 }
 
 .sidebar-badge-msg {
-  background: #2563eb;
+  background: var(--accent);
 }
 
 .sidebar-bottom {
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--border);
   padding: 8px;
   flex-shrink: 0;
 }
@@ -1057,15 +1071,15 @@ body:has(.dash-wrap) {
 }
 
 .sidebar-user:hover {
-  background: rgba(255,255,255,0.05);
+  background: var(--bg-elevated);
 }
 
 .sidebar-user-avatar {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #1e40af;
-  color: #93c5fd;
+  background: var(--accent);
+  color: var(--accent-text);
   font-size: 11px;
   font-weight: 700;
   display: flex;
@@ -1077,7 +1091,7 @@ body:has(.dash-wrap) {
 .sidebar-user-name {
   font-size: 12px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1085,7 +1099,7 @@ body:has(.dash-wrap) {
 
 .sidebar-user-role {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-tertiary);
   text-transform: capitalize;
 }
 
@@ -1094,7 +1108,7 @@ body:has(.dash-wrap) {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--text-tertiary);
   padding: 4px;
   border-radius: 5px;
   flex-shrink: 0;
@@ -1102,8 +1116,8 @@ body:has(.dash-wrap) {
 }
 
 .sidebar-gear:hover {
-  color: #94a3b8;
-  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
 }
 
 /* Legacy — remove horizontal layout refs */
@@ -1154,13 +1168,14 @@ body:has(.dash-wrap) {
   gap: 12px;
 }
 
+/* JAY-132 — same hardcoded-dark bug as the sidebar; retokenized. */
 .user-menu {
   position: absolute;
   bottom: 48px;
   left: 8px;
   right: 8px;
-  background: #1e293b;
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
   border-radius: 10px;
   width: auto;
   box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
@@ -1170,12 +1185,12 @@ body:has(.dash-wrap) {
 
 .user-menu-header {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .user-menu-email {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-tertiary);
 }
 
 .user-menu-items {
@@ -1185,7 +1200,7 @@ body:has(.dash-wrap) {
 .user-menu-item {
   padding: 0.6rem 1rem;
   font-size: 13px;
-  color: #e2e8f0;
+  color: var(--text);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1193,17 +1208,17 @@ body:has(.dash-wrap) {
 }
 
 .user-menu-item:hover {
-  background: rgba(255,255,255,0.06);
+  background: var(--bg-input);
 }
 
 .user-menu-divider {
   height: 1px;
-  background: rgba(255,255,255,0.06);
+  background: var(--border);
   margin: 0.25rem 0;
 }
 
 .user-menu-signout {
-  color: #f87171;
+  color: var(--error);
 }
 
 .acknowledge-row {
@@ -1550,16 +1565,15 @@ body:has(.dash-wrap) {
    elsewhere in the admin dashboard (see .dash-content input overrides
    above) rather than the light-theme colors above. */
 .dash-content .profile-name {
-  color: #e2e8f0;
+  color: var(--text);
 }
 
 .dash-content .profile-role {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .profile-card {
-  background: #1e293b;
-  border: 1px solid rgba(255,255,255,0.07);
+  background: var(--bg-elevated);
   border-radius: 12px;
   padding: 1.25rem;
   margin-bottom: 1rem;
@@ -1593,20 +1607,20 @@ body:has(.dash-wrap) {
 }
 
 .dash-content .profile-tabs {
-  border-bottom-color: rgba(255,255,255,0.08);
+  border-bottom-color: var(--border);
 }
 
 .dash-content .profile-tab {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .dash-content .profile-tab:hover {
-  color: #e2e8f0;
+  color: var(--text);
 }
 
 .dash-content .profile-tab.active {
-  color: #93c5fd;
-  border-bottom-color: #3b82f6;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 /* Compliance checklist */
