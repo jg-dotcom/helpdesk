@@ -378,7 +378,7 @@ export default function PortalPage() {
       setCurrentEntry(data.entry)
       showToast('Clocked in!', 'success')
       setClockInPhotoFile(null); setClockInPhotoPreview(null); setGeoCoords(null); setGeoStatus('idle')
-    } else showToast(data.error ?? 'Error', 'error')
+    } else showToast(data.error ?? "Couldn't clock you in. Check your connection and try again.", 'error')
     setClockLoading(false)
   }
 
@@ -394,7 +394,7 @@ export default function PortalPage() {
       setWeekEntries(prev => [...prev, { ...currentEntry!, clock_out: data.entry.clock_out, total_minutes: data.entry.total_minutes }])
       setCurrentEntry(null); showToast('Clocked out.', 'success')
       setShowClockOutNote(false); setClockOutNote('')
-    } else showToast(data.error ?? 'Error', 'error')
+    } else showToast(data.error ?? "Couldn't clock you out. Check your connection and try again.", 'error')
     setClockLoading(false)
   }
 
@@ -412,7 +412,7 @@ export default function PortalPage() {
       const toRes = await fetch('/api/employee/time-off', { headers: { Authorization: `Bearer ${token}` } })
       const toData = await toRes.json(); setTimeOffRequests(toData.requests ?? [])
     } else {
-      const data = await res.json(); showToast(data.error ?? 'Error', 'error')
+      const data = await res.json(); showToast(data.error ?? "Couldn't submit your request. Check your connection and try again.", 'error')
     }
     setToSaving(false)
   }
@@ -468,7 +468,7 @@ export default function PortalPage() {
       setSwapShiftId(null); setSwapTargetShiftId(''); setSwapNotes('')
       setSwapRequests(prev => [data.swap, ...prev])
     } else {
-      showToast(data.error ?? 'Error', 'error')
+      showToast(data.error ?? "Couldn't send your swap request. Check your connection and try again.", 'error')
     }
     setSwapSaving(false)
   }
