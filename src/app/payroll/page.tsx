@@ -35,7 +35,7 @@ type PayrollRun = {
   period_start: string
   period_end: string
   run_date: string
-  status: 'draft' | 'finalized'
+  status: 'draft' | 'finalized' | 'voided'
   total_gross: number
   employee_count: number
   notes: string | null
@@ -146,6 +146,11 @@ export default function PayrollPage() {
   const [offCycleReason, setOffCycleReason] = useState<'Bonus' | 'Correction' | 'Other'>('Bonus')
   const [savingDeductions, setSavingDeductions] = useState<number | null>(null)
   const [editDeductions, setEditDeductions] = useState<Record<number, { federal: string; state: string; other: string }>>({})
+  // JAY-147 — void-a-finalized-run flow: which run's confirm UI is open,
+  // its draft reason text, and which run is currently mid-request.
+  const [showVoidConfirm, setShowVoidConfirm] = useState<number | null>(null)
+  const [voidReasonDraft, setVoidReasonDraft] = useState<Record<number, string>>({})
+  const [voidingRun, setVoidingRun] = useState<number | null>(null)
 
   // Pre-payroll confidence check — read-only flags before you run, not after
   const [hoursAnomalies, setHoursAnomalies] = useState<{ employeeId: number; employeeName: string; hoursThisPeriod: number; avgHours: number }[]>([])
@@ -308,6 +313,11 @@ export default function PayrollPage() {
     } else {
       showToast('Run created.', 'success')
       setOffCycleEmployeeIds([])
+      // JAY-147 — non-blocking duplicate-off-cycle-period warning. Doesn't
+      // stop the run from being created, just flags it before finalizing.
+      if (data.duplicateOffCycleWarning) {
+        showToast(data.duplicateOffCycleWarning.message, 'error')
+      }
       await reloadRuns(sessionToken)
     }
     setRunCreating(false)
@@ -323,6 +333,34 @@ export default function PayrollPage() {
     await reloadRuns(sessionToken)
     // Reload items for this run if expanded
     loadRunItems(runId, sessionToken)
+  }
+
+  // JAY-147 — void a finalized run. Requires a reason (audit trail); the
+  // reason is captured via the inline `voidReasonDraft` state below rather
+  // than a browser prompt() so it stays in-theme with the rest of the app.
+  async function voidRun(runId: number) {
+    if (!sessionToken) return
+    const reason = (voidReasonDraft[runId] ?? '').trim()
+    if (!reason) {
+      showToast('A reason is required to void a run.', 'error')
+      return
+    }
+    setVoidingRun(runId)
+    const res = await fetch(`/api/payroll/run/${runId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'void', reason }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      showToast(data.error ?? 'Failed to void run.', 'error')
+    } else {
+      showToast('Run voided.', 'success')
+      setVoidReasonDraft(prev => { const n = { ...prev }; delete n[runId]; return n })
+      setShowVoidConfirm(null)
+      await reloadRuns(sessionToken)
+    }
+    setVoidingRun(null)
   }
 
   async function saveDeductions(item: PayrollRunItem) {
@@ -976,10 +1014,10 @@ export default function PayrollPage() {
                         <div style={{ fontWeight: 700, color: 'var(--accent)', fontSize: '15px' }}>{formatMoney(run.total_gross)}</div>
                         <span style={{
                           fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '12px',
-                          background: run.status === 'finalized' ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.16)',
-                          color: run.status === 'finalized' ? 'var(--success)' : 'var(--amber)',
+                          background: run.status === 'finalized' ? 'rgba(34,197,94,0.15)' : run.status === 'voided' ? 'var(--bg-danger)' : 'rgba(245,158,11,0.16)',
+                          color: run.status === 'finalized' ? 'var(--success)' : run.status === 'voided' ? 'var(--error)' : 'var(--amber)',
                         }}>
-                          {run.status === 'finalized' ? 'Finalized' : 'Draft'}
+                          {run.status === 'finalized' ? 'Finalized' : run.status === 'voided' ? 'Voided' : 'Draft'}
                         </span>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                           style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
@@ -1084,7 +1122,42 @@ export default function PayrollPage() {
                                     Finalize run
                                   </button>
                                 )}
+                                {/* JAY-147 — void action, only reachable from a finalized run. */}
+                                {run.status === 'finalized' && (
+                                  <button style={{ ...ghostBtn, color: 'var(--error)' }}
+                                    onClick={() => setShowVoidConfirm(showVoidConfirm === run.id ? null : run.id)}>
+                                    Void this run
+                                  </button>
+                                )}
                               </div>
+                              {run.status === 'finalized' && showVoidConfirm === run.id && (
+                                <div style={{ marginTop: '0.75rem', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-danger)', background: 'var(--bg-danger)' }}>
+                                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginBottom: '0.4rem' }}>
+                                    Void this run?
+                                  </div>
+                                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>
+                                    This can&apos;t be undone. The run stays visible in history for the audit trail, but is excluded from pay-stub and reporting totals. A reason is required.
+                                  </div>
+                                  <input
+                                    value={voidReasonDraft[run.id] ?? ''}
+                                    onChange={e => setVoidReasonDraft(prev => ({ ...prev, [run.id]: e.target.value }))}
+                                    placeholder="Reason (e.g. wrong employee subset, fat-fingered amount)"
+                                    style={{ width: '100%', boxSizing: 'border-box', marginBottom: '0.6rem' }}
+                                  />
+                                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                    <button style={ghostBtn} onClick={() => { setShowVoidConfirm(null); setVoidReasonDraft(prev => { const n = { ...prev }; delete n[run.id]; return n }) }}>
+                                      Cancel
+                                    </button>
+                                    <button
+                                      style={{ ...primaryBtn, background: 'var(--error)' }}
+                                      disabled={voidingRun === run.id || !(voidReasonDraft[run.id] ?? '').trim()}
+                                      onClick={() => voidRun(run.id)}
+                                    >
+                                      {voidingRun === run.id ? 'Voiding...' : 'Void run'}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </>
                           )}
                         </div>
