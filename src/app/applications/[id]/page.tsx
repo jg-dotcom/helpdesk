@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../../lib/supabaseAdmin'
+import ThemeToggle from './ThemeToggle'
 
 // Public, read-only applicant status check (JAY-41). No schema change: the
 // application's own numeric id is the lookup key (matches the issue's own
@@ -38,10 +39,10 @@ export default async function ApplicationStatusPage({ params }: { params: Promis
 
   if (!app) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f5f6fa', fontFamily: 'system-ui, -apple-system, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: '#151823', marginBottom: '0.5rem' }}>Application not found</div>
-          <div style={{ color: '#666', fontSize: '14px' }}>This link may be invalid. Please contact the business directly.</div>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', marginBottom: '0.5rem' }}>Application not found</div>
+          <div style={{ color: 'var(--text-tertiary)', fontSize: '14px' }}>This link may be invalid. Please contact the business directly.</div>
         </div>
       </div>
     )
@@ -58,13 +59,17 @@ export default async function ApplicationStatusPage({ params }: { params: Promis
   const submitted = new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6fa', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '2rem 1rem' }}>
-        <div style={{ background: '#fff', border: '1px solid #dde1ea', borderRadius: '10px', padding: '1.5rem' }}>
-          <div style={{ fontSize: '13px', color: '#888', marginBottom: '2px' }}>{businessName}</div>
-          <div style={{ fontSize: '19px', fontWeight: 700, color: '#151823', marginBottom: '1.25rem' }}>{jobTitle}</div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+          <ThemeToggle />
+        </div>
 
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#185fa5', marginBottom: '1rem' }}>
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '10px', padding: '1.5rem' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '2px' }}>{businessName}</div>
+          <div style={{ fontSize: '19px', fontWeight: 700, color: 'var(--text)', marginBottom: '1.25rem' }}>{jobTitle}</div>
+
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent)', marginBottom: '1rem' }}>
             Status: {currentStep === 2 ? decisionLabel(app.status) : STEP_LABELS[currentStep]}
           </div>
 
@@ -73,24 +78,24 @@ export default async function ApplicationStatusPage({ params }: { params: Promis
               <div key={label} style={{ display: 'flex', alignItems: 'center', flex: i < STEP_LABELS.length - 1 ? 1 : 'none' }}>
                 <div style={{
                   width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0,
-                  background: i <= currentStep ? '#185fa5' : '#dde1ea',
+                  background: i <= currentStep ? 'var(--accent)' : 'var(--border)',
                 }} />
                 {i < STEP_LABELS.length - 1 && (
-                  <div style={{ flex: 1, height: '2px', background: i < currentStep ? '#185fa5' : '#dde1ea' }} />
+                  <div style={{ flex: 1, height: '2px', background: i < currentStep ? 'var(--accent)' : 'var(--border)' }} />
                 )}
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-tertiary)' }}>
             {STEP_LABELS.map(label => <span key={label}>{label}</span>)}
           </div>
 
-          <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #eee', fontSize: '12px', color: '#aaa' }}>
+          <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border)', fontSize: '12px', color: 'var(--text-tertiary)' }}>
             Submitted {submitted}
           </div>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: '2rem', fontSize: '12px', color: '#aaa' }}>
+        <div style={{ textAlign: 'center', marginTop: '2rem', fontSize: '12px', color: 'var(--text-tertiary)' }}>
           Powered by Helpdesk
         </div>
       </div>
