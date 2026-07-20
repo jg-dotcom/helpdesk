@@ -145,6 +145,8 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [trialBanner, setTrialBanner] = useState<{ daysLeft: number; status: string } | null>(null)
+  // JAY-138 — owner-set company logo shown in place of the "H" brand icon
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const menuRef        = useRef<HTMLDivElement>(null)
   const notifsRef      = useRef<HTMLDivElement>(null)
   const notifDropdownRef = useRef<HTMLDivElement>(null)
@@ -179,6 +181,11 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
             setTrialBanner({ daysLeft: 0, status: data.status })
           }
         })
+        .catch(() => {})
+
+      fetch('/api/business/branding', { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.logo_url) setLogoUrl(data.logo_url) })
         .catch(() => {})
 
       fetch('/api/messages/channels', { headers: { Authorization: `Bearer ${session.access_token}` } })
@@ -309,7 +316,11 @@ export default function Nav({ active, viewerRole = 'owner', viewerPerms }: Props
 
       {/* ── Logo ── */}
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">H</div>
+        <div className="sidebar-logo-icon">
+          {logoUrl
+            ? <img src={logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
+            : 'H'}
+        </div>
         <span className="sidebar-logo-text">Helpdesk</span>
       </div>
 

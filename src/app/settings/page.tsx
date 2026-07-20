@@ -147,6 +147,9 @@ function SettingsContent() {
   const [contactEmail, setContactEmail] = useState('')
   const [accountantEmail, setAccountantEmail] = useState('')
   const [acctSaving, setAcctSaving] = useState(false)
+  // JAY-138 — company logo shown in the sidebar brand mark
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
 
   // Onboarding template
   const [fields, setFields] = useState<Field[]>(DEFAULT_FIELDS)
@@ -237,6 +240,7 @@ function SettingsContent() {
       setTimezone(bizData.profile.timezone ?? 'America/New_York')
       setContactEmail(bizData.profile.contact_email ?? '')
       setAccountantEmail(bizData.profile.accountant_email ?? '')
+      setLogoUrl(bizData.profile.logo_url ?? null)
       if (bizData.profile.business_hours) setBizHours(bizData.profile.business_hours)
       if (bizData.profile.weekly_labor_budget_cents != null) setLaborBudget((bizData.profile.weekly_labor_budget_cents / 100).toString())
       // JAY-18
@@ -341,6 +345,66 @@ function SettingsContent() {
     })
     showToast(res.ok ? 'Saved.' : "Couldn't save changes. Check your connection and try again.", res.ok ? 'success' : 'error')
     setAcctSaving(false)
+  }
+
+  // JAY-138 — company logo. Uploads to the public `logos` bucket under this
+  // owner's own folder (storage policies restrict writes to that folder),
+  // then saves the resulting public URL onto business_profiles.logo_url via
+  // the existing business-save endpoint (it already accepted logo_url —
+  // the column just never existed until this ticket).
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      showToast('Logo must be an image file.', 'error')
+      e.target.value = ''
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Logo must be under 2MB.', 'error')
+      e.target.value = ''
+      return
+    }
+    setLogoUploading(true)
+    const ext = file.name.split('.').pop() || 'png'
+    const filePath = `${userId}/logo_${Date.now()}.${ext}`
+    const { error: uploadError } = await supabase.storage.from('logos').upload(filePath, file, { upsert: true })
+    if (uploadError) {
+      showToast('Upload failed. Try again.', 'error')
+      setLogoUploading(false)
+      e.target.value = ''
+      return
+    }
+    const { data: pub } = supabase.storage.from('logos').getPublicUrl(filePath)
+    const res = await fetch('/api/settings/business', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ business_name: bizName, address, timezone, contact_email: contactEmail, accountant_email: accountantEmail, logo_url: pub.publicUrl }),
+    })
+    if (res.ok) {
+      setLogoUrl(pub.publicUrl)
+      showToast('Logo updated.', 'success')
+    } else {
+      showToast("Couldn't save the logo. Try again.", 'error')
+    }
+    setLogoUploading(false)
+    e.target.value = ''
+  }
+
+  async function handleLogoRemove() {
+    setLogoUploading(true)
+    const res = await fetch('/api/settings/business', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ business_name: bizName, address, timezone, contact_email: contactEmail, accountant_email: accountantEmail, logo_url: null }),
+    })
+    if (res.ok) {
+      setLogoUrl(null)
+      showToast('Logo removed.', 'success')
+    } else {
+      showToast("Couldn't remove the logo. Try again.", 'error')
+    }
+    setLogoUploading(false)
   }
 
   async function saveHours() {
@@ -635,6 +699,27 @@ function SettingsContent() {
             <div style={cardStyle}>
               <div style={sectionLabelStyle}>Business information</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                <div>
+                  <label style={labelStyle}>Company logo</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: '10px', background: 'var(--bg-elevated)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
+                    }}>
+                      {logoUrl
+                        ? <img src={logoUrl} alt="Company logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-tertiary)' }}>{(bizName || 'H')[0].toUpperCase()}</span>}
+                    </div>
+                    <label className="btn-ghost upload-label" style={{ cursor: logoUploading ? 'default' : 'pointer' }}>
+                      {logoUploading ? 'Uploading...' : logoUrl ? 'Replace logo' : 'Upload logo'}
+                      <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={logoUploading} style={{ display: 'none' }} />
+                    </label>
+                    {logoUrl && (
+                      <button className="doc-btn" style={{ color: 'var(--error)' }} onClick={handleLogoRemove} disabled={logoUploading}>Remove</button>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Shown in the sidebar for everyone on your team. PNG or JPG, under 2MB.</div>
+                </div>
                 <div>
                   <label style={labelStyle}>Business name</label>
                   <input value={bizName} onChange={e => setBizName(e.target.value)} placeholder="e.g. Acme Coffee Co." />
