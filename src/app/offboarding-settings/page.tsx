@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/Toast'
 import Nav from '../components/Nav'
@@ -13,6 +13,13 @@ const DEFAULT_ITEMS = [
   'Unused PTO paid out (if applicable)',
   'Exit interview completed',
 ]
+
+const SAMPLE_VALUES: Record<string, string> = {
+  employee_name: 'Jordan Lee',
+  lastDay: 'Aug 15, 2026',
+  reason: 'Relocation',
+  role: 'Shift Lead',
+}
 
 export default function OffboardingSettings() {
   const { showToast } = useToast()
@@ -69,6 +76,11 @@ export default function OffboardingSettings() {
     showToast(error ? "Couldn't save changes. Check your connection and try again." : 'Saved.', error ? 'error' : 'success')
     setSaving(false)
   }
+
+  const templatePreview = useMemo(
+    () => offboardingTemplate.replace(/\{\{(\w+)\}\}/g, (match, token) => SAMPLE_VALUES[token] ?? match),
+    [offboardingTemplate]
+  )
 
   // JAY-74 — this page was still on the pre-redesign light template (the
   // ticket flagged just the chip-button colors, but on inspection the whole
@@ -163,6 +175,17 @@ export default function OffboardingSettings() {
             placeholder={`{{employee_name}}'s last day is {{lastDay}}.\nReason: {{reason}}\n\nPlease ensure all equipment is returned and system access is revoked.`}
             style={{ minHeight: '160px', fontFamily: 'inherit', fontSize: '14px', marginBottom: '1rem' }}
           />
+
+          {offboardingTemplate.trim().length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                👁 Preview
+              </div>
+              <div style={{ background: 'rgba(59,130,246,0.08)', borderRadius: '8px', padding: '0.75rem 1rem', fontSize: '13px', color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
+                {templatePreview}
+              </div>
+            </div>
+          )}
 
           <button className="btn auth-btn-primary" onClick={save} disabled={saving} style={{ width: 'auto' }}>
             {saving ? 'Saving...' : 'Save'}
