@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import Dashboard from './components/Dashboard'
 import ActionScreen from './components/ActionScreen'
@@ -163,18 +163,20 @@ export default function Home() {
   }
 
   return (
-    <Dashboard
-      employees={employees}
-      selectedEmp={selectedEmp}
-      docsGenerated={docsGenerated}
-      loading={loading}
-      viewerRole={viewerRole}
-      viewerPerms={viewerPerms}
-      onSelectEmp={setSelectedEmp}
-      onAddEmployee={addEmployee}
-      onUpdateEmployee={updateEmployee}
-      onDeleteEmployee={deleteEmployee}
-      onStartAction={startAction}
-    />
+    <Suspense fallback={null}>
+      <Dashboard
+        employees={employees}
+        selectedEmp={selectedEmp}
+        docsGenerated={docsGenerated}
+        loading={loading}
+        viewerRole={viewerRole}
+        viewerPerms={viewerPerms}
+        onSelectEmp={setSelectedEmp}
+        onAddEmployee={addEmployee}
+        onUpdateEmployee={updateEmployee}
+        onDeleteEmployee={deleteEmployee}
+        onStartAction={startAction}
+      />
+    </Suspense>
   )
 }
