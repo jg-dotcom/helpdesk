@@ -14,10 +14,6 @@ type ActivityEvent = {
   actorName?: string
 }
 
-// JAY-132 — retokenize, and drop the border (nearly invisible against the
-// dark bg in production; the bg-elevated fill alone reads correctly).
-const cardStyle: React.CSSProperties = { background: 'var(--bg-elevated)', borderRadius: '12px' }
-
 const FILTERS: { key: ActivityEvent['type'] | 'all'; label: string }[] = [
   { key: 'all', label: 'All activity' },
   { key: 'hire', label: 'Team' },
@@ -239,11 +235,11 @@ export default function ActivityPage() {
           )}
         </div>
 
-        <div style={{ ...cardStyle, padding: loading || grouped.length === 0 ? '3rem 1.5rem' : '1.5rem', maxWidth: '760px' }}>
+        <div>
           {loading ? (
-            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '14px' }}>Loading activity…</div>
+            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '14px', padding: '3rem 1.5rem' }}>Loading activity…</div>
           ) : grouped.length === 0 ? (
-            <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '3rem 1.5rem' }}>
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--border)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 10px' }}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
               <div style={{ fontSize: '14px' }}>Nothing here yet.</div>
             </div>
@@ -251,11 +247,12 @@ export default function ActivityPage() {
             grouped.map(group => (
               <div key={group.date} style={{ marginBottom: '1.5rem' }}>
                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '10px' }}>{group.date}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  {group.events.map(ev => {
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {group.events.map((ev, i) => {
                     const meta = TYPE_META[ev.type]
+                    const isLast = i === group.events.length - 1
                     return (
-                      <div key={ev.id} style={{ display: 'flex', gap: '12px', padding: '10px 8px', borderRadius: '8px' }}>
+                      <div key={ev.id} style={{ display: 'flex', gap: '12px', padding: '10px 8px', borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
                         <div style={{ width: 30, height: 30, borderRadius: '8px', background: meta.bg, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           {meta.icon}
                         </div>
