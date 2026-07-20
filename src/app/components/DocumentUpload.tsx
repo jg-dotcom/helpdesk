@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { FileIcon } from './Icons'
 import { useToast } from './Toast'
+import ConfirmDeleteModal from './ConfirmDeleteModal'
 
 type EmployeeDoc = {
   id: number
@@ -30,6 +31,7 @@ export default function DocumentUpload({ employeeId, employeeName, userId }: Pro
   const [docs, setDocs] = useState<EmployeeDoc[]>([])
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [confirmDoc, setConfirmDoc] = useState<EmployeeDoc | null>(null)
 
   useEffect(() => {
     loadDocs()
@@ -86,7 +88,7 @@ export default function DocumentUpload({ employeeId, employeeName, userId }: Pro
   }
 
   async function handleDelete(doc: EmployeeDoc) {
-    if (!confirm(`Delete ${doc.file_name}? This cannot be undone.`)) return
+    setConfirmDoc(null)
     setDeletingId(doc.id)
     try {
       await supabase.storage.from('documents').remove([doc.file_path])
@@ -131,7 +133,7 @@ export default function DocumentUpload({ employeeId, employeeName, userId }: Pro
               <button
                 className="doc-btn"
                 style={{ color: 'var(--error)' }}
-                onClick={() => handleDelete(doc)}
+                onClick={() => setConfirmDoc(doc)}
                 disabled={deletingId === doc.id}
               >
                 {deletingId === doc.id ? 'Removing...' : 'Remove'}
@@ -139,6 +141,17 @@ export default function DocumentUpload({ employeeId, employeeName, userId }: Pro
             </div>
           ))}
         </div>
+      )}
+
+      {confirmDoc && (
+        <ConfirmDeleteModal
+          title={`Delete ${confirmDoc.file_name}?`}
+          message={<>This can&apos;t be undone. Type <strong style={{ color: 'var(--text)' }}>{confirmDoc.file_name}</strong> to confirm.</>}
+          confirmValue={confirmDoc.file_name}
+          confirmLabel="Delete document"
+          onConfirm={() => handleDelete(confirmDoc)}
+          onCancel={() => setConfirmDoc(null)}
+        />
       )}
     </div>
   )

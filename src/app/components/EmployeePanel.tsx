@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { Employee } from '../page'
 import { PaperclipIcon, DollarIcon, MailIcon } from './Icons'
 import { useToast } from './Toast'
+import ConfirmDeleteModal from './ConfirmDeleteModal'
 
 type Props = {
   employee: Employee
@@ -195,7 +196,6 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   // type the employee's name before the destructive button enables, same
   // type-to-confirm pattern as Settings' delete-account flow.
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
-  const [removeConfirmText, setRemoveConfirmText] = useState('')
 
   // Onboarding tab state
   const [empEmail, setEmpEmail] = useState(employee.email || '')
@@ -245,6 +245,12 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   const [checked, setChecked] = useState<boolean[]>([])
   const [offboardingSaving, setOffboardingSaving] = useState(false)
   const [offboardingDone, setOffboardingDone] = useState(false)
+  // JAY-148 — future shifts still assigned to this employee, surfaced before
+  // termination so the owner doesn't discover an unstaffed shift later.
+  const [upcomingShifts, setUpcomingShifts] = useState<{ id: number; shift_date: string }[]>([])
+  // Defaults to the non-destructive option — unassigning is a one-way action
+  // (the shift opens up for anyone to claim), so it shouldn't fire silently.
+  const [unassignShiftsOnTerminate, setUnassignShiftsOnTerminate] = useState(false)
   // JAY-47 — id of this employee's existing offboarding `documents` row, if
   // any, so "Terminate now" and later "Mark done" clicks update the same row
   // instead of inserting a new one each time.
@@ -316,6 +322,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     loadNotes()
     loadDepartments()
     loadTimeline()
+    loadUpcomingShifts()
     const today = new Date()
     const dayOfWeek = today.getDay()
     const start = new Date(today); start.setDate(today.getDate() - dayOfWeek)
@@ -545,6 +552,20 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     setTimelineLoading(false)
   }
 
+  // JAY-148 — assigned (non-open) shifts this employee is on for today or
+  // later, so the offboarding tab can warn before those shifts go unstaffed.
+  async function loadUpcomingShifts() {
+    const today = new Date().toISOString().slice(0, 10)
+    const { data } = await supabase
+      .from('shifts')
+      .select('id, shift_date')
+      .eq('employee_id', employee.id)
+      .eq('is_open_shift', false)
+      .gte('shift_date', today)
+      .order('shift_date', { ascending: true })
+    setUpcomingShifts(data ?? [])
+  }
+
   async function saveDepartments() {
     setDeptsSaving(true)
     // Delete all existing memberships for this employee
@@ -692,9 +713,18 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
     }
   }
 
+  // JAY-148 — opens up this employee's remaining upcoming shifts for someone
+  // else to claim, instead of leaving them assigned to a terminated employee.
+  async function unassignUpcomingShifts() {
+    if (upcomingShifts.length === 0) return
+    await supabase.from('shifts').update({ employee_id: null, is_open_shift: true }).in('id', upcomingShifts.map(s => s.id))
+    setUpcomingShifts([])
+  }
+
   async function completeOffboarding() {
     setOffboardingSaving(true)
     await supabase.from('employees').update({ status: 'terminated' }).eq('id', employee.id)
+    if (unassignShiftsOnTerminate) await unassignUpcomingShifts()
     await saveOffboardingDoc(checked, notes)
     onUpdated({ ...form, status: 'terminated' })
     setOffboardingSaving(false)
@@ -709,6 +739,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
   async function terminateNow() {
     setOffboardingSaving(true)
     await supabase.from('employees').update({ status: 'terminated' }).eq('id', employee.id)
+    if (unassignShiftsOnTerminate) await unassignUpcomingShifts()
     await saveOffboardingDoc(checked, notes)
     onUpdated({ ...form, status: 'terminated' })
     setOffboardingSaving(false)
@@ -1016,7 +1047,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
             <button onClick={save} disabled={saving} style={primaryBtn}>
               {saving ? 'Saving...' : 'Save changes'}
             </button>
-            <button style={dangerBtn} onClick={() => { setRemoveConfirmText(''); setShowRemoveConfirm(true) }}>
+            <button style={dangerBtn} onClick={() => setShowRemoveConfirm(true)}>
               Remove employee
             </button>
           </div>
@@ -1440,6 +1471,25 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
 
                 <Field label="Notes"><textarea style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional notes..." /></Field>
 
+                {upcomingShifts.length > 0 && (
+                  <div style={{ marginBottom: '1rem', padding: '10px 12px', borderRadius: '8px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--amber)', marginBottom: '4px' }}>
+                      {upcomingShifts.length} upcoming shift{upcomingShifts.length !== 1 ? 's' : ''} still assigned to {employee.name}
+                    </div>
+                    <div style={{ fontSize: '12px', color: muted, marginBottom: '8px' }}>
+                      {upcomingShifts.slice(0, 3).map(s => formatDate(s.shift_date)).join(', ')}{upcomingShifts.length > 3 ? `, +${upcomingShifts.length - 3} more` : ''}
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: text, cursor: 'pointer', marginBottom: '4px' }}>
+                      <input type="radio" checked={unassignShiftsOnTerminate} onChange={() => setUnassignShiftsOnTerminate(true)} />
+                      Unassign these shifts now (opens them for someone else to pick up)
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: text, cursor: 'pointer' }}>
+                      <input type="radio" checked={!unassignShiftsOnTerminate} onChange={() => setUnassignShiftsOnTerminate(false)} />
+                      Leave as-is
+                    </label>
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
                     onClick={terminateNow}
@@ -1466,35 +1516,14 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
 
     {/* JAY-125 — type-to-confirm before the destructive delete fires. */}
     {showRemoveConfirm && (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowRemoveConfirm(false)}>
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', padding: '1.5rem', width: '420px', maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
-          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '0.6rem' }}>Remove {employee.name}?</div>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1rem' }}>
-            This can&apos;t be undone. Type <strong style={{ color: 'var(--text)' }}>{employee.name}</strong> to confirm.
-          </div>
-          <input
-            autoFocus
-            value={removeConfirmText}
-            onChange={e => setRemoveConfirmText(e.target.value)}
-            placeholder={employee.name}
-            style={{ width: '100%', boxSizing: 'border-box', marginBottom: '1rem', borderColor: removeConfirmText && removeConfirmText !== employee.name ? 'var(--error)' : undefined }}
-          />
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <button onClick={() => setShowRemoveConfirm(false)} style={ghostBtn}>Cancel</button>
-            <button
-              onClick={() => { setShowRemoveConfirm(false); onDelete(employee.id) }}
-              disabled={removeConfirmText !== employee.name}
-              style={{
-                ...dangerBtn,
-                opacity: removeConfirmText === employee.name ? 1 : 0.5,
-                cursor: removeConfirmText === employee.name ? 'pointer' : 'default',
-              }}
-            >
-              Remove employee
-            </button>
-          </div>
-        </div>
-      </div>
+      <ConfirmDeleteModal
+        title={`Remove ${employee.name}?`}
+        message={<>This can&apos;t be undone. Type <strong style={{ color: 'var(--text)' }}>{employee.name}</strong> to confirm.</>}
+        confirmValue={employee.name}
+        confirmLabel="Remove employee"
+        onConfirm={() => { setShowRemoveConfirm(false); onDelete(employee.id) }}
+        onCancel={() => setShowRemoveConfirm(false)}
+      />
     )}
     </>
   )

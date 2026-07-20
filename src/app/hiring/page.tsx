@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { resolveTenantContext } from '../lib/tenant'
 import Nav from '../components/Nav'
 import { useToast } from '../components/Toast'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
 import { MailIcon, PhoneIcon, TagIcon } from '../components/Icons'
 import {
   formatPayRange, validateJobPosting, statusLabel, statusColor,
@@ -92,6 +93,7 @@ export default function JobsPage() {
   const [jobFilter, setJobFilter] = useState<number | 'all'>('all')
   const [draggingAppId, setDraggingAppId] = useState<string | null>(null)
   const [dragOverStage, setDragOverStage] = useState<Application['status'] | null>(null)
+  const [confirmDeleteApp, setConfirmDeleteApp] = useState<Application | null>(null)
 
   useEffect(() => { load() }, [])
 
@@ -214,7 +216,7 @@ export default function JobsPage() {
   }
 
   async function deleteApp(appId: string) {
-    if (!confirm('Delete this application?')) return
+    setConfirmDeleteApp(null)
     await fetch(`/api/applications/${appId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     setApps(prev => prev.filter(a => a.id !== appId))
     if (selected?.id === appId) setSelected(null)
@@ -636,7 +638,7 @@ export default function JobsPage() {
                 <a href={`mailto:${selected.email}`} style={{ ...primaryBtn, flex: 1, textAlign: 'center', textDecoration: 'none', display: 'inline-block' }}>
                   Email applicant
                 </a>
-                <button onClick={() => deleteApp(selected.id)} style={dangerBtn}>
+                <button onClick={() => setConfirmDeleteApp(selected)} style={dangerBtn}>
                   Delete
                 </button>
               </div>
@@ -644,6 +646,16 @@ export default function JobsPage() {
           </>
         )}
 
+        {confirmDeleteApp && (
+          <ConfirmDeleteModal
+            title={`Delete ${confirmDeleteApp.name}'s application?`}
+            message={<>This can&apos;t be undone. Type <strong style={{ color: 'var(--text)' }}>{confirmDeleteApp.name}</strong> to confirm.</>}
+            confirmValue={confirmDeleteApp.name}
+            confirmLabel="Delete application"
+            onConfirm={() => deleteApp(confirmDeleteApp.id)}
+            onCancel={() => setConfirmDeleteApp(null)}
+          />
+        )}
       </div>
     </div>
   )

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { FileIcon } from './Icons'
 import { useToast } from './Toast'
+import ConfirmDeleteModal from './ConfirmDeleteModal'
 
 type Doc = {
   id: number
@@ -25,6 +26,7 @@ export default function DocumentLibrary({ userId }: { userId: string }) {
   const [uploading, setUploading] = useState(false)
   const [search, setSearch] = useState('')
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [confirmDoc, setConfirmDoc] = useState<Doc | null>(null)
 
   useEffect(() => {
     loadDocs()
@@ -76,7 +78,7 @@ export default function DocumentLibrary({ userId }: { userId: string }) {
   }
 
   async function handleDelete(doc: Doc) {
-    if (!confirm(`Delete ${doc.file_name}? This cannot be undone.`)) return
+    setConfirmDoc(null)
     setDeletingId(doc.id)
     try {
       await supabase.storage.from('documents').remove([doc.file_path])
@@ -138,7 +140,7 @@ export default function DocumentLibrary({ userId }: { userId: string }) {
               <button
                 className="doc-btn"
                 style={{ color: 'var(--error)' }}
-                onClick={() => handleDelete(doc)}
+                onClick={() => setConfirmDoc(doc)}
                 disabled={deletingId === doc.id}
               >
                 {deletingId === doc.id ? 'Removing...' : 'Remove'}
@@ -146,6 +148,17 @@ export default function DocumentLibrary({ userId }: { userId: string }) {
             </div>
           ))}
         </div>
+      )}
+
+      {confirmDoc && (
+        <ConfirmDeleteModal
+          title={`Delete ${confirmDoc.file_name}?`}
+          message={<>This can&apos;t be undone. Type <strong style={{ color: 'var(--text)' }}>{confirmDoc.file_name}</strong> to confirm.</>}
+          confirmValue={confirmDoc.file_name}
+          confirmLabel="Delete document"
+          onConfirm={() => handleDelete(confirmDoc)}
+          onCancel={() => setConfirmDoc(null)}
+        />
       )}
     </div>
   )

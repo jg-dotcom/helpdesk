@@ -417,6 +417,20 @@ export default function PortalPage() {
     setToSaving(false)
   }
 
+  async function cancelTimeOff(id: number) {
+    const res = await fetch(`/api/employee/time-off?id=${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      showToast('Request cancelled.', 'success')
+      setTimeOffRequests(prev => prev.filter(r => r.id !== id))
+    } else {
+      showToast(data.error ?? 'Could not cancel request.', 'error')
+    }
+  }
+
   async function claimShift(shiftId: number) {
     setClaimingId(shiftId)
     const res = await fetch('/api/employee/claim-shift', {
@@ -457,6 +471,20 @@ export default function PortalPage() {
       showToast(data.error ?? 'Error', 'error')
     }
     setSwapSaving(false)
+  }
+
+  async function cancelSwapRequest(id: number) {
+    const res = await fetch(`/api/employee/swap-request?id=${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      showToast('Request cancelled.', 'success')
+      setSwapRequests(prev => prev.filter(sr => sr.id !== id))
+    } else {
+      showToast(data.error ?? 'Could not cancel request.', 'error')
+    }
   }
 
   async function signOut() {
@@ -574,7 +602,7 @@ export default function PortalPage() {
       {activeTab === 'pay' && (
         <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '2rem 1.5rem' }}>
           <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem', maxWidth: '560px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Pay history</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '1rem' }}>Pay history</div>
             {stubs.length === 0 ? (
               <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', textAlign: 'center', padding: '2rem 0' }}>No pay records yet.</div>
             ) : stubs.map(s => (
@@ -780,22 +808,23 @@ export default function PortalPage() {
           {/* LEFT COLUMN */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-            {/* Clock in / out */}
-            <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Time clock</div>
+            {/* Clock in / out — restyled as the prototype's hero panel:
+                bigger radius/padding, amber eyebrow label above a large
+                headline number, action button on the right. */}
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: '16px', padding: '28px 28px 24px' }}>
               {currentEntry ? (
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap' }}>
                     <div>
-                      <div style={{ fontSize: '11px', color: 'var(--success)', fontWeight: 600, marginBottom: '4px' }}>&#9679; Clocked in</div>
-                      <div style={{ fontSize: '36px', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{elapsed(currentEntry.clock_in)}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '5px' }}>Since {fmtTime(currentEntry.clock_in)}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>&#9679; Clocked in</div>
+                      <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>{elapsed(currentEntry.clock_in)}</div>
+                      <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>Since {fmtTime(currentEntry.clock_in)}</div>
                     </div>
                     {!showClockOutNote && (
                       <button
                         onClick={() => setShowClockOutNote(true)}
                         disabled={clockLoading}
-                        style={{ padding: '11px 28px', borderRadius: '9px', border: 'none', background: 'var(--error)', color: 'var(--accent-text)', fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        style={{ padding: '12px 20px', borderRadius: '10px', border: 'none', background: 'var(--error)', color: 'var(--accent-text)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                       >
                         Clock out
                       </button>
@@ -834,19 +863,20 @@ export default function PortalPage() {
                 </div>
               ) : (
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap' }}>
                     <div>
-                      <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginBottom: '2px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>Time clock</div>
+                      <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)' }}>
                         {todayShift
                           ? `Today: ${fmt(todayShift.start_time)} – ${fmt(todayShift.end_time)}`
                           : 'No shift scheduled today'}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Ready to start your shift?</div>
+                      <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>Ready to start your shift?</div>
                     </div>
                     <button
                       onClick={clockIn}
                       disabled={clockLoading || (verification.requireClockinPhoto && !clockInPhotoFile)}
-                      style={{ padding: '11px 28px', borderRadius: '9px', border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap', opacity: verification.requireClockinPhoto && !clockInPhotoFile ? 0.5 : 1 }}
+                      style={{ padding: '12px 20px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap', opacity: verification.requireClockinPhoto && !clockInPhotoFile ? 0.5 : 1 }}
                     >
                       {clockLoading ? 'Clocking in...' : 'Clock in'}
                     </button>
@@ -905,7 +935,7 @@ export default function PortalPage() {
 
             {/* Upcoming shifts */}
             <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Schedule</div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '1rem' }}>Schedule</div>
 
               {todayShift && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '9px', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)', marginBottom: '10px' }}>
@@ -1003,7 +1033,7 @@ export default function PortalPage() {
 
             {/* Hours this week */}
             <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>This week</div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '1rem' }}>This week</div>
               <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem' }}>
                 <div>
                   <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{weeklyHrs}h{weeklyMinsRem > 0 ? ` ${weeklyMinsRem}m` : ''}</div>
@@ -1025,7 +1055,7 @@ export default function PortalPage() {
             {/* Announcements */}
             {announcements.length > 0 && (
               <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Announcements</div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '1rem' }}>Announcements</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
                   {announcements.slice(0, 5).map(a => (
                     <div key={a.id} style={{ paddingBottom: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -1041,7 +1071,7 @@ export default function PortalPage() {
             {/* Time off */}
             <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Time off</div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)' }}>Time off</div>
                 <button
                   onClick={() => setShowTOForm(v => !v)}
                   style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: showTOForm ? 'var(--border)' : 'rgba(255,255,255,0.05)', color: 'var(--text)', cursor: 'pointer', fontWeight: 500 }}
@@ -1133,6 +1163,14 @@ export default function PortalPage() {
                         )}
                       </div>
                       <span style={{ fontSize: '11px', fontWeight: 600, color: statusColor[r.status as keyof typeof statusColor] ?? 'var(--text-tertiary)', textTransform: 'capitalize' }}>{r.status}</span>
+                      {r.status === 'pending' && (
+                        <button
+                          onClick={() => cancelTimeOff(r.id)}
+                          style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1142,7 +1180,7 @@ export default function PortalPage() {
             {/* Swap requests */}
             {swapRequests.length > 0 && (
               <div style={{ background: 'var(--bg-elevated)', borderRadius: '14px', padding: '1.5rem' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>My swap requests</div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '1rem' }}>My swap requests</div>
                 {swapRequests.slice(0, 5).map(sr => {
                   const myShift = shifts.find(s => s.id === sr.requester_shift_id)
                   const swapStatusColor = sr.status === 'approved' ? 'var(--success)' : sr.status === 'denied' ? 'var(--error)' : 'var(--amber)'
@@ -1160,6 +1198,14 @@ export default function PortalPage() {
                         )}
                       </div>
                       <span style={{ fontSize: '11px', fontWeight: 600, color: swapStatusColor, textTransform: 'capitalize' }}>{sr.status}</span>
+                      {sr.status === 'pending' && (
+                        <button
+                          onClick={() => cancelSwapRequest(sr.id)}
+                          style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </div>
                   )
                 })}

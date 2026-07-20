@@ -5,6 +5,7 @@ import {
   dayKeyFromDate,
   openShifts,
   overdueOpenShifts,
+  upcomingAssignedShifts,
   isNoShowShift,
   type DayHours,
 } from '../lib/shifts'
@@ -150,6 +151,31 @@ describe('overdueOpenShifts', () => {
 
   it('returns empty when no overdue shifts', () => {
     expect(overdueOpenShifts(shifts, '2026-05-01')).toHaveLength(0)
+  })
+})
+
+// ─── upcomingAssignedShifts ───────────────────────────────────────────────────
+
+describe('upcomingAssignedShifts', () => {
+  const shifts = [
+    { id: 1, shift_date: '2026-07-01', employee_id: 5, is_open_shift: false },  // past, assigned
+    { id: 2, shift_date: '2026-07-10', employee_id: 5, is_open_shift: false },  // today, assigned
+    { id: 3, shift_date: '2026-07-15', employee_id: 5, is_open_shift: false },  // future, assigned
+    { id: 4, shift_date: '2026-07-20', employee_id: null, is_open_shift: true }, // future, open
+  ]
+
+  it('returns only assigned shifts today or later', () => {
+    const result = upcomingAssignedShifts(shifts, '2026-07-10')
+    expect(result.map(s => s.id)).toEqual([2, 3])
+  })
+
+  it('excludes open (unassigned) shifts', () => {
+    const result = upcomingAssignedShifts(shifts, '2026-07-01')
+    expect(result.some(s => s.id === 4)).toBe(false)
+  })
+
+  it('returns empty array when no upcoming assigned shifts', () => {
+    expect(upcomingAssignedShifts(shifts, '2026-08-01')).toHaveLength(0)
   })
 })
 

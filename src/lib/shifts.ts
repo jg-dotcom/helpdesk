@@ -72,6 +72,17 @@ export function overdueOpenShifts<T extends { is_open_shift?: boolean; employee_
 }
 
 /**
+ * Filter shifts still assigned to an employee (not open) on or after a given date —
+ * used to warn before terminating someone with future shifts still on the schedule.
+ */
+export function upcomingAssignedShifts<T extends { is_open_shift?: boolean; employee_id: number | null; shift_date: string }>(
+  shifts: T[],
+  today: string,
+): T[] {
+  return shifts.filter(s => !s.is_open_shift && s.employee_id != null && s.shift_date >= today)
+}
+
+/**
  * A shift is a "no-show" when its scheduled end has already passed, it wasn't
  * marked as a callout, and no matching clock-in exists for that employee on
  * that date. Read-time classification only — nothing is persisted, so a wrong

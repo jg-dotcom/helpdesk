@@ -2,7 +2,7 @@
 jest.mock('../../app/lib/supabaseAdmin', () => ({ supabaseAdmin: { auth: {}, from: jest.fn() } }))
 
 import { supabaseAdmin } from '../../app/lib/supabaseAdmin'
-import { GET, POST } from '../../app/api/employee/time-off/route'
+import { GET, POST, DELETE } from '../../app/api/employee/time-off/route'
 import { mockAuthUser, queueFromResponses, mockRequest } from '../helpers/supabaseMock'
 
 describe('GET /api/employee/time-off', () => {
@@ -126,5 +126,51 @@ describe('POST /api/employee/time-off', () => {
       body: { startDate: '2026-07-10', endDate: '2026-07-10', type: 'PTO', portion: 'lunchtime' },
     }) as never)
     expect(res.status).toBe(400)
+  })
+})
+
+// JAY-149 — employees cancelling their own pending time-off request.
+describe('DELETE /api/employee/time-off', () => {
+  it('returns 401 without a valid token', async () => {
+    mockAuthUser(supabaseAdmin, null)
+    const res = await DELETE(mockRequest({ token: 'bad', searchParams: { id: '1' } }) as never)
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 403 for a terminated employee', async () => {
+    mockAuthUser(supabaseAdmin, { email: 'ghost@example.com' })
+    queueFromResponses(supabaseAdmin, [{ data: null, error: null }])
+    const res = await DELETE(mockRequest({ token: 'good', searchParams: { id: '1' } }) as never)
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 400 when id is missing', async () => {
+    mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
+    queueFromResponses(supabaseAdmin, [{ data: { id: 1, user_id: 'u1' }, error: null }])
+    const res = await DELETE(mockRequest({ token: 'good' }) as never)
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 404 when the request does not belong to the caller or is not pending', async () => {
+    mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
+    queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'u1' }, error: null },
+      { data: [], error: null },
+    ])
+    const res = await DELETE(mockRequest({ token: 'good', searchParams: { id: '10' } }) as never)
+    expect(res.status).toBe(404)
+  })
+
+  it('deletes the request scoped to employee_id and pending status', async () => {
+    mockAuthUser(supabaseAdmin, { email: 'jane@example.com' })
+    const fromMock = queueFromResponses(supabaseAdmin, [
+      { data: { id: 1, user_id: 'u1' }, error: null },
+      { data: [{ id: 10 }], error: null },
+    ])
+    const res = await DELETE(mockRequest({ token: 'good', searchParams: { id: '10' } }) as never)
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body).toEqual({ success: true })
+    expect(fromMock).toHaveBeenCalledWith('time_off_requests')
   })
 })
