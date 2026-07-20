@@ -263,7 +263,13 @@ run_stage() {
 STALE_LOCK_SECS=90
 clear_stale_git_locks() {
   local lockfile
-  for lockfile in .git/index.lock .git/HEAD.lock; do
+  # Extended 2026-07-20: JAY-161's third attempt shipped the commit fine but
+  # still couldn't clean up a stale .git/refs/remotes/origin/main.lock left
+  # over from an earlier interrupted fetch/push, which the Deploy stage isn't
+  # allowed to touch itself — this was previously only handled ad hoc by hand.
+  # Covering the ref lock files here too so this self-heals every cycle like
+  # index.lock/HEAD.lock already do.
+  for lockfile in .git/index.lock .git/HEAD.lock .git/refs/heads/main.lock .git/refs/remotes/origin/main.lock; do
     [ -f "$lockfile" ] || continue
     local mtime now age
     # BSD stat (macOS, the real target) uses -f as a custom-format flag;
@@ -297,8 +303,21 @@ clear_stale_git_locks() {
       # rename() isn't blocked by the same restriction, and git only checks
       # for the lockfile's exact path/name, so moving it out of the way is
       # functionally equivalent to deleting it for git's purposes.
-      if mv "$lockfile" "${lockfile}.stale-$(date +%s)" 2>/dev/null; then
-        echo "  [git-lock] rm was blocked by the sandbox mount (known issue) — cleared via rename instead." >> "$LOG"
+      #
+      # Files inside .git/refs/** are special: git's ref-directory scanner
+      # treats ANY non-hidden filename under refs/ as a ref name to resolve,
+      # so a plain rename like "main.lock.stale-<ts>" breaks `git fetch`/
+      # other ref-reading commands ("fatal: bad object refs/.../main.lock.stale-...").
+      # Confirmed real incident on 2026-07-19. Renaming to a leading-dot name
+      # instead keeps it invisible to that scanner.
+      local dest
+      if [[ "$lockfile" == *"/refs/"* ]]; then
+        dest="$(dirname "$lockfile")/.stale-$(basename "$lockfile")-$(date +%s)"
+      else
+        dest="${lockfile}.stale-$(date +%s)"
+      fi
+      if mv "$lockfile" "$dest" 2>/dev/null; then
+        echo "  [git-lock] rm was blocked by the sandbox mount (known issue) — cleared via rename to ${dest} instead." >> "$LOG"
       else
         echo "  [git-lock] rm and rename both failed on ${lockfile} — leaving it for a human to clear." >> "$LOG"
       fi
