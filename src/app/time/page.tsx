@@ -191,7 +191,7 @@ export default function TimePage() {
       setEntries(prev => prev.map(en => en.id === editingEntry.id ? { ...en, ...data.entry } : en))
       showToast('Time entry updated.', 'success')
       setEditingEntry(null)
-    } else showToast(data.error ?? 'Error saving entry.', 'error')
+    } else showToast(data.error ?? "Couldn't save this time entry. Check the hours and try again.", 'error')
     setSavingEntry(false)
   }
 
@@ -472,7 +472,7 @@ export default function TimePage() {
     }
 
     const { data, error } = await supabase.from('shifts').insert(shiftsToInsert).select()
-    if (error) { showToast('Error saving.', 'error') }
+    if (error) { showToast("Couldn't save your changes. Try again.", 'error') }
     else {
       setShifts(prev => [...prev, ...(data ?? [])].sort((a, b) => a.shift_date.localeCompare(b.shift_date)))
       const skippedParts = []
@@ -580,7 +580,7 @@ export default function TimePage() {
     })
     if (!newShifts.length) { showToast('No new shifts to generate.', 'error'); setGenerating(false); return }
     const { error } = await supabase.from('shifts').insert(newShifts)
-    if (error) showToast('Error generating schedule.', 'error')
+    if (error) showToast("Couldn't auto-generate the schedule. Try again or build it manually.", 'error')
     else { showToast(`Generated ${newShifts.length} shift${newShifts.length !== 1 ? 's' : ''}.`, 'success'); load() }
     setGenerating(false)
   }
@@ -613,7 +613,7 @@ export default function TimePage() {
 
     if (!newShifts.length) { showToast('No shifts to copy from last week.', 'error'); setCopyingWeek(false); return }
     const { error } = await supabase.from('shifts').insert(newShifts)
-    if (error) showToast('Error copying last week.', 'error')
+    if (error) showToast("Couldn't copy last week's shifts. Try again.", 'error')
     else { showToast(`Copied ${newShifts.length} shift${newShifts.length !== 1 ? 's' : ''} from last week.`, 'success'); load() }
     setCopyingWeek(false)
   }
@@ -810,7 +810,7 @@ export default function TimePage() {
     })
     const data = await res.json()
     if (res.ok) showToast(`Notified ${data.notified} employee${data.notified !== 1 ? 's' : ''}`, 'success')
-    else showToast('Error publishing', 'error')
+    else showToast("Couldn't publish this schedule. Try again.", 'error')
     setPublishing(false)
   }
 
