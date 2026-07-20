@@ -83,6 +83,37 @@ export function upcomingAssignedShifts<T extends { is_open_shift?: boolean; empl
 }
 
 /**
+ * Format a "HH:MM" or "HH:MM:SS" time string for display, ignoring anything
+ * past minutes (so "17:00" and "17:00:00" render identically).
+ */
+export function fmtTimeDisplay(t: string): string {
+  const [h, m] = t.split(':'); const hr = parseInt(h)
+  return `${hr % 12 || 12}:${m} ${hr < 12 ? 'AM' : 'PM'}`
+}
+
+/**
+ * JAY-165: an out-of-hours flagged shift can be a false positive when the
+ * flag comes from a precision mismatch (e.g. "17:00" vs "17:00:00") rather
+ * than an actual time difference — the raw string comparison in the caller
+ * flags it, but the displayed (fmtTimeDisplay-formatted) values are
+ * identical. Suppress those from the warning banner rather than showing a
+ * range next to an identical-looking "outside" range. Only suppresses when
+ * every flagged boundary is display-identical; a shift genuinely outside
+ * hours on either side still renders.
+ */
+export function shouldSuppressOutOfHoursEntry(
+  shift: { start_time: string; end_time: string },
+  dayHours: DayHours,
+): boolean {
+  if (dayHours.closed) return false
+  const startFlagged = shift.start_time < dayHours.open
+  const endFlagged = shift.end_time > dayHours.close
+  if (startFlagged && fmtTimeDisplay(shift.start_time) !== fmtTimeDisplay(dayHours.open)) return false
+  if (endFlagged && fmtTimeDisplay(shift.end_time) !== fmtTimeDisplay(dayHours.close)) return false
+  return true
+}
+
+/**
  * A shift is a "no-show" when its scheduled end has already passed, it wasn't
  * marked as a callout, and no matching clock-in exists for that employee on
  * that date. Read-time classification only — nothing is persisted, so a wrong

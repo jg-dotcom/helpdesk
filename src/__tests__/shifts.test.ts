@@ -7,6 +7,7 @@ import {
   overdueOpenShifts,
   upcomingAssignedShifts,
   isNoShowShift,
+  shouldSuppressOutOfHoursEntry,
   type DayHours,
 } from '../lib/shifts'
 
@@ -212,5 +213,33 @@ describe('isNoShowShift', () => {
   it('ignores a clock-in from a different employee or a different day', () => {
     const entries = [clockIn(2, '2026-07-13'), clockIn(1, '2026-07-12')]
     expect(isNoShowShift(baseShift, entries, now)).toBe(true)
+  })
+})
+
+// ─── shouldSuppressOutOfHoursEntry ─────────────────────────────────────────────
+
+describe('shouldSuppressOutOfHoursEntry', () => {
+  it('suppresses a shift whose flagged end differs only by seconds precision', () => {
+    const shift = { start_time: '09:00', end_time: '17:00' }
+    const hours: DayHours = { open: '09:00', close: '17:00:00', closed: false }
+    expect(shouldSuppressOutOfHoursEntry(shift, hours)).toBe(true)
+  })
+
+  it('does not suppress a shift genuinely outside business hours', () => {
+    const shift = { start_time: '08:00', end_time: '17:00' }
+    const hours: DayHours = { open: '09:00', close: '17:00', closed: false }
+    expect(shouldSuppressOutOfHoursEntry(shift, hours)).toBe(false)
+  })
+
+  it('does not suppress a closed-day entry', () => {
+    const shift = { start_time: '09:00', end_time: '17:00' }
+    const hours: DayHours = { open: '09:00', close: '17:00', closed: true }
+    expect(shouldSuppressOutOfHoursEntry(shift, hours)).toBe(false)
+  })
+
+  it('does not suppress when only one side of a doubly-flagged shift is a genuine mismatch', () => {
+    const shift = { start_time: '08:00', end_time: '17:00' }
+    const hours: DayHours = { open: '09:00', close: '17:00:00', closed: false }
+    expect(shouldSuppressOutOfHoursEntry(shift, hours)).toBe(false)
   })
 })

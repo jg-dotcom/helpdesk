@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { resolveTenantContext } from '../lib/tenant'
-import { isNoShowShift } from '../../lib/shifts'
+import { isNoShowShift, shouldSuppressOutOfHoursEntry } from '../../lib/shifts'
 import Nav from '../components/Nav'
 import CalloutModal from '../components/CalloutModal'
 import { useToast } from '../components/Toast'
@@ -721,6 +721,11 @@ export default function TimePage() {
       .filter(s => dayHours.closed || s.start_time < dayHours.open || s.end_time > dayHours.close)
       .map(s => ({ shift: s, dateStr, dayHours }))
   })
+  // JAY-165: display-only filter — hides entries whose flagged boundary is
+  // textually identical to what it's compared against once formatted (e.g.
+  // "17:00" vs "17:00:00" both render "5:00 PM"), without touching the
+  // underlying flagging logic above.
+  const visibleOutOfHoursShifts = outOfHoursShifts.filter(entry => !shouldSuppressOutOfHoursEntry(entry.shift, entry.dayHours))
 
   // Availability lookup — graying only applies to employees who have submitted availability
   // themselves. If this employee has zero rows at all, treat it as "no data" (don't gray any
@@ -1014,11 +1019,11 @@ export default function TimePage() {
                   </select>
                 </div>
 
-                {outOfHoursShifts.length > 0 && dismissedHoursWarningWeek !== weekOffset && (
+                {visibleOutOfHoursShifts.length > 0 && dismissedHoursWarningWeek !== weekOffset && (
                   <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '10px 12px', marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
                       <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <span>⚠</span> Shift{outOfHoursShifts.length !== 1 ? 's' : ''} outside business hours
+                        <span>⚠</span> Shift{visibleOutOfHoursShifts.length !== 1 ? 's' : ''} outside business hours
                       </div>
                       <button
                         onClick={() => setDismissedHoursWarningWeek(weekOffset)}
@@ -1028,7 +1033,7 @@ export default function TimePage() {
                       </button>
                     </div>
                     <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      {(showAllHoursWarnings ? outOfHoursShifts : outOfHoursShifts.slice(0, 5)).map(({ shift, dateStr, dayHours }) => {
+                      {(showAllHoursWarnings ? visibleOutOfHoursShifts : visibleOutOfHoursShifts.slice(0, 5)).map(({ shift, dateStr, dayHours }) => {
                         const emp = empMap[shift.employee_id!]
                         const reason = dayHours.closed
                           ? 'business is closed this day'
@@ -1045,12 +1050,12 @@ export default function TimePage() {
                           </div>
                         )
                       })}
-                      {outOfHoursShifts.length > 5 && (
+                      {visibleOutOfHoursShifts.length > 5 && (
                         <button
                           onClick={() => setShowAllHoursWarnings(v => !v)}
                           style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, textAlign: 'left' }}
                         >
-                          {showAllHoursWarnings ? 'Show fewer' : `+${outOfHoursShifts.length - 5} more`}
+                          {showAllHoursWarnings ? 'Show fewer' : `+${visibleOutOfHoursShifts.length - 5} more`}
                         </button>
                       )}
                     </div>
