@@ -206,6 +206,11 @@ function SettingsContent() {
   // Danger
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
+  // JAY-127 — distinct, persistent failure state (not just a toast) so a
+  // failed deletion reads as clearly different from a successful one, and a
+  // separate success state confirming data is untouched on failure.
+  const [deleteError, setDeleteError] = useState(false)
+  const [deleteSucceeded, setDeleteSucceeded] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => { load() }, [])
@@ -541,17 +546,20 @@ function SettingsContent() {
   }
 
   async function deleteAccount() {
-    if (deleteConfirm !== userEmail) return
+    if (deleteConfirm !== deleteConfirmTarget) return
     setDeleting(true)
+    setDeleteError(false)
     const res = await fetch('/api/settings/delete-account', {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     if (!res.ok) {
       setDeleting(false)
-      showToast("Couldn't delete your account. Check your connection and try again.", 'error')
+      setDeleteError(true)
       return
     }
+    setDeleting(false)
+    setDeleteSucceeded(true)
     await supabase.auth.signOut()
     window.location.href = '/login'
   }
@@ -560,6 +568,10 @@ function SettingsContent() {
   // "divider-separated rows... max one level of container nesting" instead
   // of the bordered `.card` box every tab panel used to sit in.
   const cardStyle: React.CSSProperties = { borderTop: '1px solid var(--border)', paddingTop: '1.25rem', marginBottom: '1rem' }
+  // JAY-127 / Settings Danger Zone.dc.html — "type delete <company>" instead
+  // of the user's own email, so the confirm phrase names the thing actually
+  // being destroyed (all company data), not just the signed-in person.
+  const deleteConfirmTarget = `delete ${bizName || 'your account'}`
   const labelStyle: React.CSSProperties = { fontSize: '12px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '4px' }
   const sectionLabelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 500, color: 'var(--text-tertiary)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.6rem' }
   // Secondary/ghost button — the shared `.btn` class defaults to a white
@@ -1311,31 +1323,50 @@ function SettingsContent() {
                 </button>
               </div>
 
-              {/* JAY-55 — visually isolate the destructive action: red-tinted
-                  background/border, distinct from the plain-dark card above. */}
+              {/* JAY-55/127 — visually isolate the destructive action: red-tinted
+                  background/border, distinct from the plain-dark card above.
+                  Per Settings Danger Zone.dc.html: type "delete <company>" to
+                  confirm, and a distinct persistent failure state (not just a
+                  toast) if the API doesn't confirm the deletion completed. */}
               <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: '12px', padding: '1.25rem' }}>
                 <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--error)', marginBottom: '0.5rem' }}>Delete account</div>
                 <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
-                  This permanently deletes your account and all data. Type your email address to confirm.
+                  Permanently deletes {bizName || 'your company'} — all employees, payroll history, and documents. This cannot be undone. Type <strong style={{ color: 'var(--text)' }}>{deleteConfirmTarget}</strong> to confirm.
                 </div>
+
+                {deleteError && (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', background: 'rgba(248,113,113,0.12)', borderRadius: '10px', padding: '12px 14px', marginBottom: '1rem' }}>
+                    <span style={{ color: 'var(--error)', flexShrink: 0, marginTop: '1px' }}>⚠</span>
+                    <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text)' }}>
+                      The deletion didn&apos;t go through — our server didn&apos;t confirm it completed. Your account and data are untouched. Try again, or contact support if it keeps failing.
+                    </div>
+                  </div>
+                )}
+                {deleteSucceeded && (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', background: 'rgba(74,222,128,0.12)', borderRadius: '10px', padding: '12px 14px', marginBottom: '1rem' }}>
+                    <span style={{ color: 'var(--success)', flexShrink: 0, marginTop: '1px' }}>✓</span>
+                    <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text)' }}>Account deleted. You&apos;ll be signed out and redirected shortly.</div>
+                  </div>
+                )}
+
                 <input
                   value={deleteConfirm}
-                  onChange={e => setDeleteConfirm(e.target.value)}
-                  placeholder={userEmail}
-                  style={{ marginBottom: '0.75rem', borderColor: deleteConfirm && deleteConfirm !== userEmail ? 'var(--error)' : undefined }}
+                  onChange={e => { setDeleteConfirm(e.target.value); setDeleteError(false) }}
+                  placeholder={deleteConfirmTarget}
+                  style={{ marginBottom: '0.75rem', borderColor: deleteError ? 'var(--error)' : (deleteConfirm && deleteConfirm !== deleteConfirmTarget ? 'var(--error)' : undefined) }}
                 />
                 <button
                   onClick={deleteAccount}
-                  disabled={deleteConfirm !== userEmail || deleting}
+                  disabled={deleteConfirm !== deleteConfirmTarget || deleting || deleteSucceeded}
                   style={{
                     width: 'auto', fontSize: '13px', padding: '7px 16px',
-                    background: deleteConfirm === userEmail ? 'var(--error)' : 'rgba(255,255,255,0.05)',
-                    color: deleteConfirm === userEmail ? '#1e1e1e' : 'var(--text-tertiary)',
-                    border: 'none', borderRadius: '8px', cursor: deleteConfirm === userEmail ? 'pointer' : 'default',
+                    background: deleteConfirm === deleteConfirmTarget ? 'var(--error)' : 'rgba(255,255,255,0.05)',
+                    color: deleteConfirm === deleteConfirmTarget ? 'var(--accent-text)' : 'var(--text-tertiary)',
+                    border: 'none', borderRadius: '8px', cursor: deleteConfirm === deleteConfirmTarget ? 'pointer' : 'default',
                     fontWeight: 600,
                   }}
                 >
-                  {deleting ? 'Deleting...' : 'Delete my account'}
+                  {deleting ? 'Deleting...' : deleteSucceeded ? 'Deleted' : 'Delete my account'}
                 </button>
               </div>
             </div>

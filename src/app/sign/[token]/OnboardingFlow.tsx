@@ -334,36 +334,38 @@ export default function OnboardingFlow({ token, employeeId, userId, employeeName
 
         {step > 0 && currentId !== 'done' && (
           <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button className="btn" onClick={back} style={{ color: '#666', background: 'transparent', boxShadow: 'none' }}>← Back</button>
-              {currentId !== 'agreement' && currentId !== 'documents' && !REQUIRED_STEPS.has(currentId) && (
-                <button className="btn" onClick={next} style={{ color: '#185fa5', background: 'transparent', boxShadow: 'none' }}>Skip this step</button>
-              )}
-              {REQUIRED_STEPS.has(currentId) && !confirmSkip && (
-                <button
-                  onClick={() => setConfirmSkip(true)}
-                  style={{ fontSize: '12px', color: '#999', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                >
-                  Skip for now (you&apos;ll be reminded later) →
-                </button>
-              )}
-            </div>
+            {/* JAY-128 fix: legally-required steps (W-4/I-9/direct deposit)
+                could previously be skipped via a "Skip for now" confirmation
+                that just called next() — a compliance bug, since the ticket
+                and design handoff both specify these can't be skipped at
+                all. Required steps now show a disabled badge and no skip
+                control whatsoever; genuinely optional steps (Availability)
+                get a skip confirmation explaining the consequence, matching
+                Onboarding Flow.dc.html. */}
             {REQUIRED_STEPS.has(currentId) && (
-              <div style={{ fontSize: '12px', color: '#c0392b', marginTop: '0.75rem', textAlign: 'right' }}>
-                This step is required before your first paycheck can be processed.
-                {confirmSkip && (
-                  <div style={{ marginTop: '0.5rem' }}>
-                    <button
-                      onClick={next}
-                      className="btn"
-                      style={{ color: '#185fa5', background: 'transparent', boxShadow: 'none', fontSize: '12px' }}
-                    >
-                      Yes, skip for now
-                    </button>
-                  </div>
-                )}
+              <div style={{ marginBottom: '0.75rem', textAlign: 'right' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#c0392b', background: '#fbe9e7', padding: '4px 10px', borderRadius: '999px' }}>
+                  Required by law — can&apos;t be skipped
+                </span>
               </div>
             )}
+            {!REQUIRED_STEPS.has(currentId) && currentId !== 'agreement' && currentId !== 'documents' && confirmSkip && (
+              <div style={{ background: '#fbe9e7', borderRadius: '10px', padding: '14px 16px', marginBottom: '0.75rem' }}>
+                <div style={{ fontSize: '13px', color: '#3a3a3a', lineHeight: 1.6, marginBottom: '10px' }}>
+                  Skipping {STEPS[step].label} just means we won&apos;t have that info on file yet — you can add it later from your employee portal.
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn" onClick={next} style={{ width: 'auto', fontSize: '12px', padding: '6px 14px', color: '#3a3a3a', background: 'transparent', border: '1px solid #ddd', boxShadow: 'none' }}>Skip anyway</button>
+                  <button className="btn auth-btn-primary" onClick={() => setConfirmSkip(false)} style={{ width: 'auto', fontSize: '12px', padding: '6px 14px' }}>Go back and finish</button>
+                </div>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button className="btn" onClick={back} style={{ color: '#666', background: 'transparent', boxShadow: 'none' }}>← Back</button>
+              {!REQUIRED_STEPS.has(currentId) && currentId !== 'agreement' && currentId !== 'documents' && !confirmSkip && (
+                <button className="btn" onClick={() => setConfirmSkip(true)} style={{ color: '#185fa5', background: 'transparent', boxShadow: 'none' }}>Skip this step</button>
+              )}
+            </div>
           </div>
         )}
     </div>
