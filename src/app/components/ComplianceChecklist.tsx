@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatDate as sharedFormatDate } from '../../lib/formatDate'
 
 type Props = {
   employeeId: number
@@ -188,7 +189,7 @@ export default function ComplianceChecklist({
           ) : workAuthExpiresOn ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
               <span style={{ color: expirationSoon ? 'var(--error)' : 'var(--text-tertiary)' }}>
-                Work authorization expires: {new Date(workAuthExpiresOn + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                Work authorization expires: {sharedFormatDate(workAuthExpiresOn, 'short')}
                 {expirationSoon && ` (${daysUntilExpiration! < 0 ? 'expired' : `${daysUntilExpiration} days`})`}
               </span>
               <button onClick={() => setEditingExpiration(true)} style={{ fontSize: '11px', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Edit</button>

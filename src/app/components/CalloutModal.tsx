@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PhoneIcon, MessageIcon, MailIcon } from './Icons'
+import { formatDate as sharedFormatDate } from '../../lib/formatDate'
 
 type Employee = {
   id: number
@@ -23,7 +24,7 @@ type Props = {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+  return sharedFormatDate(iso, 'weekdayShort')
 }
 
 function formatTime(t: string) {

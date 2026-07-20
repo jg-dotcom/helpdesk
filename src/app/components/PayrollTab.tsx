@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useToast } from './Toast'
+import { formatDate as sharedFormatDate } from '../../lib/formatDate'
 
 type PayrollEntry = {
   id: number
@@ -21,7 +22,7 @@ type Props = {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return sharedFormatDate(iso, 'short')
 }
 
 function formatMoney(n: number) {

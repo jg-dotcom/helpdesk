@@ -6,6 +6,7 @@ import { Employee } from '../page'
 import { PaperclipIcon, DollarIcon, MailIcon } from './Icons'
 import { useToast } from './Toast'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
+import { formatDate as sharedFormatDate } from '../../lib/formatDate'
 
 type Props = {
   employee: Employee
@@ -83,7 +84,7 @@ function formatMoney(n: number) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return sharedFormatDate(iso, 'short')
 }
 
 function initials(name: string) {
@@ -948,7 +949,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                       <div style={{ paddingBottom: '2px' }}>
                         <div style={{ fontSize: '12.5px', color: text, fontWeight: 500 }}>{ev.label}</div>
                         <div style={{ fontSize: '11px', color: mutedDark, marginTop: '1px' }}>
-                          {ev.sub ? `${ev.sub} · ` : ''}{new Date(ev.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {ev.sub ? `${ev.sub} · ` : ''}{sharedFormatDate(ev.date, 'shortNoYear')}
                         </div>
                       </div>
                     </div>
@@ -1155,7 +1156,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: '13px', fontWeight: 500, color: text }}>{formatFormType(f.form_type)}</div>
                           <div style={{ fontSize: '11px', color: mutedDark }}>
-                            Submitted {new Date(f.submitted_at || f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            Submitted {sharedFormatDate(f.submitted_at || f.created_at, 'short')}
                           </div>
                         </div>
                         <span style={{ fontSize: '12px', color: accent }}>{expandedForm === f.id ? '▲ Hide' : '▼ View'}</span>
@@ -1227,7 +1228,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '13px', fontWeight: 500, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sig.file_name}</div>
                           <div style={{ fontSize: '11px', color: mutedDark }}>
-                            Signed as <span style={{ fontStyle: 'italic', color: muted }}>{sig.signed_name}</span> · {new Date(sig.signed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            Signed as <span style={{ fontStyle: 'italic', color: muted }}>{sig.signed_name}</span> · {sharedFormatDate(sig.signed_at, 'short')}
                           </div>
                         </div>
                         <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--success)', flexShrink: 0 }}>Signed</span>
@@ -1250,7 +1251,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '13px', fontWeight: 500, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.file_name}</div>
                         <div style={{ fontSize: '11px', color: mutedDark }}>
-                          {formatSize(doc.file_size)} · {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {formatSize(doc.file_size)} · {sharedFormatDate(doc.created_at, 'short')}
                         </div>
                       </div>
                       <button
@@ -1375,7 +1376,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
               {checkinNotes.map(note => (
                 <div key={note.id} style={{ padding: '0.875rem 1rem', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}` }}>
                   <div style={{ fontSize: '11px', color: mutedDark, marginBottom: '0.5rem', fontWeight: 500 }}>
-                    {new Date(note.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    {sharedFormatDate(note.created_at, 'longFull')}
                     <span style={{ marginLeft: '6px' }}>
                       · {new Date(note.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                     </span>
