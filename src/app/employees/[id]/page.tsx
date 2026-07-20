@@ -344,7 +344,7 @@ export default function EmployeeProfile() {
         {tab === 'activity' && (
           <div className="profile-card">
             {activity.length === 0 ? (
-              <div className="empty-state">No documents generated yet — generate one from the templates above.</div>
+              <div className="empty-state">No documents generated yet. Onboarding, check-in, and offboarding documents will appear here once created.</div>
             ) : (
               activity.map(item => (
                 <div key={item.id} className="history-item">
