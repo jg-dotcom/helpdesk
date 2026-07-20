@@ -84,7 +84,9 @@ export default function ReportsPage() {
         // Two-step query (runs, then items scoped to those run ids) since
         // payroll_run_items doesn't carry user_id directly — same tenant-scoping
         // shape JAY-76 established for the deductions PATCH ownership check.
-        supabase.from('payroll_runs').select('id, period_start, period_end').eq('user_id', uid).gte('period_start', since.toISOString().slice(0, 10)),
+        // JAY-147 — voided runs are kept for the audit trail but shouldn't
+        // contribute overtime rows to this report.
+        supabase.from('payroll_runs').select('id, period_start, period_end').eq('user_id', uid).neq('status', 'voided').gte('period_start', since.toISOString().slice(0, 10)),
       ])
       setEmployees(emps ?? [])
       setEntries(ents ?? [])

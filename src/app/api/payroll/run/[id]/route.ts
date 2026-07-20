@@ -42,6 +42,44 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ ok: true })
   }
 
+  // JAY-147 — void a finalized run (fat-fingered amount, wrong employee
+  // subset, etc.). Only reachable from `finalized`, requires a reason for
+  // the audit trail (mirroring JAY-118's deduction-audit pattern), and
+  // never deletes anything — voided runs stay visible in history but get
+  // excluded from pay-stub/reporting sums (see reports/page.tsx,
+  // sendToAccountant/exportRunCSV in payroll/page.tsx). No schema change:
+  // `status` has no CHECK constraint, and the reason is appended to the
+  // existing free-text `notes` column rather than adding a new one.
+  if (body.action === 'void') {
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
+    if (!reason) {
+      return NextResponse.json({ error: 'A reason is required to void a payroll run.' }, { status: 400 })
+    }
+
+    const { data: run } = await supabaseAdmin
+      .from('payroll_runs')
+      .select('id, status, notes')
+      .eq('id', params.id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!run) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (run.status !== 'finalized') {
+      return NextResponse.json({ error: 'Only a finalized run can be voided.' }, { status: 400 })
+    }
+
+    const voidNote = `Voided ${new Date().toISOString().slice(0, 10)}: ${reason}`
+    const newNotes = run.notes ? `${run.notes}\n${voidNote}` : voidNote
+
+    await supabaseAdmin
+      .from('payroll_runs')
+      .update({ status: 'voided', notes: newNotes })
+      .eq('id', params.id)
+      .eq('user_id', user.id)
+
+    return NextResponse.json({ ok: true })
+  }
+
   // Update deductions for a specific item
   if (body.itemId && body.deductions !== undefined) {
     // JAY-76 — this branch previously had no tenant/ownership check at all,

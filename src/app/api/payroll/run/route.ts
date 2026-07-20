@@ -38,6 +38,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Select at least one employee for an off-cycle run.' }, { status: 400 })
   }
 
+  // JAY-147 — off-cycle runs are intentionally exempt from the JAY-48
+  // duplicate-finalized-run guard (a legitimate bonus run can share a period
+  // with a regular run), but that also means an accidental double-submit of
+  // the same off-cycle run sails through with zero warning. This check is
+  // non-blocking by design — it doesn't reject the request, it just tells
+  // the caller (payroll/page.tsx) so it can surface a "did you mean to do
+  // this again?" banner before the owner finalizes.
+  let duplicateOffCycleWarning: { message: string; existingRunId: number } | null = null
+  if (isOffCycle) {
+    const { data: existingOffCycle } = await supabaseAdmin
+      .from('payroll_runs')
+      .select('id, run_date, reason, employee_count')
+      .eq('user_id', user.id)
+      .eq('run_type', 'off_cycle')
+      .neq('status', 'voided')
+      .eq('period_start', periodStart)
+      .eq('period_end', periodEnd)
+      .order('run_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (existingOffCycle) {
+      duplicateOffCycleWarning = {
+        message: `Another off-cycle run already exists for this exact period (run on ${existingOffCycle.run_date}${existingOffCycle.reason ? `, "${existingOffCycle.reason}"` : ''}). If this wasn't intentional, void the duplicate instead of leaving both.`,
+        existingRunId: existingOffCycle.id,
+      }
+    }
+  }
+
   if (!isOffCycle) {
     // JAY-48 — block a second FINALIZED run for the same period (double-pay
     // risk from a double-click or retried request). Draft runs stay
@@ -368,5 +397,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: itemsErr.message }, { status: 500 })
   }
 
-  return NextResponse.json({ run })
+  return NextResponse.json({ run, duplicateOffCycleWarning })
 }
