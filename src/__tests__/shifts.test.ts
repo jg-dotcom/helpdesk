@@ -8,6 +8,8 @@ import {
   upcomingAssignedShifts,
   isNoShowShift,
   shouldSuppressOutOfHoursEntry,
+  splitWeeklyOvertime,
+  shiftLaborCost,
   type DayHours,
 } from '../lib/shifts'
 
@@ -241,5 +243,95 @@ describe('shouldSuppressOutOfHoursEntry', () => {
     const shift = { start_time: '08:00', end_time: '17:00' }
     const hours: DayHours = { open: '09:00', close: '17:00:00', closed: false }
     expect(shouldSuppressOutOfHoursEntry(shift, hours)).toBe(false)
+  })
+})
+
+// ─── splitWeeklyOvertime ────────────────────────────────────────────────────
+
+describe('splitWeeklyOvertime', () => {
+  const shift = (id: number, date: string, start: string, end: string, employeeId: number | null = 1) => (
+    { id, employee_id: employeeId, shift_date: date, start_time: start, end_time: end }
+  )
+
+  it('splits nothing when total week hours are at or under 40', () => {
+    const shifts = [
+      shift(1, '2026-07-06', '09:00', '17:00'), // 8h
+      shift(2, '2026-07-07', '09:00', '17:00'), // 8h
+      shift(3, '2026-07-08', '09:00', '17:00'), // 8h
+      shift(4, '2026-07-09', '09:00', '17:00'), // 8h
+      shift(5, '2026-07-10', '09:00', '17:00'), // 8h — total 40h
+    ]
+    const result = splitWeeklyOvertime(shifts, 1)
+    for (const s of shifts) {
+      expect(result.get(s)).toEqual({ regHrs: 8, otHrs: 0 })
+    }
+  })
+
+  it('splits a single shift that crosses the 40h threshold', () => {
+    const shifts = [
+      shift(1, '2026-07-06', '09:00', '17:00'), // 8h, running 8
+      shift(2, '2026-07-07', '09:00', '17:00'), // 8h, running 16
+      shift(3, '2026-07-08', '09:00', '17:00'), // 8h, running 24
+      shift(4, '2026-07-09', '09:00', '17:00'), // 8h, running 32
+      shift(5, '2026-07-10', '09:00', '18:00'), // 9h, running 41 — 1h OT
+    ]
+    const result = splitWeeklyOvertime(shifts, 1)
+    expect(result.get(shifts[4])).toEqual({ regHrs: 8, otHrs: 1 })
+    expect(result.get(shifts[0])).toEqual({ regHrs: 8, otHrs: 0 })
+  })
+
+  it('treats a later shift as entirely overtime once an earlier one already reached 40h', () => {
+    const shifts = [
+      shift(1, '2026-07-06', '08:00', '18:00', 1), // 10h
+      shift(2, '2026-07-07', '08:00', '18:00', 1), // 10h, running 20
+      shift(3, '2026-07-08', '08:00', '18:00', 1), // 10h, running 30
+      shift(4, '2026-07-09', '08:00', '18:00', 1), // 10h, running 40
+      shift(5, '2026-07-10', '09:00', '13:00', 1), // 4h, running 44 — fully OT
+    ]
+    const result = splitWeeklyOvertime(shifts, 1)
+    expect(result.get(shifts[3])).toEqual({ regHrs: 10, otHrs: 0 })
+    expect(result.get(shifts[4])).toEqual({ regHrs: 0, otHrs: 4 })
+  })
+
+  it('orders same-day shifts by start_time before walking the running total', () => {
+    const shifts = [
+      shift(1, '2026-07-06', '13:00', '17:00'), // 4h, added second chronologically but listed first
+      shift(2, '2026-07-06', '09:00', '13:00'), // 4h, earlier start
+    ]
+    const result = splitWeeklyOvertime(shifts, 1)
+    expect(result.get(shifts[1])).toEqual({ regHrs: 4, otHrs: 0 })
+    expect(result.get(shifts[0])).toEqual({ regHrs: 4, otHrs: 0 })
+  })
+
+  it('ignores shifts belonging to other employees', () => {
+    const shifts = [
+      shift(1, '2026-07-06', '09:00', '18:00', 1), // 9h
+      shift(2, '2026-07-06', '09:00', '18:00', 2), // different employee
+    ]
+    const result = splitWeeklyOvertime(shifts, 1)
+    expect(result.has(shifts[1])).toBe(false)
+    expect(result.get(shifts[0])).toEqual({ regHrs: 9, otHrs: 0 })
+  })
+})
+
+// ─── shiftLaborCost ─────────────────────────────────────────────────────────
+
+describe('shiftLaborCost', () => {
+  it('returns null when the employee has no pay rate', () => {
+    expect(shiftLaborCost(8, 0, { pay_type: 'hourly', pay_rate: null })).toBeNull()
+  })
+
+  it('pays hourly regular hours at the flat rate with no overtime', () => {
+    expect(shiftLaborCost(8, 0, { pay_type: 'hourly', pay_rate: 20 })).toBe(160)
+  })
+
+  it('pays overtime hours at 1.5x for hourly employees', () => {
+    // JAY-166 ticket's own gut-check: 45h @ $20/hr → $950, not $900 flat.
+    expect(shiftLaborCost(40, 5, { pay_type: 'hourly', pay_rate: 20 })).toBe(950)
+  })
+
+  it('always uses the flat implied-hourly rate for salary employees, never an OT premium', () => {
+    const emp = { pay_type: 'salary', pay_rate: 41600 } // implied $20/hr
+    expect(shiftLaborCost(40, 5, emp)).toBe(20 * 45)
   })
 })

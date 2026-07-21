@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { resolveTenantContext } from '../lib/tenant'
-import { isNoShowShift, shouldSuppressOutOfHoursEntry } from '../../lib/shifts'
+import { isNoShowShift, shouldSuppressOutOfHoursEntry, splitWeeklyOvertime, shiftLaborCost } from '../../lib/shifts'
 import Nav from '../components/Nav'
 import CalloutModal from '../components/CalloutModal'
 import { useToast } from '../components/Toast'
@@ -115,10 +115,16 @@ function shiftHours(s: Shift) {
 // only summed. Salary employees get an implied hourly rate (annual / 52
 // weeks / 40 hours) since there's no other rate to attribute a shift's cost
 // to — same convention the existing weekly total already uses.
-function shiftCost(s: Shift, emp: Employee | undefined | null) {
+// JAY-166 — hourly employees' hours are split into regular/OT (1.5x past
+// 40h/week) via `otMap`, precomputed once per employee for the displayed
+// week (see `otMapByEmployee` below); salary employees stay flat, matching
+// shiftLaborCost's own exemption.
+function shiftCost(s: Shift, emp: Employee | undefined | null, otMap?: Map<number, Map<Shift, { regHrs: number; otHrs: number }>>) {
   if (!emp?.pay_rate) return null
   const hrs = shiftHours(s)
-  return emp.pay_type === 'salary' ? (emp.pay_rate / 52 / 40) * hrs : emp.pay_rate * hrs
+  if (emp.pay_type === 'salary') return (emp.pay_rate / 52 / 40) * hrs
+  const split = otMap?.get(emp.id)?.get(s)
+  return shiftLaborCost(split?.regHrs ?? hrs, split?.otHrs ?? 0, emp)
 }
 
 // Role → dark-theme color mapping for schedule grid
@@ -645,11 +651,17 @@ export default function TimePage() {
   // Scheduled hours + estimated cost this week
   const weekShifts = shifts.filter(s => weekDays.includes(s.shift_date) && s.status !== 'called_out')
   const scheduledHours = weekShifts.reduce((sum, s) => sum + shiftHours(s), 0)
+  // JAY-166 — per-employee regular/OT hour split for the displayed week,
+  // computed once and shared by estimatedCost and the per-shift grid cost
+  // (shiftCost) so the two stay identical by construction.
+  const otMapByEmployee = new Map<number, Map<Shift, { regHrs: number; otHrs: number }>>()
+  for (const s of weekShifts) {
+    if (s.employee_id == null || otMapByEmployee.has(s.employee_id)) continue
+    otMapByEmployee.set(s.employee_id, splitWeeklyOvertime(weekShifts, s.employee_id))
+  }
   const estimatedCost = weekShifts.reduce((sum, s) => {
     const emp = s.employee_id != null ? empMap[s.employee_id] : null
-    if (!emp?.pay_rate) return sum
-    const hrs = shiftHours(s)
-    return sum + (emp.pay_type === 'salary' ? (emp.pay_rate / 52 / 40) * hrs : emp.pay_rate * hrs)
+    return sum + (shiftCost(s, emp, otMapByEmployee) ?? 0)
   }, 0)
 
   // Scheduled hours per employee this week — surfaced as a grid column so
@@ -1254,7 +1266,7 @@ export default function TimePage() {
                                       cost while building the schedule, not only in the weekly
                                       budget banner below. */}
                                   {!isCallout && !isNoShow && (() => {
-                                    const cost = shiftCost(dayShift, emp)
+                                    const cost = shiftCost(dayShift, emp, otMapByEmployee)
                                     return cost != null ? (
                                       <div style={{ fontSize: '10px', color: cellColor!.text, opacity: 0.5, marginTop: '1px' }}>
                                         ${cost.toLocaleString(undefined, { maximumFractionDigits: 0 })}

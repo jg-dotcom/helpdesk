@@ -114,6 +114,57 @@ export function shouldSuppressOutOfHoursEntry(
 }
 
 /**
+ * JAY-166 — split each of an employee's shifts for a week into regular vs.
+ * overtime hours, walking shifts in chronological order (by shift_date, then
+ * start_time for same-day shifts — the schedule page deals in individual
+ * shifts rather than payroll's aggregated daily hours, so ordering same-day
+ * shifts by start_time is the more defensible convention here) and crossing
+ * into OT only once the running weekly total exceeds 40h. Mirrors the
+ * chronological-walk convention already used by payroll/run/route.ts (JAY-57),
+ * just applied per-shift instead of per-day.
+ */
+export type ShiftForOvertime = { employee_id: number | null; shift_date: string; start_time: string; end_time: string }
+
+export function splitWeeklyOvertime<S extends ShiftForOvertime>(
+  shifts: S[],
+  employeeId: number,
+): Map<S, { regHrs: number; otHrs: number }> {
+  const result = new Map<S, { regHrs: number; otHrs: number }>()
+  const empShifts = shifts
+    .filter(s => s.employee_id === employeeId)
+    .sort((a, b) => (a.shift_date === b.shift_date
+      ? a.start_time.localeCompare(b.start_time)
+      : a.shift_date.localeCompare(b.shift_date)))
+  let running = 0
+  for (const s of empShifts) {
+    const hrs = shiftHours(s.start_time, s.end_time)
+    const after = running + hrs
+    const otHrs = after > 40 ? Math.min(hrs, after - 40) : 0
+    result.set(s, { regHrs: hrs - otHrs, otHrs })
+    running = after
+  }
+  return result
+}
+
+/**
+ * JAY-166 — per-shift labor cost given its regular/overtime hour split.
+ * Salary employees use the existing implied-hourly convention (annual / 52 /
+ * 40) and are never OT-split (no premium applied even if `otHrs` is nonzero),
+ * matching payroll's `pay_type === 'salary'` branch.
+ */
+export type EmployeeForLaborCost = { pay_type: string; pay_rate: number | null }
+
+export function shiftLaborCost(
+  regHrs: number,
+  otHrs: number,
+  emp: EmployeeForLaborCost | undefined | null,
+): number | null {
+  if (!emp?.pay_rate) return null
+  if (emp.pay_type === 'salary') return (emp.pay_rate / 52 / 40) * (regHrs + otHrs)
+  return regHrs * emp.pay_rate + otHrs * emp.pay_rate * 1.5
+}
+
+/**
  * A shift is a "no-show" when its scheduled end has already passed, it wasn't
  * marked as a callout, and no matching clock-in exists for that employee on
  * that date. Read-time classification only — nothing is persisted, so a wrong
