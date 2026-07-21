@@ -12,6 +12,8 @@ type PayrollEntry = { gross_pay: number; created_at: string }
 // JAY-71 — companion reporting surface for JAY-57's overtime-premium fix:
 // the calculation existed with no visibility into it anywhere in Reports.
 type OvertimeRow = { employeeName: string; periodStart: string; periodEnd: string; hoursWorked: number | null; overtimeHours: number; grossPay: number }
+// JAY-171 — OBBBA qualified-overtime-premium tax deduction report.
+type QualifiedOvertimeSummary = { totalOtHours: number; totalPremiumDollars: number; employeeCount: number; perEmployee: { employeeName: string; otHours: number; premiumDollars: number }[] }
 
 function fmtMoney(n: number) {
   if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`
@@ -67,6 +69,8 @@ export default function ReportsPage() {
   const [rangeMonths, setRangeMonths] = useState(12)
   const [paperworkExpanded, setPaperworkExpanded] = useState(false) // JAY-56
   const [overtimeRows, setOvertimeRows] = useState<OvertimeRow[]>([]) // JAY-71
+  const [qualifiedOT, setQualifiedOT] = useState<QualifiedOvertimeSummary | null>(null) // JAY-171
+  const [exportingQualifiedOT, setExportingQualifiedOT] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -117,9 +121,30 @@ export default function ReportsPage() {
         setOvertimeRows([])
       }
 
+      // JAY-171 — per the API-first standing rule, this goes through the new
+      // /api/reports/qualified-overtime route rather than a direct
+      // supabase.from(...) call like the rest of this page still uses.
+      const res = await fetch(`/api/reports/qualified-overtime?year=${new Date().getFullYear()}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.ok) setQualifiedOT(await res.json())
+
       setLoading(false)
     })
   }, [rangeMonths])
+
+  async function exportQualifiedOT() {
+    setExportingQualifiedOT(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setExportingQualifiedOT(false); return }
+    const year = new Date().getFullYear()
+    const res = await fetch(`/api/reports/qualified-overtime?format=csv&year=${year}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `qualified-overtime-${year}.csv`; a.click()
+    URL.revokeObjectURL(url)
+    setExportingQualifiedOT(false)
+  }
 
   async function exportCSV() {
     setExporting(true)
@@ -301,6 +326,46 @@ export default function ReportsPage() {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Qualified overtime (JAY-171) — OBBBA tax-deduction reporting
+            surface for the 0.5x overtime premium (not full OT pay), separate
+            from the Overtime section above which shows full gross OT pay. */}
+        {qualifiedOT && qualifiedOT.employeeCount > 0 && (
+          <div style={{ ...cardStyle, marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text)' }}>Qualified overtime ({new Date().getFullYear()})</div>
+              <button style={ghostBtn} onClick={exportQualifiedOT} disabled={exportingQualifiedOT}>
+                {exportingQualifiedOT ? 'Preparing...' : '↓ Export CSV'}
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0, marginBottom: '1rem' }}>
+              {[
+                { value: qualifiedOT.totalOtHours.toFixed(1), label: 'Total OT hours' },
+                { value: fmtMoney(qualifiedOT.totalPremiumDollars), label: 'Qualified premium (0.5x)' },
+                { value: String(qualifiedOT.employeeCount), label: 'Employees' },
+              ].map((c, i) => (
+                <div key={c.label} style={{ padding: i === 0 ? '0 16px 0 0' : '0 16px', borderLeft: i > 0 ? '1px solid var(--border)' : undefined }}>
+                  <div style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text)' }}>{c.value}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{c.label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 110px', gap: '8px', fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 0 8px', borderBottom: '1px solid var(--border)' }}>
+                <span>Employee</span>
+                <span style={{ textAlign: 'right' }}>OT hrs</span>
+                <span style={{ textAlign: 'right' }}>Premium (0.5x)</span>
+              </div>
+              {qualifiedOT.perEmployee.map((e, i) => (
+                <div key={e.employeeName} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 110px', gap: '8px', fontSize: '13px', padding: '8px 0', borderBottom: i < qualifiedOT.perEmployee.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                  <span style={{ color: 'var(--border)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.employeeName}</span>
+                  <span style={{ textAlign: 'right', color: 'var(--amber)', fontWeight: 600 }}>{e.otHours.toFixed(1)}</span>
+                  <span style={{ textAlign: 'right', color: 'var(--border)', fontWeight: 600 }}>{fmtMoney(e.premiumDollars)}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
