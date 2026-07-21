@@ -59,7 +59,7 @@ export default function DocumentUpload({ employeeId, employeeName, userId }: Pro
       .from('documents')
       .upload(filePath, file)
     if (uploadError) {
-      showToast('Upload failed. Try again.', 'error')
+      showToast("Couldn't upload the file. Check its size/type and try again.", 'error')
       setUploading(false)
       return
     }
@@ -72,7 +72,7 @@ export default function DocumentUpload({ employeeId, employeeName, userId }: Pro
       file_size: file.size,
     }])
     if (dbError) {
-      showToast('Error saving file record.', 'error')
+      showToast("File uploaded, but couldn't save its record — try uploading again.", 'error')
     } else {
       await loadDocs()
     }
@@ -95,7 +95,7 @@ export default function DocumentUpload({ employeeId, employeeName, userId }: Pro
       await supabase.from('employee_documents').delete().eq('id', doc.id)
       setDocs(prev => prev.filter(d => d.id !== doc.id))
     } catch {
-      showToast('Delete failed. Try again.', 'error')
+      showToast("Couldn't remove this document. Check your connection and try again.", 'error')
     } finally {
       setDeletingId(null)
     }
