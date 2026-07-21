@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import Nav from '../components/Nav'
@@ -34,6 +34,13 @@ const DEFAULT_FIELDS: Field[] = [
   { id: 'payRate', label: 'Pay rate', placeholder: 'e.g. $15/hr' },
   { id: 'dresscode', label: 'Dress code', placeholder: 'e.g. Black shirt, jeans' },
 ]
+
+const WELCOME_PACK_SAMPLE_VALUES: Record<string, string> = {
+  Name: 'Jordan Lee',
+  Role: 'Shift Lead',
+  'Start date': 'Aug 15, 2026',
+  Phone: '(555) 123-4567',
+}
 
 type TeamEmployee = {
   id: number
@@ -163,6 +170,16 @@ function SettingsContent() {
   const [welcomePack, setWelcomePack] = useState('')
   const [newLabel, setNewLabel] = useState('')
   const [tmplSaving, setTmplSaving] = useState(false)
+
+  const welcomePackPreview = useMemo(() => {
+    const tags = [{ label: 'Name' }, { label: 'Role' }, { label: 'Start date' }, { label: 'Phone' }, ...fields.map(f => ({ label: f.label }))]
+    return tags.reduce((text, { label }) => {
+      const field = fields.find(f => f.label === label)
+      const sample = WELCOME_PACK_SAMPLE_VALUES[label]
+        ?? (field?.placeholder ? field.placeholder.replace(/^e\.g\.\s*/i, '') : `[${label}]`)
+      return text.split(`[${label}]`).join(sample)
+    }, welcomePack)
+  }, [welcomePack, fields])
 
   // Notifications
   const [notifTimeOff, setNotifTimeOff] = useState(true)
@@ -978,6 +995,18 @@ function SettingsContent() {
                   ))}
                 </div>
                 <textarea value={welcomePack} onChange={e => setWelcomePack(e.target.value)} placeholder={`Hi [Name],\n\nWelcome to the team!...`} style={{ minHeight: '200px', fontFamily: 'inherit', fontSize: '14px' }} />
+
+                {welcomePack.trim().length > 0 && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      👁 Preview
+                    </div>
+                    <div style={{ background: 'rgba(59,130,246,0.08)', borderRadius: '8px', padding: '0.75rem 1rem', fontSize: '13px', color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
+                      {welcomePackPreview}
+                    </div>
+                  </div>
+                )}
+
                 <button className="btn auth-btn-primary" onClick={saveTemplate} disabled={tmplSaving} style={{ marginTop: '0.75rem', width: 'auto' }}>
                   {tmplSaving ? 'Saving...' : 'Save template'}
                 </button>
