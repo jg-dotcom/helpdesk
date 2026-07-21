@@ -3,6 +3,7 @@ import { stripe } from '../../../lib/stripe'
 import { supabaseAdmin } from '../../../lib/supabaseAdmin'
 import { PLANS, PlanKey } from '../../../lib/stripe'
 import Stripe from 'stripe'
+import { Resend } from 'resend'
 
 export const config = { api: { bodyParser: false } }
 
@@ -102,6 +103,38 @@ export async function POST(req: NextRequest) {
       await updateBilling(invoice.customer as string, {
         subscription_status: 'past_due',
       })
+
+      // JAY-167 — the owner was never told their card was declined; the
+      // subscription silently went past_due until access was cut off. Notify
+      // via the in-app bell and (best-effort) email.
+      const { data: business } = await supabaseAdmin
+        .from('business_profiles')
+        .select('user_id, business_name, contact_email')
+        .eq('stripe_customer_id', invoice.customer as string)
+        .single()
+
+      if (business?.user_id) {
+        const resend = new Resend(process.env.RESEND_API_KEY)
+        await Promise.allSettled([
+          supabaseAdmin.from('notifications').insert([{
+            user_id: business.user_id,
+            message: 'Your payment failed — update your card to avoid losing access.',
+            read: false,
+            link: '/settings',
+          }]),
+          ...(business.contact_email
+            ? [resend.emails.send({
+                from: 'Helpdesk <onboarding@resend.dev>',
+                to: business.contact_email,
+                subject: 'Action needed: your Helpdesk payment failed',
+                html: `
+                  <p>Hi${business.business_name ? ` ${business.business_name}` : ''},</p>
+                  <p>We weren't able to process your latest Helpdesk payment. Please update your card to avoid losing access.</p>
+                `,
+              })]
+            : []),
+        ])
+      }
       break
     }
 
