@@ -38,6 +38,7 @@ const STAGES: { key: Application['status']; label: string; color: string; bg: st
   { key: 'interviewing', label: 'Interviewing',  color: 'var(--accent)', bg: 'rgba(29,78,216,0.15)',   border: 'rgba(29,78,216,0.32)' },
   { key: 'offer',        label: 'Offer',         color: 'var(--amber)', bg: 'rgba(245,158,11,0.16)',  border: 'rgba(245,158,11,0.3)' },
   { key: 'hired',        label: 'Hired',         color: 'var(--success)', bg: 'rgba(34,197,94,0.15)',   border: 'rgba(34,197,94,0.3)' },
+  // JAY-178: employer-facing label is deliberately blunt; candidate-facing applications/[id]/page.tsx uses softer "Not moving forward" for this same status — don't collapse the two.
   { key: 'rejected',     label: 'Rejected',      color: 'var(--error)', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.26)' },
 ]
 

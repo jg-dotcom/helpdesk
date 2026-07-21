@@ -24,6 +24,7 @@ function stepIndex(status: string) {
 function decisionLabel(status: string) {
   if (status === 'offer') return 'Offer extended'
   if (status === 'hired') return 'Hired'
+  // JAY-178: softer copy is deliberate for the candidate audience, mirrors hiring/page.tsx's blunter "Rejected" for employers — don't collapse the two.
   if (status === 'rejected') return 'Not moving forward'
   return 'Decision'
 }
