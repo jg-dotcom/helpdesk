@@ -206,10 +206,10 @@ export default function JobsPage() {
     try {
       const res = await fetch(`/api/applications/${appId}/resume`, { headers: { Authorization: `Bearer ${token}` } })
       const data = await res.json()
-      if (!res.ok) { showToast(data.error || 'Could not open resume.', 'error'); return }
+      if (!res.ok) { showToast(data.error || "Couldn't open this resume — it may have been removed or the link expired. Try again, or ask the candidate to re-upload.", 'error'); return }
       window.open(data.url, '_blank')
     } catch {
-      showToast('Could not open resume.', 'error')
+      showToast("Couldn't open this resume — it may have been removed or the link expired. Try again, or ask the candidate to re-upload.", 'error')
     } finally {
       setResumeLoading(false)
     }
