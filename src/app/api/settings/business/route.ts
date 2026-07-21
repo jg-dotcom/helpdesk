@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { business_name, address, timezone, contact_email, logo_url, business_hours, accountant_email, weekly_labor_budget_cents, geofence_lat, geofence_lng, geofence_radius_m, require_clockin_photo, pto_accrual_method, pto_accrual_rate, pto_rollover_cap } = body
+  const { business_name, address, timezone, contact_email, logo_url, business_hours, accountant_email, weekly_labor_budget_cents, geofence_lat, geofence_lng, geofence_radius_m, require_clockin_photo, pto_accrual_method, pto_accrual_rate, pto_rollover_cap, minor_curfew_hour, minor_max_daily_hours } = body
 
   const { error } = await supabaseAdmin
     .from('business_profiles')
@@ -64,6 +64,11 @@ export async function POST(req: NextRequest) {
       ...(pto_accrual_method !== undefined ? { pto_accrual_method } : {}),
       ...(pto_accrual_rate !== undefined ? { pto_accrual_rate } : {}),
       ...(pto_rollover_cap !== undefined ? { pto_rollover_cap } : {}),
+      // JAY-168 — same "only write when actually sent" pattern, so this save
+      // doesn't clobber the minor-labor settings when called from an
+      // unrelated Settings section.
+      ...(minor_curfew_hour !== undefined ? { minor_curfew_hour } : {}),
+      ...(minor_max_daily_hours !== undefined ? { minor_max_daily_hours } : {}),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
 

@@ -10,6 +10,8 @@ import {
   shouldSuppressOutOfHoursEntry,
   splitWeeklyOvertime,
   shiftLaborCost,
+  employeeAgeOnDate,
+  isMinorLaborViolation,
   type DayHours,
 } from '../lib/shifts'
 
@@ -333,5 +335,56 @@ describe('shiftLaborCost', () => {
   it('always uses the flat implied-hourly rate for salary employees, never an OT premium', () => {
     const emp = { pay_type: 'salary', pay_rate: 41600 } // implied $20/hr
     expect(shiftLaborCost(40, 5, emp)).toBe(20 * 45)
+  })
+})
+
+// ─── employeeAgeOnDate ──────────────────────────────────────────────────────
+
+describe('employeeAgeOnDate', () => {
+  it('counts a birthday falling exactly on the given date as already turned', () => {
+    expect(employeeAgeOnDate('2010-07-21', '2026-07-21')).toBe(16)
+  })
+
+  it('does not count a birthday that falls the day after the given date', () => {
+    expect(employeeAgeOnDate('2010-07-22', '2026-07-21')).toBe(15)
+  })
+
+  it('handles a leap-year (Feb 29) date of birth', () => {
+    expect(employeeAgeOnDate('2008-02-29', '2026-07-21')).toBe(18)
+    expect(employeeAgeOnDate('2008-02-29', '2026-01-01')).toBe(17)
+  })
+})
+
+// ─── isMinorLaborViolation ──────────────────────────────────────────────────
+
+describe('isMinorLaborViolation', () => {
+  const config = { curfewHour: 22, maxDailyHours: 8 }
+
+  it('flags a curfew violation for an under-18 employee whose shift ends after the curfew hour', () => {
+    const shift = { shift_date: '2026-07-21', start_time: '18:00', end_time: '23:00' }
+    const result = isMinorLaborViolation(shift, '2010-01-01', config, [shift])
+    expect(result).toEqual({ curfew: true, overDailyMax: false })
+  })
+
+  it('flags an over-daily-max violation for an under-18 employee whose shifts that day exceed the cap', () => {
+    const shift = { shift_date: '2026-07-21', start_time: '09:00', end_time: '18:00' } // 9h
+    const result = isMinorLaborViolation(shift, '2010-01-01', config, [shift])
+    expect(result).toEqual({ curfew: false, overDailyMax: true })
+  })
+
+  it('never flags an adult employee', () => {
+    const shift = { shift_date: '2026-07-21', start_time: '18:00', end_time: '23:00' }
+    expect(isMinorLaborViolation(shift, '2000-01-01', config, [shift])).toBeNull()
+  })
+
+  it('never flags when the employee has no date of birth on file', () => {
+    const shift = { shift_date: '2026-07-21', start_time: '18:00', end_time: '23:00' }
+    expect(isMinorLaborViolation(shift, null, config, [shift])).toBeNull()
+  })
+
+  it('is off when both settings are null, even for an under-18 employee', () => {
+    const shift = { shift_date: '2026-07-21', start_time: '18:00', end_time: '23:00' }
+    const result = isMinorLaborViolation(shift, '2010-01-01', { curfewHour: null, maxDailyHours: null }, [shift])
+    expect(result).toBeNull()
   })
 })

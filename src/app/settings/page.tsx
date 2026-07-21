@@ -8,6 +8,7 @@ import DocumentLibrary from '../components/DocumentLibrary'
 import { Suspense } from 'react'
 import { ReceiptIcon, CalendarIcon, BookOpenIcon } from '../components/Icons'
 import { useToast } from '../components/Toast'
+import { fmtTimeDisplay } from '../../lib/shifts'
 
 type Tab = 'account' | 'hours' | 'onboarding' | 'notifications' | 'billing' | 'team' | 'departments' | 'integrations' | 'danger'
 
@@ -140,6 +141,12 @@ function SettingsContent() {
   const [ptoRolloverCap, setPtoRolloverCap] = useState('')
   const [ptoPolicySaving, setPtoPolicySaving] = useState(false)
 
+  // JAY-168 — minor-labor compliance flags. Both empty means the feature is
+  // off; curfew hour is a 0-23 hour-of-day, max daily hours a plain number.
+  const [minorCurfewHour, setMinorCurfewHour] = useState('')
+  const [minorMaxDailyHours, setMinorMaxDailyHours] = useState('')
+  const [minorLaborSaving, setMinorLaborSaving] = useState(false)
+
   // Account
   const [bizName, setBizName] = useState('')
   const [address, setAddress] = useState('')
@@ -252,6 +259,9 @@ function SettingsContent() {
       if (bizData.profile.pto_accrual_method) setPtoAccrualMethod(bizData.profile.pto_accrual_method)
       if (bizData.profile.pto_accrual_rate != null) setPtoAccrualRate(String(bizData.profile.pto_accrual_rate))
       if (bizData.profile.pto_rollover_cap != null) setPtoRolloverCap(String(bizData.profile.pto_rollover_cap))
+      // JAY-168
+      if (bizData.profile.minor_curfew_hour != null) setMinorCurfewHour(String(bizData.profile.minor_curfew_hour))
+      if (bizData.profile.minor_max_daily_hours != null) setMinorMaxDailyHours(String(bizData.profile.minor_max_daily_hours))
     }
 
     if (tmplRes.data?.fields?.length) setFields(tmplRes.data.fields)
@@ -470,6 +480,24 @@ function SettingsContent() {
     })
     showToast(res.ok ? 'Saved.' : "Couldn't save changes. Check your connection and try again.", res.ok ? 'success' : 'error')
     setPtoPolicySaving(false)
+  }
+
+  // JAY-168 — same "own save button" pattern as the sections above. Blank
+  // fields clear back to null (feature off), matching the labor budget input.
+  async function saveMinorLaborSettings() {
+    setMinorLaborSaving(true)
+    const curfewHour = minorCurfewHour.trim() === '' ? null : parseInt(minorCurfewHour)
+    const maxDailyHours = minorMaxDailyHours.trim() === '' ? null : parseFloat(minorMaxDailyHours)
+    const res = await fetch('/api/settings/business', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        business_name: bizName, address, timezone, contact_email: contactEmail,
+        minor_curfew_hour: curfewHour, minor_max_daily_hours: maxDailyHours,
+      }),
+    })
+    showToast(res.ok ? 'Saved.' : "Couldn't save changes. Check your connection and try again.", res.ok ? 'success' : 'error')
+    setMinorLaborSaving(false)
   }
 
   async function saveTemplate() {
@@ -876,6 +904,36 @@ function SettingsContent() {
                 )}
                 <button className="btn auth-btn-primary" onClick={savePtoPolicy} disabled={ptoPolicySaving} style={{ marginTop: '1rem', width: 'auto' }}>
                   {ptoPolicySaving ? 'Saving...' : 'Save PTO policy'}
+                </button>
+              </div>
+
+              {/* JAY-168 — flag-only minor-labor compliance: no hard block on
+                  the shift form, just a warning banner on the Schedule page.
+                  Age threshold for "minor" (under 18) is the legal standard
+                  and isn't itself configurable — only the curfew hour and
+                  daily hour cap are. Both blank means the feature is off. */}
+              <div style={{ marginTop: '1.75rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ ...sectionLabelStyle, marginBottom: '0.25rem' }}>Minor-labor compliance</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                  Optional. For employees under 18, flag shifts that run past a curfew hour or exceed a daily hour cap. Advisory only — it won't block scheduling. Leave both blank to turn this off.
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', maxWidth: '320px', marginBottom: '0.5rem' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '3px' }}>Curfew hour</label>
+                    <select value={minorCurfewHour} onChange={e => setMinorCurfewHour(e.target.value)} style={{ fontSize: '13px', padding: '5px 8px', borderRadius: '6px', width: '100%' }}>
+                      <option value="">Not set</option>
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <option key={h} value={h}>{fmtTimeDisplay(`${String(h).padStart(2, '0')}:00`)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block', marginBottom: '3px' }}>Max hours / day</label>
+                    <input type="number" min="0" step="0.5" value={minorMaxDailyHours} onChange={e => setMinorMaxDailyHours(e.target.value)} placeholder="e.g. 8" />
+                  </div>
+                </div>
+                <button className="btn auth-btn-primary" onClick={saveMinorLaborSettings} disabled={minorLaborSaving} style={{ marginTop: '1rem', width: 'auto' }}>
+                  {minorLaborSaving ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </div>

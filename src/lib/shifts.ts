@@ -165,6 +165,48 @@ export function shiftLaborCost(
 }
 
 /**
+ * JAY-168 — age (in whole years) an employee will be on a given date, from
+ * their date of birth. Standard "has the birthday happened yet this year"
+ * calculation, so a birthday falling exactly on `onDate` already counts.
+ */
+export function employeeAgeOnDate(dateOfBirth: string, onDate: string): number {
+  const dob = new Date(dateOfBirth + 'T00:00:00')
+  const on = new Date(onDate + 'T00:00:00')
+  let age = on.getFullYear() - dob.getFullYear()
+  const monthDiff = on.getMonth() - dob.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && on.getDate() < dob.getDate())) age--
+  return age
+}
+
+/**
+ * JAY-168 — minor-labor compliance check for a single shift: whether it runs
+ * past a configured curfew hour, and/or whether the employee's total hours
+ * across all their shifts that day exceed a configured daily max. Both
+ * checks are flag-only (no hard block, matching the ticket's conservative
+ * scope) and only apply to employees under 18 as of the shift date — the age
+ * threshold itself is the legal standard and isn't a configurable setting.
+ * Returns null when the employee isn't a minor, has no DOB on file, or both
+ * settings are unset (feature off).
+ */
+export function isMinorLaborViolation(
+  shift: { shift_date: string; start_time: string; end_time: string },
+  dateOfBirth: string | null,
+  config: { curfewHour: number | null; maxDailyHours: number | null },
+  allDayShiftsForEmployee: { start_time: string; end_time: string }[],
+): { curfew: boolean; overDailyMax: boolean } | null {
+  if (!dateOfBirth) return null
+  if (config.curfewHour == null && config.maxDailyHours == null) return null
+  if (employeeAgeOnDate(dateOfBirth, shift.shift_date) >= 18) return null
+
+  const curfew = config.curfewHour != null && parseInt(shift.end_time.slice(0, 2)) >= config.curfewHour
+  const totalHours = allDayShiftsForEmployee.reduce((sum, s) => sum + shiftHours(s.start_time, s.end_time), 0)
+  const overDailyMax = config.maxDailyHours != null && totalHours > config.maxDailyHours
+
+  if (!curfew && !overDailyMax) return null
+  return { curfew, overDailyMax }
+}
+
+/**
  * A shift is a "no-show" when its scheduled end has already passed, it wasn't
  * marked as a callout, and no matching clock-in exists for that employee on
  * that date. Read-time classification only — nothing is persisted, so a wrong

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { resolveTenantContext } from '../lib/tenant'
-import { isNoShowShift, shouldSuppressOutOfHoursEntry, splitWeeklyOvertime, shiftLaborCost } from '../../lib/shifts'
+import { isNoShowShift, shouldSuppressOutOfHoursEntry, splitWeeklyOvertime, shiftLaborCost, isMinorLaborViolation } from '../../lib/shifts'
 import Nav from '../components/Nav'
 import CalloutModal from '../components/CalloutModal'
 import { useToast } from '../components/Toast'
@@ -15,7 +15,7 @@ type DayKey = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'
 type BusinessHours = Record<DayKey, { open: string; close: string; closed: boolean }>
 const DAY_KEYS: DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 
-type Employee = { id: number; name: string; role: string; pay_type: string; pay_rate: number | null; pto_days_per_year: number | null }
+type Employee = { id: number; name: string; role: string; pay_type: string; pay_rate: number | null; pto_days_per_year: number | null; date_of_birth: string | null }
 type Shift = { id: number; employee_id: number | null; shift_date: string; start_time: string; end_time: string; notes: string | null; status?: string; is_open_shift?: boolean }
 type ShiftSwap = { id: number; requester_employee_id: number; requester_shift_id: number; target_employee_id: number | null; target_shift_id: number | null; status: string; notes: string | null; created_at: string }
 type TimeOffRequest = { id: number; employee_id: number; start_date: string; end_date: string; type: string; reason: string | null; status: string; created_at: string; portion?: string | null }
@@ -211,6 +211,9 @@ export default function TimePage() {
   // are reachable instead of dead text
   const [showAllHoursWarnings, setShowAllHoursWarnings] = useState(false)
   const [showAllChangeWarnings, setShowAllChangeWarnings] = useState(false)
+  // JAY-168: minor-labor compliance banner, same dismissible-per-week pattern
+  const [dismissedMinorWarningWeek, setDismissedMinorWarningWeek] = useState<number | null>(null)
+  const [showAllMinorWarnings, setShowAllMinorWarnings] = useState(false)
   // Active shift pill (for inline action panel)
   const [activeShiftId, setActiveShiftId] = useState<number | null>(null)
   // Drag-and-drop
@@ -235,6 +238,9 @@ export default function TimePage() {
   const [laborBudgetCents, setLaborBudgetCents] = useState<number | null>(null)
   // JAY-18
   const [geofence, setGeofence] = useState<{ lat: number; lng: number; radiusM: number } | null>(null)
+  // JAY-168 — minor-labor compliance settings, null when unset (feature off)
+  const [minorCurfewHour, setMinorCurfewHour] = useState<number | null>(null)
+  const [minorMaxDailyHours, setMinorMaxDailyHours] = useState<number | null>(null)
   // JAY-6 — short-notice schedule change flags. Not persisted server-side —
   // dismissal is per-week client state only, matching the JAY-35 pattern.
   const [shiftChangeLog, setShiftChangeLog] = useState<{ id: number; shift_id: number; employee_id: number | null; shift_date: string; start_time: string; change_type: string; changed_at: string }[]>([])
@@ -324,10 +330,13 @@ export default function TimePage() {
         if (d.profile?.geofence_lat != null && d.profile?.geofence_lng != null && d.profile?.geofence_radius_m != null) {
           setGeofence({ lat: d.profile.geofence_lat, lng: d.profile.geofence_lng, radiusM: d.profile.geofence_radius_m })
         }
+        // JAY-168
+        setMinorCurfewHour(d.profile?.minor_curfew_hour ?? null)
+        setMinorMaxDailyHours(d.profile?.minor_max_daily_hours ?? null)
       })
 
     const [{ data: emps }, { data: sh }, { data: reqs }, { data: ents }, { data: depts }, { data: memberships }] = await Promise.all([
-      supabase.from('employees').select('id, name, role, pay_type, pay_rate, pto_days_per_year').eq('user_id', tenantId).eq('status', 'active'),
+      supabase.from('employees').select('id, name, role, pay_type, pay_rate, pto_days_per_year, date_of_birth').eq('user_id', tenantId).eq('status', 'active'),
       supabase.from('shifts').select('*').eq('user_id', tenantId).order('shift_date'),
       supabase.from('time_off_requests').select('*').eq('user_id', tenantId).order('created_at', { ascending: false }),
       supabase.from('time_entries').select('*').eq('user_id', tenantId).gte('clock_in', weekStartISO()).order('clock_in', { ascending: false }),
@@ -739,6 +748,23 @@ export default function TimePage() {
   // underlying flagging logic above.
   const visibleOutOfHoursShifts = outOfHoursShifts.filter(entry => !shouldSuppressOutOfHoursEntry(entry.shift, entry.dayHours))
 
+  // JAY-168: shifts for under-18 employees that run past a configured curfew
+  // hour or push the employee's total hours that day over a configured cap.
+  // Passive, dismissable — same pattern as the out-of-hours banner above.
+  const minorLaborShifts = weekShifts
+    .filter(s => s.employee_id != null)
+    .flatMap(s => {
+      const emp = empMap[s.employee_id!]
+      const dayShiftsForEmp = weekShifts.filter(other => other.employee_id === s.employee_id && other.shift_date === s.shift_date)
+      const violation = isMinorLaborViolation(
+        s,
+        emp?.date_of_birth ?? null,
+        { curfewHour: minorCurfewHour, maxDailyHours: minorMaxDailyHours },
+        dayShiftsForEmp,
+      )
+      return violation ? [{ shift: s, violation }] : []
+    })
+
   // Availability lookup — graying only applies to employees who have submitted availability
   // themselves. If this employee has zero rows at all, treat it as "no data" (don't gray any
   // of their cells) rather than assuming every day is unavailable.
@@ -1068,6 +1094,47 @@ export default function TimePage() {
                           style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, textAlign: 'left' }}
                         >
                           {showAllHoursWarnings ? 'Show fewer' : `+${visibleOutOfHoursShifts.length - 5} more`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {minorLaborShifts.length > 0 && dismissedMinorWarningWeek !== weekOffset && (
+                  <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '10px 12px', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span>⚠</span> Minor-labor shift{minorLaborShifts.length !== 1 ? 's' : ''} flagged
+                      </div>
+                      <button
+                        onClick={() => setDismissedMinorWarningWeek(weekOffset)}
+                        style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                    <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      {(showAllMinorWarnings ? minorLaborShifts : minorLaborShifts.slice(0, 5)).map(({ shift, violation }) => {
+                        const emp = empMap[shift.employee_id!]
+                        const reasons = [violation.curfew ? 'past curfew' : null, violation.overDailyMax ? 'over daily hour cap' : null].filter(Boolean).join(', ')
+                        return (
+                          <div
+                            key={shift.id}
+                            onClick={() => jumpToShift(shift.id)}
+                            style={{ fontSize: '12px', color: 'var(--text)', cursor: 'pointer' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.textDecoration = 'underline' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.textDecoration = 'none' }}
+                          >
+                            {emp?.name ?? 'Unknown'} — {fmtDate(shift.shift_date)} {fmt(shift.start_time)}–{fmt(shift.end_time)} ({reasons})
+                          </div>
+                        )
+                      })}
+                      {minorLaborShifts.length > 5 && (
+                        <button
+                          onClick={() => setShowAllMinorWarnings(v => !v)}
+                          style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, textAlign: 'left' }}
+                        >
+                          {showAllMinorWarnings ? 'Show fewer' : `+${minorLaborShifts.length - 5} more`}
                         </button>
                       )}
                     </div>
