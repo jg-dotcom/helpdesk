@@ -83,10 +83,6 @@ function formatMoney(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 }
 
-function formatDate(iso: string) {
-  return sharedFormatDate(iso, 'short')
-}
-
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 }
@@ -536,16 +532,16 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
 
     const events: TimelineEvent[] = []
     for (const p of pay ?? []) {
-      events.push({ id: `pay_${p.id}`, label: `Paid ${formatMoney(p.gross_pay)}`, sub: `${formatDate(p.period_start)} – ${formatDate(p.period_end)}`, date: p.paid_at ?? p.period_end, color: accent })
+      events.push({ id: `pay_${p.id}`, label: `Paid ${formatMoney(p.gross_pay)}`, sub: `${sharedFormatDate(p.period_start, 'short')} – ${sharedFormatDate(p.period_end, 'short')}`, date: p.paid_at ?? p.period_end, color: accent })
     }
     for (const n of notesData ?? []) {
       events.push({ id: `note_${n.id}`, label: 'Check-in note added', sub: n.content.length > 60 ? n.content.slice(0, 60) + '…' : n.content, date: n.created_at, color: 'var(--accent)' })
     }
     for (const r of pto ?? []) {
-      events.push({ id: `pto_${r.id}`, label: `${r.type} request ${r.status}`, sub: `${formatDate(r.start_date)} – ${formatDate(r.end_date)}`, date: r.created_at, color: r.status === 'approved' ? 'var(--success)' : r.status === 'denied' ? 'var(--error)' : 'var(--amber)' })
+      events.push({ id: `pto_${r.id}`, label: `${r.type} request ${r.status}`, sub: `${sharedFormatDate(r.start_date, 'short')} – ${sharedFormatDate(r.end_date, 'short')}`, date: r.created_at, color: r.status === 'approved' ? 'var(--success)' : r.status === 'denied' ? 'var(--error)' : 'var(--amber)' })
     }
     for (const c of callouts ?? []) {
-      events.push({ id: `callout_${c.id}`, label: 'Called out', sub: formatDate(c.shift_date), date: c.shift_date, color: 'var(--error)' })
+      events.push({ id: `callout_${c.id}`, label: 'Called out', sub: sharedFormatDate(c.shift_date, 'short'), date: c.shift_date, color: 'var(--error)' })
     }
 
     events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -1341,11 +1337,11 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '13px', fontWeight: 500, color: text }}>
-                      {formatDate(entry.period_start)} – {formatDate(entry.period_end)}
+                      {sharedFormatDate(entry.period_start, 'short')} – {sharedFormatDate(entry.period_end, 'short')}
                     </div>
                     <div style={{ fontSize: '11px', color: mutedDark }}>
                       {entry.hours_worked != null ? `${entry.hours_worked} hrs · ` : ''}
-                      Paid {formatDate(entry.paid_at)}
+                      Paid {sharedFormatDate(entry.paid_at, 'short')}
                       {entry.notes ? ` · ${entry.notes}` : ''}
                     </div>
                   </div>
@@ -1478,7 +1474,7 @@ export default function EmployeePanel({ employee, initialTab = 'info', onClose, 
                       {upcomingShifts.length} upcoming shift{upcomingShifts.length !== 1 ? 's' : ''} still assigned to {employee.name}
                     </div>
                     <div style={{ fontSize: '12px', color: muted, marginBottom: '8px' }}>
-                      {upcomingShifts.slice(0, 3).map(s => formatDate(s.shift_date)).join(', ')}{upcomingShifts.length > 3 ? `, +${upcomingShifts.length - 3} more` : ''}
+                      {upcomingShifts.slice(0, 3).map(s => sharedFormatDate(s.shift_date, 'short')).join(', ')}{upcomingShifts.length > 3 ? `, +${upcomingShifts.length - 3} more` : ''}
                     </div>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: text, cursor: 'pointer', marginBottom: '4px' }}>
                       <input type="radio" checked={unassignShiftsOnTerminate} onChange={() => setUnassignShiftsOnTerminate(true)} />

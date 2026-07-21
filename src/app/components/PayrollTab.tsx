@@ -21,10 +21,6 @@ type Props = {
   payRate: number | null
 }
 
-function formatDate(iso: string) {
-  return sharedFormatDate(iso, 'short')
-}
-
 function formatMoney(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 }
@@ -118,7 +114,7 @@ export default function PayrollTab({ employeeId, payType, payRate }: Props) {
         e.hours_worked ?? '',
         e.gross_pay,
         e.notes ?? '',
-        formatDate(e.paid_at),
+        sharedFormatDate(e.paid_at, 'short'),
       ])
     ]
     const csv = rows.map(r => r.join(',')).join('\n')
@@ -212,12 +208,12 @@ export default function PayrollTab({ employeeId, payType, payRate }: Props) {
                 <div className="upload-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
                 <div style={{ flex: 1 }}>
                   <div className="upload-name">
-                    {formatDate(entry.period_start)} – {formatDate(entry.period_end)}
+                    {sharedFormatDate(entry.period_start, 'short')} – {sharedFormatDate(entry.period_end, 'short')}
                   </div>
                   <div className="upload-meta">
                     {entry.hours_worked != null ? `${entry.hours_worked} hrs · ` : ''}
                     {entry.notes ? `${entry.notes} · ` : ''}
-                    {formatDate(entry.paid_at)}
+                    {sharedFormatDate(entry.paid_at, 'short')}
                   </div>
                 </div>
                 <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: '14px' }}>{formatMoney(entry.gross_pay)}</span>

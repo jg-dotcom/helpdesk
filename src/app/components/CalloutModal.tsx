@@ -23,10 +23,6 @@ type Props = {
   onCalloutMarked: (shiftId: number) => void
 }
 
-function formatDate(iso: string) {
-  return sharedFormatDate(iso, 'weekdayShort')
-}
-
 function formatTime(t: string) {
   const [h, m] = t.split(':')
   const hour = parseInt(h)
@@ -127,7 +123,7 @@ export default function CalloutModal({ shiftId, shiftDate, startTime, endTime, c
   }
 
   const smsBody = encodeURIComponent(
-    `Hi, we have an open shift on ${formatDate(shiftDate)} from ${formatTime(startTime)} to ${formatTime(endTime)}. Can you cover it? Reply ASAP — first to confirm gets it.`
+    `Hi, we have an open shift on ${sharedFormatDate(shiftDate, 'weekdayShort')} from ${formatTime(startTime)} to ${formatTime(endTime)}. Can you cover it? Reply ASAP — first to confirm gets it.`
   )
 
   return (
@@ -147,7 +143,7 @@ export default function CalloutModal({ shiftId, shiftDate, startTime, endTime, c
               <span style={{ fontWeight: 600, color: 'var(--error)' }}>{calledOutEmployee.name}</span> called out
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-              {formatDate(shiftDate)} · {formatTime(startTime)} – {formatTime(endTime)}
+              {sharedFormatDate(shiftDate, 'weekdayShort')} · {formatTime(startTime)} – {formatTime(endTime)}
             </div>
           </div>
           <button onClick={onClose} style={{ fontSize: '22px', lineHeight: 1, color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }}>×</button>
